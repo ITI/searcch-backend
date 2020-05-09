@@ -1,2 +1,6 @@
 venv/
-secrets/
+logs/
+instance/
+
+*.pyc
+__pycache__/

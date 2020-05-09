@@ -10,14 +10,14 @@ virtualenv -p python3 venv
 ```bash
 pip3 install -r requirements.txt
 ```
-3. Run the app server using gunicorn
+3. Run the app server
+- Using flask run:
 ```bash
-export FLASK_APP=app.py
-export FLASK_ENV=development
-flask run --host=0.0.0.0
+export FLASK_APP=run:app
+flask run --host=0.0.0.0 --port=80
+```
 
-
-gunicorn -w 4 myapp:app
-gunicorn -b 0.0.0.0:8080 application:app --access-logfile '-' -w 4
-gunicorn application:app -b 0:8000 --access-logfile '-' -w 2 --worker-class gevent --threads 4 --timeout 600
+- Using gunicorn:
+```bash
+gunicorn --config gunicorn_conf.py run:app
 ```
