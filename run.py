@@ -26,9 +26,9 @@ def search_with_keywords():
     
     kwrds = request.args.get('keywords')
     if kwrds == "":
-        docs = mongo.db.raw_artifacts.find({"tfidf_score": {"$gt": 13}}).limit(20)
+        docs = mongo.db.raw_artifacts.find({"relevance_score": {"$gt": 40}}).limit(20)
     else:
-        docs = mongo.db.raw_artifacts.find({"$text":{"$search": kwrds}, "tfidf_score": {"$gt": 13}})
+        docs = mongo.db.raw_artifacts.find({"$text":{"$search": kwrds}, "relevance_score": {"$gt": 40}})
     res = ["https://doi.org/" + doc["doi"] for doc in docs]
     return {"url": res, "length": len(res)}, 200
 
