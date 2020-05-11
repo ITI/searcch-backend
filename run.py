@@ -82,7 +82,10 @@ def get_record_by_doi():
     
     record = mongo.db.relevant_artifacts.find_one({"doi": request.args.get('doi')})
     if record:
-        return json.loads(json.dumps(record,default=json_util.default)), 200
+        response = json.loads(json.dumps(record,default=json_util.default))
+        response = jsonify(response)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response, 200
     else:
         return "No document found!", 404
 
