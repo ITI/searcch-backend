@@ -1,9 +1,11 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
+# from flask_cors import CORS
 from flask_pymongo import PyMongo
 import json
 from bson import json_util
 
 app = Flask(__name__, instance_relative_config=True)
+# CORS(app)
 app.config.from_object('config')
 app.config.from_pyfile('config.py')
 
@@ -57,7 +59,9 @@ def search_with_keywords():
         }
         artifacts.append(result)
     
-    return {"artifacts": artifacts, "length": len(artifacts)}, 200
+    response = jsonify({"artifacts": artifacts, "length": len(artifacts)})
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response, 200
 
 @app.route('/record', methods=['GET'])
 def get_record_by_doi():
