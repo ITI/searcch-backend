@@ -55,7 +55,8 @@ def search_with_keywords():
         result = {
             "doi": doc["doi"],
             "title": doc["title"],
-            "description": doc["description"]
+            "description": doc["description"],
+            "relevance_score": doc["relevance_score"]
         }
         artifacts.append(result)
     
