@@ -1,11 +1,11 @@
 from flask import Flask, request, jsonify
-# from flask_cors import CORS
+from flask_cors import CORS
 from flask_pymongo import PyMongo
 import json
 from bson import json_util
 
 app = Flask(__name__, instance_relative_config=True)
-# CORS(app)
+CORS(app)
 app.config.from_object('config')
 app.config.from_pyfile('config.py')
 
@@ -56,12 +56,13 @@ def search_with_keywords():
             "doi": doc["doi"],
             "title": doc["title"],
             "description": doc["description"],
-            "relevance_score": doc["relevance_score"]
+            "relevance_score": doc["relevance_score"],
+            "normalized_relevance_score": doc["normalized_relevance_score"]
         }
         artifacts.append(result)
     
     response = jsonify({"artifacts": artifacts, "length": len(artifacts)})
-    response.headers.add('Access-Control-Allow-Origin', '*')
+    # response.headers.add('Access-Control-Allow-Origin', '*')
     return response, 200
 
 @app.route('/record', methods=['GET'])
@@ -85,7 +86,7 @@ def get_record_by_doi():
     if record:
         response = json.loads(json.dumps(record,default=json_util.default))
         response = jsonify(response)
-        response.headers.add('Access-Control-Allow-Origin', '*')
+        # response.headers.add('Access-Control-Allow-Origin', '*')
         return response, 200
     else:
         return "No document found!", 404

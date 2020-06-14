@@ -1,6 +1,7 @@
 venv/
 logs/
 instance/
+KG/
 
 *.pyc
 __pycache__/
