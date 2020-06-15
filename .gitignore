@@ -2,6 +2,7 @@ venv/
 logs/
 instance/
 KG/
+resources/
 
 *.pyc
 __pycache__/
