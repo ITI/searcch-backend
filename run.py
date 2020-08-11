@@ -46,9 +46,13 @@ def search_with_keywords():
     
     kwrds = request.args.get('keywords')
     if kwrds == "":
-        docs = mongo.db.relevant_artifacts.find({}).limit(20)
+        docs = mongo.db.relevant_artifacts.find({}).sort([('relevance_score', -1)]).limit(20)
     else:
-        docs = mongo.db.relevant_artifacts.find({"$text":{"$search": kwrds}})
+        # docs = mongo.db.relevant_artifacts.find({"$text":{"$search": kwrds}})
+        docs = mongo.db.relevant_artifacts.find(
+            {"$text":{"$search": kwrds}}, 
+            {"score": {"$meta": "textScore"}}
+        ).sort([('score', {'$meta': 'textScore'})])
     
     artifacts = []
     for doc in docs:
@@ -56,8 +60,8 @@ def search_with_keywords():
             "doi": doc["doi"],
             "title": doc["title"],
             "description": doc["description"],
-            "relevance_score": doc["relevance_score"],
-            "normalized_relevance_score": doc["normalized_relevance_score"]
+            "type": doc["resource_type"]["type"]
+            #,"relevance_score": round(doc["score"], 3)
         }
         artifacts.append(result)
     
