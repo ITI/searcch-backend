@@ -60,8 +60,8 @@ def search_with_keywords():
             "doi": doc["doi"],
             "title": doc["title"],
             "description": doc["description"],
-            "type": doc["resource_type"]["type"]
-            #,"relevance_score": round(doc["score"], 3)
+            "type": doc["resource_type"]["type"], 
+            "relevance_score": round(doc["score"], 3)
         }
         artifacts.append(result)
     
