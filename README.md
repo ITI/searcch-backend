@@ -27,3 +27,8 @@ sudo /home/ubuntu/.local/bin/gunicorn --config gunicorn_conf.py run:app
 3. Restore the data for this collection
 
 ## Setup Database - PostgreSQL
+1. To setup schema in empty database
+```python3
+from app import db
+db.create_all()
+```
