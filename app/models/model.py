@@ -1,10 +1,11 @@
-from future.utils import iteritems
 from app import db
 from app.models.licenses import *
+from sqlalchemy.dialects.postgresql import TSVECTOR
 
 
 class Artifact(db.Model):
-    # The Artifact class provides an internal model of a SEARCCH artifact.  An artifact is an entity that may be added to or edited within the SEARCCH Hub.
+    # The Artifact class provides an internal model of a SEARCCH artifact.  
+    # An artifact is an entity that may be added to or edited within the SEARCCH Hub.
 
     __tablename__ = "artifacts"
 
@@ -16,11 +17,11 @@ class Artifact(db.Model):
     version = db.Column(db.Integer, nullable=False, default=0)
     url = db.Column(db.String(1024), nullable=False)
     ext_id = db.Column(db.String(512), nullable=False)
-    title = db.Column(db.String(512), nullable=False)
+    title = db.Column(db.Text, nullable=False)
     name = db.Column(db.String(1024), nullable=True)
     ctime = db.Column(db.DateTime, nullable=False)
     mtime = db.Column(db.DateTime, nullable=True)
-    description = db.Column(db.String(4096))
+    description = db.Column(db.Text, nullable=True)
     meta = db.relationship("ArtifactMetadata")
     tags = db.relationship("ArtifactTag")
     files = db.relationship("ArtifactFile")
@@ -38,9 +39,12 @@ class Artifact(db.Model):
     curations = db.relationship("ArtifactCuration")
     publication = db.relationship("ArtifactPublication", uselist=False)
     releases = db.relationship("ArtifactRelease")
+    document_with_idx = db.Column(TSVECTOR)
 
     __table_args__ = (
-        db.UniqueConstraint("owner_id", "url", "version"),)
+        db.UniqueConstraint("owner_id", "url", "version"),
+        db.Index('document_idx', 'document_with_idx', postgresql_using='gin'),
+    )
 
     def __repr__(self):
         return "<Artifact(id=%r,type='%s',url='%s',version=%r,ctime='%s',owner='%r')>" % (
@@ -53,7 +57,6 @@ class ArtifactFile(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
-    #uuid = db.Column(db.String(64),nullable=False,primary_key=True)
     path = db.Column(db.String(512), nullable=False)
     content = db.Column(db.LargeBinary())
     size = db.Column(db.Integer)

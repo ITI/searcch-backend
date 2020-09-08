@@ -32,3 +32,11 @@ sudo /home/ubuntu/.local/bin/gunicorn --config gunicorn_conf.py run:app
 from app import db
 db.create_all()
 ```
+
+```bash
+flask db init
+# reflects changes made in Flask in the database
+flask db migrate
+# executes migration and creates the tables
+flask db upgrade
+```
