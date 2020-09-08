@@ -1,3 +1,5 @@
+from app.models import model
+from app import routes
 from flask import Flask
 from instance.config import Config
 from flask_sqlalchemy import SQLAlchemy
@@ -14,9 +16,3 @@ app.config.from_pyfile('config.py')
 # initialize all extensions
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-
-from app import routes
-from app.models import model
-
-# from flask_pymongo import PyMongo
-# mongo = PyMongo(app)
