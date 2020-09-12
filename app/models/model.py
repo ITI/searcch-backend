@@ -3,72 +3,24 @@ from app.models.licenses import *
 from sqlalchemy.dialects.postgresql import TSVECTOR
 
 
-class Artifact(db.Model):
-    # The Artifact class provides an internal model of a SEARCCH artifact.  
-    # An artifact is an entity that may be added to or edited within the SEARCCH Hub.
-
-    __tablename__ = "artifacts"
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    type = db.Column(db.Enum("dataset", "executable", "methodology", "metrics",
-                             "priorwork", "publication", "hypothesis", "code", "domain",
-                             "supportinginfo",
-                             name="artifact_enum"))
-    version = db.Column(db.Integer, nullable=False, default=0)
-    url = db.Column(db.String(1024), nullable=False)
-    ext_id = db.Column(db.String(512), nullable=False)
-    title = db.Column(db.Text, nullable=False)
-    name = db.Column(db.String(1024), nullable=True)
-    ctime = db.Column(db.DateTime, nullable=False)
-    mtime = db.Column(db.DateTime, nullable=True)
-    description = db.Column(db.Text, nullable=True)
-    meta = db.relationship("ArtifactMetadata")
-    tags = db.relationship("ArtifactTag")
-    files = db.relationship("ArtifactFile")
-    license_id = db.Column(db.Integer, db.ForeignKey(
-        "licenses.id"), nullable=True)
-    license = db.relationship("License", uselist=False)
-    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    owner = db.relationship("User", uselist=False)
-    importer_id = db.Column(db.Integer, db.ForeignKey(
-        "importers.id"), nullable=True)
-    importer = db.relationship("Importer", uselist=False)
-    parent_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=True)
-    parent = db.relationship("Artifact", uselist=False)
-    curations = db.relationship("ArtifactCuration")
-    publication = db.relationship("ArtifactPublication", uselist=False)
-    releases = db.relationship("ArtifactRelease")
-    document_with_idx = db.Column(TSVECTOR)
-
-    __table_args__ = (
-        db.UniqueConstraint("owner_id", "url", "version"),
-        db.Index('document_idx', 'document_with_idx', postgresql_using='gin'),
-    )
-
-    def __repr__(self):
-        return "<Artifact(id=%r,type='%s',url='%s',version=%r,ctime='%s',owner='%r')>" % (
-            self.id, self.type, self.url, self.version,
-            self.ctime.isoformat(), self.owner)
-
-
 class ArtifactFile(db.Model):
     __tablename__ = "artifact_files"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
-    path = db.Column(db.String(512), nullable=False)
+    parent_file_id = db.Column(db.Integer, db.ForeignKey("artifact_files.id"))
+    url = db.Column(db.String(512), nullable=False)
+    filetype = db.Column(db.String(128), nullable=False)
     content = db.Column(db.LargeBinary())
     size = db.Column(db.Integer)
     mtime = db.Column(db.DateTime)
 
     __table_args__ = (
-        db.UniqueConstraint("path", "artifact_id"),)
+        db.UniqueConstraint("artifact_id", "parent_file_id", "url"),)
 
     def __repr__(self):
-        return "<ArtifactFile(id=%d,artifact_id=%d,path='%s',size=%d%s,mtime='%s')>" % (
-            self.id, self.artifact_id, self.path, self.size, self.key,
-            self.mtime.isoformat() if self.mtime else "")
+        return "<ArtifactFile(id=%d,artifact_id=%d,parent_file_id=%d,url='%s',size=%d,mtime='%s')>" % (
+            self.id, self.artifact_id, self.parent_file_id, self.url, self.size, self.mtime.isoformat() if self.mtime else "")
 
 
 class ArtifactFunding(db.Model):
@@ -115,7 +67,7 @@ class ArtifactPublication(db.Model):
     exporter = db.relationship("Exporter", uselist=False)
     publisher_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=False)
-    publisher = db.relationship("User", uselist=False)
+    publisher = db.relationship("User", uselist=False, backref="publisher_user")
 
     def __repr__(self):
         return "<ArtifactPublication(id=%d,artifact_id=%d,time='%s',publisher='%r')>" % (
@@ -160,7 +112,7 @@ class ArtifactCuration(db.Model):
     notes = db.Column(db.String(1024))
     curator_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=False)
-    curator = db.relationship("User", uselist=False)
+    curator = db.relationship("User", uselist=False, backref="curator_user")
 
     def __repr__(self):
         return "<ArtifactCuration(id=%d,artifact_id=%d,time='%s',curator='%r')>" % (
@@ -198,7 +150,7 @@ class ArtifactRelationship(db.Model):
         name="artifact_relationship_enum"))
     related_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     related_artifact = db.relationship("Artifact", uselist=False,
-                                       foreign_keys=[related_artifact_id])
+                                       foreign_keys=[related_artifact_id], backref="related_artifacts")
 
     __table_args__ = (
         db.UniqueConstraint("artifact_id", "relation", "related_artifact_id"),)
@@ -282,7 +234,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     person_id = db.Column(db.Integer, db.ForeignKey(
         "persons.id"), nullable=False)
-    person = db.relationship("Person", uselist=False)
+    person = db.relationship("Person", uselist=False, backref="persons")
 
     __table_args__ = (
         db.UniqueConstraint("person_id"),)
@@ -416,3 +368,53 @@ class ArtifactReviews(db.Model):
     def __repr__(self):
         return "<ArtifactReviews(id='%d', user_id='%d',artifact_id='%d',review='%s')>" % (
             self.id, self.user_id, self.artifact_id, self.review)
+
+
+class Artifact(db.Model):
+    # The Artifact class provides an internal model of a SEARCCH artifact.
+    # An artifact is an entity that may be added to or edited within the SEARCCH Hub.
+
+    __tablename__ = "artifacts"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    type = db.Column(db.Enum("dataset", "executable", "methodology", "metrics",
+                             "priorwork", "publication", "hypothesis", "code", "domain",
+                             "supportinginfo",
+                             name="artifact_enum"))
+    version = db.Column(db.Integer, nullable=False, default=0)
+    url = db.Column(db.String(1024), nullable=False)
+    ext_id = db.Column(db.String(512), nullable=False)
+    title = db.Column(db.Text, nullable=False)
+    name = db.Column(db.String(1024), nullable=True)
+    ctime = db.Column(db.DateTime, nullable=False)
+    mtime = db.Column(db.DateTime, nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    license_id = db.Column(db.Integer, db.ForeignKey(
+        "licenses.id"), nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    importer_id = db.Column(db.Integer, db.ForeignKey(
+        "importers.id"), nullable=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey(
+        "artifacts.id"), nullable=True)
+    document_with_idx = db.Column(TSVECTOR)
+
+    license = db.relationship("License", uselist=False, backref="license")
+    meta = db.relationship("ArtifactMetadata", backref="metadata")
+    tags = db.relationship("ArtifactTag", backref="tags")
+    files = db.relationship("ArtifactFile", backref="files")
+    owner = db.relationship("User", uselist=False, backref="owner")
+    importer = db.relationship("Importer", uselist=False, backref="importer")
+    parent = db.relationship("Artifact", uselist=False)
+    curations = db.relationship("ArtifactCuration", backref="curations")
+    publication = db.relationship("ArtifactPublication", uselist=False, backref="publications")
+    releases = db.relationship("ArtifactRelease", backref="releases")
+
+    __table_args__ = (
+        db.UniqueConstraint("owner_id", "url", "version"),
+        db.Index('document_idx', 'document_with_idx', postgresql_using='gin'),
+    )
+
+    def __repr__(self):
+        return "<Artifact(id=%r,type='%s',url='%s',version=%r,ctime='%s',owner='%r')>" % (
+            self.id, self.type, self.url, self.version,
+            self.ctime.isoformat() if self.ctime else "", self.owner)
