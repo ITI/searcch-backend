@@ -1,5 +1,6 @@
 from marshmallow_sqlalchemy import ModelSchema, SQLAlchemyAutoSchema, auto_field
 from marshmallow_sqlalchemy.convert import ModelConverter as BaseModelConverter
+from marshmallow_sqlalchemy.fields import Nested
 
 from app.models.model import *
 
@@ -7,16 +8,7 @@ from app.models.model import *
 class ModelConverter(BaseModelConverter):
     SQLA_TYPE_MAPPING = {
         **BaseModelConverter.SQLA_TYPE_MAPPING
-        # **{TSVectorType: fields.Field()},
     }
-
-
-class ArtifactFileSchema(SQLAlchemyAutoSchema):
-    class Meta:
-        model = ArtifactFile
-        model_converter = ModelConverter
-        include_fk = True
-        include_relationships = True
 
 
 class ArtifactFundingSchema(SQLAlchemyAutoSchema):
@@ -33,6 +25,7 @@ class ArtifactMetadataSchema(SQLAlchemyAutoSchema):
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
+        exclude = ('id', 'artifact_id',)
 
 
 class ArtifactPublicationSchema(SQLAlchemyAutoSchema):
@@ -57,6 +50,7 @@ class ArtifactTagSchema(SQLAlchemyAutoSchema):
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
+        exclude = ('id', 'artifact_id',)
 
 
 class ArtifactCurationSchema(SQLAlchemyAutoSchema):
@@ -81,6 +75,7 @@ class ArtifactFileSchema(SQLAlchemyAutoSchema):
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
+        exclude = ('id', 'artifact_id',)
 
 
 class ArtifactRelationshipSchema(SQLAlchemyAutoSchema):
@@ -186,3 +181,13 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
         exclude = ('document_with_idx',)
         include_fk = True
         include_relationships = True
+    
+    meta = Nested(ArtifactMetadataSchema, many=True)
+    tags = Nested(ArtifactTagSchema, many=True)
+    files = Nested(ArtifactFileSchema, many=True)
+    # owner = Nested(UserSchema, many=True)
+    importer = Nested(ImporterSchema, many=True)
+    # parent = Nested(ArtifactSchema, many=True)
+    curations = Nested(ArtifactCurationSchema, many=True)
+    publication = Nested(ArtifactPublicationSchema, many=True)
+    releases = Nested(ArtifactReleaseSchema, many=True)

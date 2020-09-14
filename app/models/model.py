@@ -20,7 +20,10 @@ class ArtifactFile(db.Model):
 
     def __repr__(self):
         return "<ArtifactFile(id=%d,artifact_id=%d,parent_file_id=%d,url='%s',size=%d,mtime='%s')>" % (
-            self.id, self.artifact_id, self.parent_file_id, self.url, self.size, self.mtime.isoformat() if self.mtime else "")
+            self.id, self.artifact_id, 
+            self.parent_file_id if self.parent_file_id else 0, 
+            self.url, self.size, 
+            self.mtime.isoformat() if self.mtime else "")
 
 
 class ArtifactFunding(db.Model):
@@ -51,8 +54,8 @@ class ArtifactMetadata(db.Model):
         db.UniqueConstraint("name", "artifact_id"),)
 
     def __repr__(self):
-        return "<ArtifactMetadata(artifact_id='%d',key='%s')>" % (
-            self.artifact_id, self.key)
+        return "<ArtifactMetadata(artifact_id='%d',name='%s', value='%s')>" % (
+            self.artifact_id, self.name, self.value)
 
 
 class ArtifactPublication(db.Model):
@@ -67,7 +70,8 @@ class ArtifactPublication(db.Model):
     exporter = db.relationship("Exporter", uselist=False)
     publisher_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=False)
-    publisher = db.relationship("User", uselist=False, backref="publisher_user")
+    # publisher = db.relationship("User", uselist=False, backref="publisher_user")
+    publisher = db.relationship("User", uselist=False)
 
     def __repr__(self):
         return "<ArtifactPublication(id=%d,artifact_id=%d,time='%s',publisher='%r')>" % (
@@ -112,7 +116,8 @@ class ArtifactCuration(db.Model):
     notes = db.Column(db.String(1024))
     curator_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=False)
-    curator = db.relationship("User", uselist=False, backref="curator_user")
+    # curator = db.relationship("User", uselist=False, backref="curator_user")
+    curator = db.relationship("User", uselist=False)
 
     def __repr__(self):
         return "<ArtifactCuration(id=%d,artifact_id=%d,time='%s',curator='%r')>" % (
@@ -149,8 +154,8 @@ class ArtifactRelationship(db.Model):
         "compiles",
         name="artifact_relationship_enum"))
     related_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
-    related_artifact = db.relationship("Artifact", uselist=False,
-                                       foreign_keys=[related_artifact_id], backref="related_artifacts")
+    # related_artifact = db.relationship("Artifact", uselist=False, foreign_keys=[related_artifact_id], backref="related_artifacts")
+    related_artifact = db.relationship("Artifact", uselist=False, foreign_keys=[related_artifact_id])
 
     __table_args__ = (
         db.UniqueConstraint("artifact_id", "relation", "related_artifact_id"),)
@@ -234,7 +239,8 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     person_id = db.Column(db.Integer, db.ForeignKey(
         "persons.id"), nullable=False)
-    person = db.relationship("Person", uselist=False, backref="persons")
+    # person = db.relationship("Person", uselist=False, backref="persons")
+    person = db.relationship("Person", uselist=False)
 
     __table_args__ = (
         db.UniqueConstraint("person_id"),)
@@ -398,23 +404,33 @@ class Artifact(db.Model):
         "artifacts.id"), nullable=True)
     document_with_idx = db.Column(TSVECTOR)
 
-    license = db.relationship("License", uselist=False, backref="license")
-    meta = db.relationship("ArtifactMetadata", backref="metadata")
-    tags = db.relationship("ArtifactTag", backref="tags")
-    files = db.relationship("ArtifactFile", backref="files")
-    owner = db.relationship("User", uselist=False, backref="owner")
-    importer = db.relationship("Importer", uselist=False, backref="importer")
-    parent = db.relationship("Artifact", uselist=False)
-    curations = db.relationship("ArtifactCuration", backref="curations")
-    publication = db.relationship("ArtifactPublication", uselist=False, backref="publications")
-    releases = db.relationship("ArtifactRelease", backref="releases")
+    # license = db.relationship("License", uselist=False, backref="license")
+    # meta = db.relationship("ArtifactMetadata", backref="metadata")
+    # tags = db.relationship("ArtifactTag", backref="tags")
+    # files = db.relationship("ArtifactFile", backref="files")
+    # owner = db.relationship("User", uselist=False, backref="owner")
+    # importer = db.relationship("Importer", uselist=False, backref="importer")
+    # parent = db.relationship("Artifact", uselist=False)
+    # curations = db.relationship("ArtifactCuration", backref="curations")
+    # publication = db.relationship("ArtifactPublication", uselist=False, backref="publications")
+    # releases = db.relationship("ArtifactRelease", backref="releases")
 
+    license = db.relationship("License", uselist=False)
+    meta = db.relationship("ArtifactMetadata")
+    tags = db.relationship("ArtifactTag")
+    files = db.relationship("ArtifactFile")
+    owner = db.relationship("User", uselist=False)
+    importer = db.relationship("Importer", uselist=False)
+    parent = db.relationship("Artifact")
+    curations = db.relationship("ArtifactCuration")
+    publication = db.relationship("ArtifactPublication", uselist=False)
+    releases = db.relationship("ArtifactRelease")
+    
     __table_args__ = (
         db.UniqueConstraint("owner_id", "url", "version"),
         db.Index('document_idx', 'document_with_idx', postgresql_using='gin'),
     )
 
     def __repr__(self):
-        return "<Artifact(id=%r,type='%s',url='%s',version=%r,ctime='%s',owner='%r')>" % (
-            self.id, self.type, self.url, self.version,
-            self.ctime.isoformat() if self.ctime else "", self.owner)
+        return "<Artifact(id=%d,type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r')>" % (
+            self.id, self.type, self.url, self.owner, self.files, self.tags, self.meta)

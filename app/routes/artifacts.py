@@ -66,18 +66,15 @@ def get_artifact_by_id(artifact_id):
         artifact information and metadata
     """
 
-    # get artifact with id 1
-    # artifact = db.session.query(Artifact).get(artifact_id)
-    artifact = db.session.query(Artifact).join(ArtifactTag).filter(Artifact.id == artifact_id).all()
-    print(artifact)
-    # metadata = db.session.query(ArtifactMetadata).filter_by(artifact_id=artifact_id)
-    # tags = db.session.query(ArtifactTag).filter_by(artifact_id=artifact_id)
-    # files = db.session.query(ArtifactFile).filter_by(artifact_id=artifact_id)
+    artifact = db.session.query(Artifact)\
+        .filter(Artifact.id == artifact_id)\
+        .first()
+        # .join(ArtifactTag, Artifact.id == ArtifactTag.artifact_id)\
+
     # owner = db.session.query(Person).get(artifact.owner_id)
 
     artifact_schema = ArtifactSchema()
-    print(artifact_schema.dump(artifact))
-
+    
     if artifact:
         response = jsonify(artifact_schema.dump(artifact))
         response.headers.add('Access-Control-Allow-Origin', '*')
