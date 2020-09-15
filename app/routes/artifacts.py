@@ -1,7 +1,6 @@
 from app import db
 from app.models.model import *
 from app.models.schema import *
-from app.models.encoder import alchemy_encoder
 from flask import request, jsonify, render_template, Blueprint
 import json
 import pprint
@@ -66,17 +65,25 @@ def get_artifact_by_id(artifact_id):
         artifact information and metadata
     """
 
-    artifact = db.session.query(Artifact)\
-        .filter(Artifact.id == artifact_id)\
-        .first()
-        # .join(ArtifactTag, Artifact.id == ArtifactTag.artifact_id)\
+    # get artifact info
+    artifact = db.session.query(Artifact).filter(
+        Artifact.id == artifact_id).first()
 
-    # owner = db.session.query(Person).get(artifact.owner_id)
-
-    artifact_schema = ArtifactSchema()
-    
     if artifact:
-        response = jsonify(artifact_schema.dump(artifact))
+        # get all affiliations with users
+        artifact_affiliations = db.session.query(ArtifactAffiliation.affiliation_id)\
+            .filter(ArtifactAffiliation.artifact_id == artifact_id)\
+            .subquery()
+        affiliations = db.session.query(Affiliation)\
+            .filter(Affiliation.id.in_(artifact_affiliations))\
+            .all()
+
+        artifact_schema = ArtifactSchema()
+        affiliation_schema = AffiliationSchema(many=True)
+
+        result = {"artifact": artifact_schema.dump(
+            artifact), "affiliations": affiliation_schema.dump(affiliations)}
+        response = jsonify(result)
         response.headers.add('Access-Control-Allow-Origin', '*')
         return response, 200
     else:

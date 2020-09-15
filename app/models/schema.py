@@ -149,6 +149,9 @@ class AffiliationSchema(SQLAlchemyAutoSchema):
         include_fk = True
         include_relationships = True
 
+    person = Nested(PersonSchema)
+    org = Nested(OrganizationSchema)
+
 
 class PersonMetadataSchema(SQLAlchemyAutoSchema):
     class Meta:
@@ -181,7 +184,7 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
         exclude = ('document_with_idx',)
         include_fk = True
         include_relationships = True
-    
+
     meta = Nested(ArtifactMetadataSchema, many=True)
     tags = Nested(ArtifactTagSchema, many=True)
     files = Nested(ArtifactFileSchema, many=True)

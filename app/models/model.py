@@ -293,9 +293,7 @@ class Organization(db.Model):
         db.UniqueConstraint("name", "type", "parent_org_id"),)
 
     def __repr__(self):
-        return "<Organization(name='%s',type='%s'%s)>" % (
-            self.name, self.type,
-            ",parent=%d" % (self.parent_org_id) if self.parent_org_id else "")
+        return "<Organization(name='%s',type='%s')>" % (self.name, self.type)
 
 
 class Affiliation(db.Model):
@@ -305,19 +303,22 @@ class Affiliation(db.Model):
     person_id = db.Column(db.Integer, db.ForeignKey(
         "persons.id"), nullable=False)
     org_id = db.Column(db.Integer, db.ForeignKey(
-        "organizations.id"), nullable=False)
+        "organizations.id"))
     roles = db.Column(
         db.Enum("Author", "ProjectManager", "Researcher", "ContactPerson",
                 "PrincipalInvestigator", "CoPrincipalInvestigator", "Other",
                 name="affiliation_enum"),
         nullable=False)
+    
+    person = db.relationship("Person", uselist=False)
+    org = db.relationship("Organization", uselist=False)
 
     __table_args__ = (
         db.UniqueConstraint("person_id", "org_id", "roles"),)
 
     def __repr__(self):
-        return "<Affiliation(person_id=%d,org_id=%d,roles='%s')>" % (
-            self.person_id, self.org_id, self.roles)
+        return "<Affiliation(person='%r',org='%r',roles='%s')>" % (
+            self.person, self.org, self.roles)
 
 
 class PersonMetadata(db.Model):
