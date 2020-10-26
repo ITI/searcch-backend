@@ -3,6 +3,7 @@ logs/
 instance/
 KG/
 resources/
+app/models/backup/
 
 *.pyc
 __pycache__/
