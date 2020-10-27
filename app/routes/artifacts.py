@@ -4,6 +4,7 @@ from app.models.schema import *
 from flask import request, jsonify, render_template, Blueprint
 import json
 import pprint
+from sqlalchemy.sql.expression import func
 
 artifacts_bp = Blueprint('artifacts', __name__, url_prefix='artifacts')
 
@@ -32,8 +33,22 @@ def search_with_keywords():
         docs = db.session.query(Artifact).filter(Artifact.document_with_idx.match(
             kwrds, postgresql_regconfig='english')).all()
 
+        # docs = db.session.query(Artifact,
+        #                         func.ts_rank(Artifact.document_with_idx,
+        #                                      Artifact.document_with_idx.match(kwrds, postgresql_regconfig='english'))
+        #                         .label('rank'))\
+        #     .filter(Artifact.document_with_idx.match(kwrds, postgresql_regconfig='english'))\
+        #     .all()
+        # rank = func.ts_rank('{0.1,0.1,0.1,0.1}', Artifact.document_with_idx, func.to_tsquery('english', kwrds)).label('rank')
+        
+        docs = db.session.query(Artifact).filter(Artifact.document_with_idx.match(
+            kwrds, postgresql_regconfig='english')).order_by(
+                func.ts_rank(Artifact.document_with_idx, Artifact.document_with_idx.match(kwrds, postgresql_regconfig='english'))
+            ).limit(1)
+
     artifacts = []
     for doc in docs:
+        print(doc)
         result = {
             "url": doc.url,
             "title": doc.title,

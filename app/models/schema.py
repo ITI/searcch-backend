@@ -177,6 +177,21 @@ class ArtifactReviewsSchema(SQLAlchemyAutoSchema):
         include_relationships = True
 
 
+class ArtifactFavoritesSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactFavorites
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+
+class SessionsSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = Sessions
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
 class ArtifactSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Artifact
