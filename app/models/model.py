@@ -360,6 +360,11 @@ class ArtifactRatings(db.Model):
         "artifacts.id"), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
 
+    def __init__(self, user_id, artifact_id, rating):
+        self.user_id = user_id
+        self.artifact_id = artifact_id
+        self.rating = rating
+    
     def __repr__(self):
         return "<ArtifactRatings(id='%d', user_id='%d',artifact_id='%d',rating='%d')>" % (
             self.id, self.user_id, self.artifact_id, self.rating)
@@ -399,7 +404,7 @@ class ArtifactFavorites(db.Model):
 class Sessions(db.Model):
     __tablename__ = "sessions"
     __table_args__ = (
-        db.UniqueConstraint("user_id", "sso_token", "session_id"),
+        db.UniqueConstraint("user_id", "sso_token"),
     )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)

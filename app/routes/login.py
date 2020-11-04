@@ -37,7 +37,7 @@ def verify_strategy(strategy):
 def create_new_session(user_id, sso_token):
     # TODO: replace expiry time with config variable
     expiry_timestamp = datetime.now() + datetime.timedelta(days=7)
-    new_session = Sessions(user_id=user.id, sso_token=sso_token, expires_on=expiry_timestamp)
+    new_session = Sessions(user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp)
     db.session.add(new_session)
     db.session.commit()
 
