@@ -11,8 +11,17 @@ class ArtifactListAPI(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
         # TODO: add all filters for filtered search here
-        self.reqparse.add_argument(
-            'keywords', type=str, required=True, help='missing keywords in query string')
+        """
+        possible filters:
+            - keywords
+            - author
+            - type
+            - organization
+        """
+        self.reqparse.add_argument(name='keywords',
+                                   type=str,
+                                   required=True,
+                                   help='missing keywords in query string')
         # self.reqparse.add_argument(
         #     'author', type=str, required=False, help='missing author in query string')
 
@@ -27,6 +36,7 @@ class ArtifactListAPI(Resource):
             docs = db.session.query(Artifact).limit(20).all()
         else:
             # TODO: retrieve relevance score from full-text search index
+            # TODO: get average rating for each artifact
             docs = db.session.query(Artifact).filter(Artifact.document_with_idx.match(
                 keywords, postgresql_regconfig='english')).all()
 
@@ -55,6 +65,7 @@ class ArtifactAPI(Resource):
         if not artifact:
             abort(404, description='invalid ID for artifact')
 
+        # TODO: get average rating for the artifact
         artifact_affiliations = db.session.query(ArtifactAffiliation.affiliation_id).filter(
             ArtifactAffiliation.artifact_id == artifact_id).subquery()
         affiliations = db.session.query(Affiliation).filter(
@@ -70,6 +81,3 @@ class ArtifactAPI(Resource):
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
-
-    def post(self):
-        pass

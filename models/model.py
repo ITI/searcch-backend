@@ -364,6 +364,12 @@ class ArtifactRatings(db.Model):
         self.user_id = user_id
         self.artifact_id = artifact_id
         self.rating = rating
+
+    # def __init__(self, id, user_id, artifact_id, rating):
+    #     self.id = id
+    #     self.user_id = user_id
+    #     self.artifact_id = artifact_id
+    #     self.rating = rating
     
     def __repr__(self):
         return "<ArtifactRatings(id='%d', user_id='%d',artifact_id='%d',rating='%d')>" % (
