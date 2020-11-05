@@ -21,5 +21,8 @@ api = Api(app)
 
 
 from api.resources.artifact import ArtifactAPI, ArtifactListAPI
+from api.resources.login import LoginAPI
+
 api.add_resource(ArtifactListAPI, '/artifacts')
 api.add_resource(ArtifactAPI, '/artifacts/<int:artifact_id>')
+api.add_resource(LoginAPI, '/login')

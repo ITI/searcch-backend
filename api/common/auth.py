@@ -1,6 +1,6 @@
-from app import app
-from app import db
-from app.models.model import *
+from api.app import app
+from api.app import db
+from models.model import *
 from datetime import datetime
 from flask import abort
 
