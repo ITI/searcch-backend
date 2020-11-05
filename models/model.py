@@ -1,5 +1,5 @@
-from app import db
-from app.models.licenses import *
+from api.app import db
+from models.licenses import *
 from sqlalchemy.dialects.postgresql import TSVECTOR
 
 

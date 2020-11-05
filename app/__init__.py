@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from flask_migrate import Migrate
@@ -7,6 +8,7 @@ from config import app_config
 
 # setup flask app
 app = Flask(__name__, instance_relative_config=True)
+api = Api(app)
 
 # set up configurations
 config_name = os.getenv('FLASK_CONFIG')
