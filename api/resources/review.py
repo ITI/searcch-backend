@@ -1,14 +1,15 @@
-# logic for /rating
+# logic for /review
 
 from api.app import db
 from api.common.auth import *
 from models.model import *
 from models.schema import *
+from datetime import datetime
 from flask import abort, jsonify, request, make_response, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
 
 
-class RatingAPI(Resource):
+class ReviewAPI(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument(name='token',
@@ -23,24 +24,28 @@ class RatingAPI(Resource):
                                    default='',
                                    location='form',
                                    help='missing API secret key in post request')
+        self.reqparse.add_argument(name='reviewid',
+                                   type=int,
+                                   required=False,
+                                   location='form',
+                                   help='missing review ID')
         self.reqparse.add_argument(name='userid',
                                    type=int,
                                    required=True,
                                    location='form',
                                    help='missing ID of user rating the artifact')
-        self.reqparse.add_argument(name='rating',
-                                   type=int,
+        self.reqparse.add_argument(name='review',
+                                   type=str,
                                    required=False,
-                                   choices=(0, 1, 2, 3, 4, 5),
                                    location='form',
-                                   help='missing rating for artifact')
+                                   help='missing review for artifact')
 
     def post(self, artifact_id):
         args = self.reqparse.parse_args()
         api_key = args['api_key']
         sso_token = args['token']
         user_id = args['userid']
-        rating = args['rating']
+        review = args['review']
 
         # verify session credentials
         verify_api_key(api_key)
@@ -53,13 +58,13 @@ class RatingAPI(Resource):
         if not artifact:
             abort(400, description='invalid artifact ID')
 
-        # add new rating to the database
-        new_rating = ArtifactRatings(
-            user_id=user_id, artifact_id=artifact_id, rating=rating)
-        db.session.add(new_rating)
+        # add new review to the database
+        new_review = ArtifactReviews(
+            user_id=user_id, artifact_id=artifact_id, review=review, review_time=datetime.now())
+        db.session.add(new_review)
         db.session.commit()
 
-        response = jsonify({"message": "added new rating"})
+        response = jsonify({"message": "added new review"})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
@@ -69,42 +74,44 @@ class RatingAPI(Resource):
         api_key = args['api_key']
         sso_token = args['token']
         user_id = args['userid']
-        rating = args['rating']
+        review_id = args['reviewid']
+        review = args['review']
 
         # verify session credentials
         verify_api_key(api_key)
         if not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
 
-        existing_rating = db.session.query(ArtifactRatings).filter(
-            ArtifactRatings.user_id == user_id, ArtifactRatings.artifact_id == artifact_id).first()
-        existing_rating.rating = rating
+        existing_review = db.session.query(ArtifactReviews).filter(
+            ArtifactReviews.id == review_id, ArtifactReviews.user_id == user_id, ArtifactReviews.artifact_id == artifact_id).first()
+        existing_review.review = review
         db.session.commit()
 
-        response = jsonify({"message": "updated rating"})
+        response = jsonify({"message": "updated review"})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
-
+    
     def delete(self, artifact_id):
         args = self.reqparse.parse_args()
         api_key = args['api_key']
         sso_token = args['token']
         user_id = args['userid']
+        review_id = args['reviewid']
 
         # verify session credentials
         verify_api_key(api_key)
         if not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
 
-        rating = db.session.query(ArtifactRatings).filter(
-            ArtifactRatings.user_id == user_id, ArtifactRatings.artifact_id == artifact_id).first()
-        if rating:
-            db.session.delete(rating)
+        existing_review = db.session.query(ArtifactReviews).filter(
+            ArtifactReviews.id == review_id, ArtifactReviews.user_id == user_id, ArtifactReviews.artifact_id == artifact_id).first()
+        if existing_review:
+            db.session.delete(existing_review)
             db.session.commit()
-            response = jsonify({"message": "deleted rating"})
+            response = jsonify({"message": "deleted review"})
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
             return response
         else:
-            abort(404, description="user has not rated this artifact")
+            abort(404, description="invalid review ID")

@@ -354,7 +354,8 @@ class ArtifactRatings(db.Model):
         db.UniqueConstraint("artifact_id", "user_id"),
     )
 
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    # id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
         "artifacts.id"), nullable=False)
@@ -364,12 +365,6 @@ class ArtifactRatings(db.Model):
         self.user_id = user_id
         self.artifact_id = artifact_id
         self.rating = rating
-
-    # def __init__(self, id, user_id, artifact_id, rating):
-    #     self.id = id
-    #     self.user_id = user_id
-    #     self.artifact_id = artifact_id
-    #     self.rating = rating
     
     def __repr__(self):
         return "<ArtifactRatings(id='%d', user_id='%d',artifact_id='%d',rating='%d')>" % (
@@ -401,6 +396,10 @@ class ArtifactFavorites(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
         "artifacts.id"), nullable=False)
+    
+    def __init__(self, user_id, artifact_id):
+        self.user_id = user_id
+        self.artifact_id = artifact_id
 
     def __repr__(self):
         return "<ArtifactFavorites(id='%d', user_id='%d',artifact_id='%d')>" % (
