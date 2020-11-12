@@ -36,6 +36,18 @@ class ArtifactListAPI(Resource):
             docs = db.session.query(Artifact).limit(20).all()
         else:
             # TODO: retrieve relevance score from full-text search index
+            # docs = db.session.query(Artifact,
+            #                         func.ts_rank(Artifact.document_with_idx,
+            #                                      Artifact.document_with_idx.match(kwrds, postgresql_regconfig='english'))
+            #                         .label('rank'))\
+            #     .filter(Artifact.document_with_idx.match(kwrds, postgresql_regconfig='english'))\
+            #     .all()
+            # rank = func.ts_rank('{0.1,0.1,0.1,0.1}', Artifact.document_with_idx, func.to_tsquery('english', kwrds)).label('rank')
+
+            # docs = db.session.query(Artifact).filter(Artifact.document_with_idx.match(
+            #     kwrds, postgresql_regconfig='english')).order_by(
+            #         func.ts_rank(Artifact.document_with_idx, Artifact.document_with_idx.match(kwrds, postgresql_regconfig='english'))
+            #     ).limit(1)
             # TODO: get average rating for each artifact
             docs = db.session.query(Artifact).filter(Artifact.document_with_idx.match(
                 keywords, postgresql_regconfig='english')).all()
