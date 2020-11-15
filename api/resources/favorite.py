@@ -1,6 +1,6 @@
 # logic for /rating
 
-from api.app import db
+from api.app import db, config_name
 from api.common.auth import *
 from models.model import *
 from models.schema import *
@@ -38,12 +38,13 @@ class FavoritesListAPI(Resource):
 class FavoriteAPI(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument(name='token',
-                                   type=str,
-                                   required=True,
-                                   default='',
-                                   location='form',
-                                   help='missing SSO token from auth provider in post request')
+        if config_name == 'production':
+            self.reqparse.add_argument(name='token',
+                                    type=str,
+                                    required=True,
+                                    default='',
+                                    location='form',
+                                    help='missing SSO token from auth provider in post request')
         self.reqparse.add_argument(name='api_key',
                                    type=str,
                                    required=True,
@@ -61,12 +62,13 @@ class FavoriteAPI(Resource):
     def post(self, artifact_id):
         args = self.reqparse.parse_args()
         api_key = args['api_key']
-        sso_token = args['token']
+        if config_name == 'production':
+            sso_token = args['token']
         user_id = args['userid']
 
         # verify session credentials
         verify_api_key(api_key)
-        if not verify_token(sso_token):
+        if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
 
         # check for valid artifact id
@@ -89,12 +91,13 @@ class FavoriteAPI(Resource):
     def delete(self, artifact_id):
         args = self.reqparse.parse_args()
         api_key = args['api_key']
-        sso_token = args['token']
+        if config_name == 'production':
+            sso_token = args['token']
         user_id = args['userid']
 
         # verify session credentials
         verify_api_key(api_key)
-        if not verify_token(sso_token):
+        if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
 
         existing_favorite = db.session.query(ArtifactFavorites).filter(

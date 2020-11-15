@@ -4,7 +4,6 @@ class Config(object):
     """
     API_VERSION = 1
     APPLICATION_ROOT = '/v{}'.format(API_VERSION)
-    SESSION_TIMEOUT_IN_MINUTES = 10
 
 
 class DevelopmentConfig(Config):
@@ -15,6 +14,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_ECHO = True
     SQLALCHEMY_TRACK_MODIFICATIONS = True
+    SESSION_TIMEOUT_IN_MINUTES = 10
 
 
 class ProductionConfig(Config):
@@ -25,6 +25,7 @@ class ProductionConfig(Config):
     DEBUG = False
     SQLALCHEMY_ECHO = False
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SESSION_TIMEOUT_IN_MINUTES = 10
 
 app_config = {
     'development': DevelopmentConfig,

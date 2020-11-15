@@ -9,13 +9,15 @@ from flask import abort, jsonify, request, make_response, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
 import requests
 
+
 def verify_strategy(strategy):
     if strategy not in ['github']:
         abort(403, description="missing/incorrect strategy")
 
 
 def create_new_session(user_id, sso_token):
-    expiry_timestamp = datetime.now() + datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
+    expiry_timestamp = datetime.now(
+    ) + datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
     new_session = Sessions(
         user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp)
     db.session.add(new_session)
@@ -63,21 +65,23 @@ class LoginAPI(Resource):
             response = requests.get(github_user_email_api, headers=headers)
             if response.status_code != requests.codes.ok:
                 abort(response.status_code, description="invalid SSO token")
-            
+
             # check if Person entity with that email exists
-            person = db.session.query(Person).filter(Person.email == response.email).first()
-            
-            if person: # create new session
-                user = db.session.query(User).filter(User.person_id == person.id).first()
+            person = db.session.query(Person).filter(
+                Person.email == response.email).first()
+
+            if person:  # create new session
+                user = db.session.query(User).filter(
+                    User.person_id == person.id).first()
                 create_new_session(user.id, sso_token)
                 msg = 'login successful. created new session for the user'
-            else: # create new user
+            else:  # create new user
                 # TODO: get user's name from Github
                 new_person = Person(name='', email=response.email)
                 db.session.add(new_person)
                 db.session.commit()
                 db.session.refresh(new_person)
-                
+
                 new_user = User(person_id=new_person.id)
                 db.session.add(new_user)
                 db.session.commit()
@@ -91,7 +95,8 @@ class LoginAPI(Resource):
             response.status_code = 200
             return response
         else:
-            response = jsonify({"message": "login successful with valid session"})
+            response = jsonify(
+                {"message": "login successful with valid session"})
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
             return response
