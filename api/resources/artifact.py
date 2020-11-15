@@ -49,7 +49,7 @@ class ArtifactListAPI(Resource):
                         'num_ratings',
                         'avg_rating',
                         'num_reviews'
-                        ).filter(Artifact.document_with_idx.match(keywords, postgresql_regconfig='english')
+                        ).filter(Artifact.document_with_idx.op('@@')(func.plainto_tsquery("english", keywords))
                             ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
                             ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
                         ).order_by(desc("rank")
