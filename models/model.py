@@ -281,7 +281,6 @@ class Organization(db.Model):
     __tablename__ = "organizations"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    # TODO: changed from 128 to 1024
     name = db.Column(db.String(1024), nullable=False)
     type = db.Column(
         db.Enum("Institution", "Institute", "ResearchGroup", "Sponsor", "Other",
@@ -380,6 +379,8 @@ class ArtifactReviews(db.Model):
         "artifacts.id"), nullable=False)
     review = db.Column(db.Text, nullable=False)
     review_time = db.Column(db.DateTime, nullable=False)
+    subject = db.Column(db.String(128), nullable=False)
+    # reviewer = db.relationship("User", uselist=False)
 
     def __repr__(self):
         return "<ArtifactReviews(id='%d', user_id='%d',artifact_id='%d',review='%s')>" % (
@@ -475,5 +476,5 @@ class Artifact(db.Model):
     )
 
     def __repr__(self):
-        return "<Artifact(id=%d,type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r')>" % (
-            self.id, self.type, self.url, self.owner, self.files, self.tags, self.meta)
+        return "<Artifact(id=%d,title='%s',description='%s',type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r')>" % (
+            self.id, self.title, self.description, self.type, self.url, self.owner, self.files, self.tags, self.meta)

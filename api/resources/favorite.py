@@ -4,22 +4,22 @@ from api.app import db
 from api.common.auth import *
 from models.model import *
 from models.schema import *
-from flask import abort, jsonify, request, make_response, Blueprint
+from flask import abort, jsonify, request, url_for, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
 
 
 class FavoriteAPI(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        # self.reqparse.add_argument(name='token',
-        #                            type=str,
-        #                            required=True,
-        #                            default='',
-        #                            location='form',
-        #                            help='missing SSO token from auth provider in post request')
+        self.reqparse.add_argument(name='token',
+                                   type=str,
+                                   required=False,
+                                   default='',
+                                   location='form',
+                                   help='missing SSO token from auth provider in post request')
         self.reqparse.add_argument(name='api_key',
                                    type=str,
-                                   required=True,
+                                   required=False,
                                    default='',
                                    location='form',
                                    help='missing API secret key in post request')
@@ -29,16 +29,43 @@ class FavoriteAPI(Resource):
                                    location='form',
                                    help='missing ID of user rating the artifact')
 
+    @staticmethod
+    def generate_artifact_uri(artifact_id):
+        return url_for('api.artifact', artifact_id=artifact_id)
+
+    def get(self, artifact_id):
+        args = self.reqparse.parse_args()
+        user_id = args['userid']
+        
+        favorite_artifacts = db.session.query(Artifact).join(ArtifactFavorites, Artifact.id == ArtifactFavorites.artifact_id).filter(ArtifactFavorites.user_id == user_id).all()
+
+        artifacts = []
+        for doc in favorite_artifacts:
+            result = {
+                "id": doc.id,
+                "uri": FavoriteAPI.generate_artifact_uri(doc.id),
+                "doi": doc.url,
+                "type": doc.type,
+                "title": doc.title,
+                "description": doc.description
+            }
+            artifacts.append(result)
+
+        response = jsonify({"artifacts": artifacts, "length": len(artifacts)})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
     def post(self, artifact_id):
         args = self.reqparse.parse_args()
         api_key = args['api_key']
-        # sso_token = args['token']
+        sso_token = args['token']
         user_id = args['userid']
 
         # verify session credentials
         verify_api_key(api_key)
-        # if not verify_token(sso_token):
-        #     abort(401, "no active login session found. please login to continue")
+        if not verify_token(sso_token):
+            abort(401, "no active login session found. please login to continue")
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
@@ -60,22 +87,24 @@ class FavoriteAPI(Resource):
     def delete(self, artifact_id):
         args = self.reqparse.parse_args()
         api_key = args['api_key']
-        # sso_token = args['token']
+        sso_token = args['token']
         user_id = args['userid']
 
         # verify session credentials
         verify_api_key(api_key)
-        # if not verify_token(sso_token):
-        #     abort(401, "no active login session found. please login to continue")
+        if not verify_token(sso_token):
+            abort(401, "no active login session found. please login to continue")
 
         existing_favorite = db.session.query(ArtifactFavorites).filter(
             ArtifactFavorites.user_id == user_id, ArtifactFavorites.artifact_id == artifact_id).first()
         if existing_favorite:
             db.session.delete(existing_favorite)
             db.session.commit()
-            response = jsonify({"message": "deleted artifact from favorites list"})
+            response = jsonify(
+                {"message": "deleted artifact from favorites list"})
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
             return response
         else:
-            abort(404, description="this artifact does not exist in the user's favorites list")
+            abort(
+                404, description="this artifact does not exist in the user's favorites list")

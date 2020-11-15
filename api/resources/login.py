@@ -16,7 +16,7 @@ def verify_strategy(strategy):
 
 def create_new_session(user_id, sso_token):
     # TODO: replace expiry time with config variable
-    expiry_timestamp = datetime.now() + datetime.timedelta(days=7)
+    expiry_timestamp = datetime.now() + datetime.timedelta(minutes=10)
     new_session = Sessions(
         user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp)
     db.session.add(new_session)
@@ -71,6 +71,7 @@ class LoginAPI(Resource):
             if person: # create new session
                 user = db.session.query(User).filter(User.person_id == person.id).first()
                 create_new_session(user.id, sso_token)
+                msg = 'login successful. created new session for the user'
             else: # create new user
                 # TODO: get user's name from Github
                 new_person = Person(name='', email=response.email)
@@ -84,8 +85,14 @@ class LoginAPI(Resource):
                 db.session.refresh(new_user)
 
                 create_new_session(new_user.id, sso_token)
+                msg = 'login successful. created new person and user entity'
 
-            response = jsonify({"message": "login successful"})
+            response = jsonify({"message": msg})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.status_code = 200
+            return response
+        else:
+            response = jsonify({"message": "login successful with valid session"})
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
             return response

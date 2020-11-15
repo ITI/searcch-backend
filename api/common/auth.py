@@ -26,7 +26,7 @@ def verify_token(sso_token):
             db.session.commit()
 
             # send back for relogin
-            abort(401, description="expired token. please re-login")
+            abort(401, description="session token has expired. please re-login")
         else:
             return True
     else:

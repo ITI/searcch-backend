@@ -3,7 +3,7 @@ class Config(object):
     Common configurations
     """
     API_VERSION = 1
-    APPLICATION_ROOT = '/api/v{}/'.format(API_VERSION)
+    APPLICATION_ROOT = '/v{}'.format(API_VERSION)
 
 
 class DevelopmentConfig(Config):

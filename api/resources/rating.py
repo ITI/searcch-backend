@@ -13,13 +13,13 @@ class RatingAPI(Resource):
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument(name='token',
                                    type=str,
-                                   required=True,
+                                   required=False,
                                    default='',
                                    location='form',
                                    help='missing SSO token from auth provider in post request')
         self.reqparse.add_argument(name='api_key',
                                    type=str,
-                                   required=True,
+                                   required=False,
                                    default='',
                                    location='form',
                                    help='missing API secret key in post request')
@@ -34,6 +34,28 @@ class RatingAPI(Resource):
                                    choices=(0, 1, 2, 3, 4, 5),
                                    location='form',
                                    help='missing rating for artifact')
+
+    def get(self, artifact_id):
+        args = self.reqparse.parse_args()
+        user_id = args['userid']
+
+        # check for valid artifact id
+        artifact = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).first()
+        if not artifact:
+            abort(400, description='invalid artifact ID')
+
+        rating = db.session.query(ArtifactRatings.rating).filter(
+            ArtifactRatings.artifact_id == artifact_id, ArtifactRatings.user_id == user_id).first()
+        if not rating:
+            response = jsonify(
+                {"message": "the user has not rated this artifact"})
+        else:
+            response = jsonify({"rating": rating[0]})
+
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
 
     def post(self, artifact_id):
         args = self.reqparse.parse_args()

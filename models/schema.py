@@ -176,6 +176,8 @@ class ArtifactReviewsSchema(SQLAlchemyAutoSchema):
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
+    
+    # reviewer = Nested(UserSchema)
 
 
 class ArtifactFavoritesSchema(SQLAlchemyAutoSchema):

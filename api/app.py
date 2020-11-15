@@ -26,9 +26,9 @@ from api.resources.rating import RatingAPI
 from api.resources.review import ReviewAPI
 from api.resources.favorite import FavoriteAPI
 
-api.add_resource(LoginAPI, '/login')
-api.add_resource(ArtifactListAPI, '/artifacts')
-api.add_resource(ArtifactAPI, '/artifacts/<int:artifact_id>')
-api.add_resource(RatingAPI, '/rating/<int:artifact_id>')
-api.add_resource(ReviewAPI, '/review/<int:artifact_id>')
-api.add_resource(FavoriteAPI, '/favorite/<int:artifact_id>')
+api.add_resource(LoginAPI, app.config['APPLICATION_ROOT'] + '/login')
+api.add_resource(ArtifactListAPI, app.config['APPLICATION_ROOT'] + '/artifacts')
+api.add_resource(ArtifactAPI, app.config['APPLICATION_ROOT'] + '/artifact/<int:artifact_id>', endpoint='api.artifact')
+api.add_resource(RatingAPI, app.config['APPLICATION_ROOT'] + '/rating/<int:artifact_id>')
+api.add_resource(ReviewAPI, app.config['APPLICATION_ROOT'] + '/review/<int:artifact_id>')
+api.add_resource(FavoriteAPI, app.config['APPLICATION_ROOT'] + '/favorite/<int:artifact_id>')
