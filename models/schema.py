@@ -125,7 +125,8 @@ class UserSchema(SQLAlchemyAutoSchema):
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
-
+    
+    person = Nested(PersonSchema)
 
 class LicenseSchema(SQLAlchemyAutoSchema):
     class Meta:
@@ -177,7 +178,7 @@ class ArtifactReviewsSchema(SQLAlchemyAutoSchema):
         include_fk = True
         include_relationships = True
     
-    # reviewer = Nested(UserSchema)
+    reviewer = Nested(UserSchema)
 
 
 class ArtifactFavoritesSchema(SQLAlchemyAutoSchema):

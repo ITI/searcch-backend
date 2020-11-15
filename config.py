@@ -4,6 +4,7 @@ class Config(object):
     """
     API_VERSION = 1
     APPLICATION_ROOT = '/v{}'.format(API_VERSION)
+    SESSION_TIMEOUT_IN_MINUTES = 10
 
 
 class DevelopmentConfig(Config):

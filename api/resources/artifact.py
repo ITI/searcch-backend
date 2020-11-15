@@ -99,7 +99,7 @@ class ArtifactAPI(Resource):
 
         artifact_schema = ArtifactSchema()
         affiliation_schema = AffiliationSchema(many=True)
-        # TODO: get username for each review user
+        
         review_schema = ArtifactReviewsSchema(many=True)
 
         response = jsonify({

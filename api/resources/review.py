@@ -47,7 +47,6 @@ class ReviewAPI(Resource):
 
     def get(self, artifact_id):
         args = self.reqparse.parse_args()
-        user_id = args['userid']
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
@@ -55,7 +54,6 @@ class ReviewAPI(Resource):
         if not artifact:
             abort(400, description='invalid artifact ID')
 
-        # TODO: get username for review user
         reviews = db.session.query(ArtifactReviews).filter(ArtifactReviews.artifact_id == artifact_id).all()
         review_schema = ArtifactReviewsSchema(many=True)
         if not reviews:

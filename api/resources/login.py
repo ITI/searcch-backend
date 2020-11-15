@@ -1,6 +1,6 @@
 # logic for /login
 
-from api.app import db
+from api.app import db, app
 from api.common.auth import verify_api_key, verify_token
 from models.model import *
 from models.schema import *
@@ -15,8 +15,7 @@ def verify_strategy(strategy):
 
 
 def create_new_session(user_id, sso_token):
-    # TODO: replace expiry time with config variable
-    expiry_timestamp = datetime.now() + datetime.timedelta(minutes=10)
+    expiry_timestamp = datetime.now() + datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
     new_session = Sessions(
         user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp)
     db.session.add(new_session)

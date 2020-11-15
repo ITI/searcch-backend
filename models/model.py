@@ -243,7 +243,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     person_id = db.Column(db.Integer, db.ForeignKey(
         "persons.id"), nullable=False)
-    person = db.relationship("Person", uselist=False)
+    person = db.relationship("Person")
 
     __table_args__ = (
         db.UniqueConstraint("person_id"),)
@@ -375,12 +375,12 @@ class ArtifactReviews(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    artifact_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=False)
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"), nullable=False)
     review = db.Column(db.Text, nullable=False)
     review_time = db.Column(db.DateTime, nullable=False)
     subject = db.Column(db.String(128), nullable=False)
-    # reviewer = db.relationship("User", uselist=False)
+    
+    reviewer = db.relationship("User")
 
     def __repr__(self):
         return "<ArtifactReviews(id='%d', user_id='%d',artifact_id='%d',review='%s')>" % (
