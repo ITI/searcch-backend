@@ -2,7 +2,8 @@ from marshmallow_sqlalchemy import ModelSchema, SQLAlchemyAutoSchema, auto_field
 from marshmallow_sqlalchemy.convert import ModelConverter as BaseModelConverter
 from marshmallow_sqlalchemy.fields import Nested
 
-from app.models.model import *
+from api.app import ma
+from models.model import *
 
 
 class ModelConverter(BaseModelConverter):
@@ -51,14 +52,6 @@ class ArtifactTagSchema(SQLAlchemyAutoSchema):
         include_fk = True
         include_relationships = True
         exclude = ('id', 'artifact_id',)
-
-
-class ArtifactCurationSchema(SQLAlchemyAutoSchema):
-    class Meta:
-        model = ArtifactCuration
-        model_converter = ModelConverter
-        include_fk = True
-        include_relationships = True
 
 
 class ArtifactAffiliationSchema(SQLAlchemyAutoSchema):
@@ -125,6 +118,18 @@ class UserSchema(SQLAlchemyAutoSchema):
         include_fk = True
         include_relationships = True
 
+    person = Nested(PersonSchema)
+
+
+class ArtifactCurationSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactCuration
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    curator = Nested(UserSchema)
+
 
 class LicenseSchema(SQLAlchemyAutoSchema):
     class Meta:
@@ -176,6 +181,8 @@ class ArtifactReviewsSchema(SQLAlchemyAutoSchema):
         include_fk = True
         include_relationships = True
 
+    reviewer = Nested(UserSchema)
+
 
 class ArtifactFavoritesSchema(SQLAlchemyAutoSchema):
     class Meta:
@@ -192,6 +199,7 @@ class SessionsSchema(SQLAlchemyAutoSchema):
         include_fk = True
         include_relationships = True
 
+
 class ArtifactSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Artifact
@@ -203,7 +211,7 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     meta = Nested(ArtifactMetadataSchema, many=True)
     tags = Nested(ArtifactTagSchema, many=True)
     files = Nested(ArtifactFileSchema, many=True)
-    # owner = Nested(UserSchema, many=True)
+    # owner = Nested(UserSchema)
     importer = Nested(ImporterSchema, many=True)
     # parent = Nested(ArtifactSchema, many=True)
     curations = Nested(ArtifactCurationSchema, many=True)

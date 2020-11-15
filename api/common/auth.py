@@ -1,6 +1,6 @@
-from app import app
-from app import db
-from app.models.model import *
+from api.app import app
+from api.app import db
+from models.model import *
 from datetime import datetime
 from flask import abort
 
@@ -15,7 +15,7 @@ def verify_api_key(api_key):
 def verify_token(sso_token):
     # sanity check input
     if sso_token == '':
-        abort(403, description="missing SSO token from Github")
+        abort(403, description="missing SSO token from auth provider")
 
     # check for token in sessions table
     login_session = db.session.query(Sessions).filter(Sessions.sso_token == sso_token).first()
@@ -26,7 +26,7 @@ def verify_token(sso_token):
             db.session.commit()
 
             # send back for relogin
-            abort(401, description="expired token")
+            abort(401, description="session token has expired. please re-login")
         else:
             return True
     else:

@@ -1,5 +1,5 @@
-from app import db
-from app.models.licenses import *
+from api.app import db
+from models.licenses import *
 from sqlalchemy.dialects.postgresql import TSVECTOR
 
 
@@ -114,10 +114,9 @@ class ArtifactCuration(db.Model):
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     time = db.Column(db.DateTime, nullable=False)
     notes = db.Column(db.String(1024))
-    curator_id = db.Column(
-        db.Integer, db.ForeignKey("users.id"), nullable=False)
-    # curator = db.relationship("User", uselist=False, backref="curator_user")
-    curator = db.relationship("User", uselist=False)
+    curator_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    
+    curator = db.relationship("User")
 
     def __repr__(self):
         return "<ArtifactCuration(id=%d,artifact_id=%d,time='%s',curator='%r')>" % (
@@ -243,7 +242,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     person_id = db.Column(db.Integer, db.ForeignKey(
         "persons.id"), nullable=False)
-    person = db.relationship("Person", uselist=False)
+    person = db.relationship("Person")
 
     __table_args__ = (
         db.UniqueConstraint("person_id"),)
@@ -281,7 +280,6 @@ class Organization(db.Model):
     __tablename__ = "organizations"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    # TODO: changed from 128 to 1024
     name = db.Column(db.String(1024), nullable=False)
     type = db.Column(
         db.Enum("Institution", "Institute", "ResearchGroup", "Sponsor", "Other",
@@ -354,12 +352,18 @@ class ArtifactRatings(db.Model):
         db.UniqueConstraint("artifact_id", "user_id"),
     )
 
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    # id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
         "artifacts.id"), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
 
+    def __init__(self, user_id, artifact_id, rating):
+        self.user_id = user_id
+        self.artifact_id = artifact_id
+        self.rating = rating
+    
     def __repr__(self):
         return "<ArtifactRatings(id='%d', user_id='%d',artifact_id='%d',rating='%d')>" % (
             self.id, self.user_id, self.artifact_id, self.rating)
@@ -370,10 +374,12 @@ class ArtifactReviews(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    artifact_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=False)
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"), nullable=False)
     review = db.Column(db.Text, nullable=False)
     review_time = db.Column(db.DateTime, nullable=False)
+    subject = db.Column(db.String(128), nullable=False)
+    
+    reviewer = db.relationship("User")
 
     def __repr__(self):
         return "<ArtifactReviews(id='%d', user_id='%d',artifact_id='%d',review='%s')>" % (
@@ -390,6 +396,10 @@ class ArtifactFavorites(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
         "artifacts.id"), nullable=False)
+    
+    def __init__(self, user_id, artifact_id):
+        self.user_id = user_id
+        self.artifact_id = artifact_id
 
     def __repr__(self):
         return "<ArtifactFavorites(id='%d', user_id='%d',artifact_id='%d')>" % (
@@ -399,7 +409,7 @@ class ArtifactFavorites(db.Model):
 class Sessions(db.Model):
     __tablename__ = "sessions"
     __table_args__ = (
-        db.UniqueConstraint("user_id", "sso_token", "session_id"),
+        db.UniqueConstraint("user_id", "sso_token"),
     )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -465,5 +475,5 @@ class Artifact(db.Model):
     )
 
     def __repr__(self):
-        return "<Artifact(id=%d,type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r')>" % (
-            self.id, self.type, self.url, self.owner, self.files, self.tags, self.meta)
+        return "<Artifact(id=%d,title='%s',description='%s',type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r')>" % (
+            self.id, self.title, self.description, self.type, self.url, self.owner, self.files, self.tags, self.meta)

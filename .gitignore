@@ -2,8 +2,8 @@ venv/
 logs/
 instance/
 KG/
-resources/
-app/models/backup/
+notes/
+models/backup/
 
 *.pyc
 __pycache__/
