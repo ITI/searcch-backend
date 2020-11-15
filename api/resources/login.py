@@ -59,7 +59,7 @@ class LoginAPI(Resource):
             # get email from Github
             github_user_email_api = 'https://api.github.com/user/emails'
             headers = {
-                'accept': 'application/vnd.github.v3+json',
+                'Accept': 'application/vnd.github.v3+json',
                 'Authorization': 'token ' + sso_token
             }
             response = requests.get(github_user_email_api, headers=headers)

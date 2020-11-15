@@ -19,7 +19,7 @@ export FLASK_CONFIG=development
 flask run --host=0.0.0.0 --port=80
 
 # Using gunicorn
-sudo /home/ubuntu/.local/bin/gunicorn --config gunicorn_conf.py run:app
+sudo /home/hardik/.local/bin/gunicorn --config gunicorn_conf.py run:app
 ```
 
 ## Setup Database - MongoDB

@@ -1,8 +1,6 @@
 import multiprocessing
 
-# bind = "172.31.27.26:8000"
-# bind = "128.9.160.71:80"
-bind = "0.0.0.0:80"
+bind = "128.9.160.71:80"
 workers = multiprocessing.cpu_count() * 2 + 1
 worker_class = "gevent"
 threads = 2 * multiprocessing.cpu_count()

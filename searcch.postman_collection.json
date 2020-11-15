@@ -1,0 +1,616 @@
+{
+	"info": {
+		"_postman_id": "1536502f-d354-466d-87e2-e4d987bff98b",
+		"name": "searcch",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "favorites",
+			"item": [
+				{
+					"name": "0.0.0.0:5000/v1/favorite/964",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "api_key",
+									"value": "5bac5db866cf68cbb0ae23115f7488b35e4d9fd4e9cdd11992cb7544d04ea48d",
+									"type": "text"
+								},
+								{
+									"key": "userid",
+									"value": "1",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/favorite/964",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"favorite",
+								"964"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "0.0.0.0:5000/v1/favorites/1",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "0.0.0.0:5000/v1/favorites/1",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"favorites",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "0.0.0.0:5000/favorite/1",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "api_key",
+									"value": "5bac5db866cf68cbb0ae23115f7488b35e4d9fd4e9cdd11992cb7544d04ea48d",
+									"type": "text"
+								},
+								{
+									"key": "userid",
+									"value": "1",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/favorite/1",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"favorite",
+								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"protocolProfileBehavior": {}
+		},
+		{
+			"name": "ratings",
+			"item": [
+				{
+					"name": "0.0.0.0:5000/v1/rating/1234",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "api_key",
+									"value": "5bac5db866cf68cbb0ae23115f7488b35e4d9fd4e9cdd11992cb7544d04ea48d",
+									"type": "text"
+								},
+								{
+									"key": "userid",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "rating",
+									"value": "3",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/rating/1234",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"rating",
+								"1234"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "0.0.0.0:5000/v1/rating/user/1/artifact/1234",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "api_key",
+									"value": "5bac5db866cf68cbb0ae23115f7488b35e4d9fd4e9cdd11992cb7544d04ea48d",
+									"type": "text",
+									"disabled": true
+								},
+								{
+									"key": "userid",
+									"value": "1",
+									"type": "text",
+									"disabled": true
+								},
+								{
+									"key": "rating",
+									"value": "3",
+									"type": "text",
+									"disabled": true
+								}
+							]
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/rating/user/1/artifact/1234",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"rating",
+								"user",
+								"1",
+								"artifact",
+								"1234"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "0.0.0.0:5000/v1/rating/1234",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "api_key",
+									"value": "5bac5db866cf68cbb0ae23115f7488b35e4d9fd4e9cdd11992cb7544d04ea48d",
+									"type": "text"
+								},
+								{
+									"key": "userid",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "rating",
+									"value": "1",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/rating/1234",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"rating",
+								"1234"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "0.0.0.0:5000/v1/rating/1234",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "api_key",
+									"value": "5bac5db866cf68cbb0ae23115f7488b35e4d9fd4e9cdd11992cb7544d04ea48d",
+									"type": "text"
+								},
+								{
+									"key": "userid",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "rating",
+									"value": "1",
+									"type": "text",
+									"disabled": true
+								}
+							]
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/rating/1234",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"rating",
+								"1234"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"protocolProfileBehavior": {}
+		},
+		{
+			"name": "reviews",
+			"item": [
+				{
+					"name": "0.0.0.0:5000/v1/reviews/1",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": []
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/reviews/1",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"reviews",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "0.0.0.0:5000/v1/review/1",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "api_key",
+									"value": "5bac5db866cf68cbb0ae23115f7488b35e4d9fd4e9cdd11992cb7544d04ea48d",
+									"type": "text"
+								},
+								{
+									"key": "userid",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "review",
+									"value": "test review 6",
+									"type": "text"
+								},
+								{
+									"key": "subject",
+									"value": "test review 6",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/review/1",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"review",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "0.0.0.0:5000/v1/review/1",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "api_key",
+									"value": "5bac5db866cf68cbb0ae23115f7488b35e4d9fd4e9cdd11992cb7544d04ea48d",
+									"type": "text"
+								},
+								{
+									"key": "userid",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "review",
+									"value": "test review 4 - updated",
+									"type": "text"
+								},
+								{
+									"key": "reviewid",
+									"value": "13",
+									"type": "text"
+								},
+								{
+									"key": "subject",
+									"value": "test review 4 - updated",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/review/1",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"review",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "0.0.0.0:5000/v1/review/1",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "api_key",
+									"value": "5bac5db866cf68cbb0ae23115f7488b35e4d9fd4e9cdd11992cb7544d04ea48d",
+									"type": "text"
+								},
+								{
+									"key": "userid",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "reviewid",
+									"value": "14",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/review/1",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"review",
+								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"protocolProfileBehavior": {}
+		},
+		{
+			"name": "artifacts",
+			"item": [
+				{
+					"name": "0.0.0.0:5000/v1/artifacts?keywords=ciphertext",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "api_key",
+									"value": "5bac5db866cf68cbb0ae23115f7488b35e4d9fd4e9cdd11992cb7544d04ea48d",
+									"type": "text"
+								},
+								{
+									"key": "userid",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "review",
+									"value": "test review 4 - updated",
+									"type": "text",
+									"disabled": true
+								},
+								{
+									"key": "reviewid",
+									"value": "13",
+									"type": "text"
+								},
+								{
+									"key": "subject",
+									"value": "test review 4 - updated",
+									"type": "text",
+									"disabled": true
+								}
+							]
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/artifacts?keywords=ciphertext",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"artifacts"
+							],
+							"query": [
+								{
+									"key": "keywords",
+									"value": "ciphertext"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "0.0.0.0:5000/v1/artifact/1?userid=1",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "api_key",
+									"value": "5bac5db866cf68cbb0ae23115f7488b35e4d9fd4e9cdd11992cb7544d04ea48d",
+									"type": "text"
+								},
+								{
+									"key": "userid",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "review",
+									"value": "test review 4 - updated",
+									"type": "text",
+									"disabled": true
+								},
+								{
+									"key": "reviewid",
+									"value": "13",
+									"type": "text"
+								},
+								{
+									"key": "subject",
+									"value": "test review 4 - updated",
+									"type": "text",
+									"disabled": true
+								}
+							]
+						},
+						"url": {
+							"raw": "0.0.0.0:5000/v1/artifact/1?userid=1",
+							"host": [
+								"0",
+								"0",
+								"0",
+								"0"
+							],
+							"port": "5000",
+							"path": [
+								"v1",
+								"artifact",
+								"1"
+							],
+							"query": [
+								{
+									"key": "userid",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"protocolProfileBehavior": {}
+		}
+	],
+	"protocolProfileBehavior": {}
+}

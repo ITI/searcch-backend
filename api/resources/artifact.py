@@ -78,19 +78,7 @@ class ArtifactListAPI(Resource):
 
 
 class ArtifactAPI(Resource):
-    def __init__(self):
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument(name='userid',
-                                   type=int,
-                                   required=True,
-                                   help='missing user id in query string')
-
-        super(ArtifactAPI, self).__init__()
-
     def get(self, artifact_id):
-        args = self.reqparse.parse_args()
-        user_id = args['userid']
-
         artifact = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).first()
         if not artifact:
@@ -101,10 +89,6 @@ class ArtifactAPI(Resource):
             ArtifactRatings.rating).label('avg_rating')).filter(ArtifactRatings.artifact_id == artifact_id).group_by("artifact_id").all()
         sqreviews = db.session.query(ArtifactReviews).filter(
             ArtifactReviews.artifact_id == artifact_id).all()
-
-        # get whether the user has favorited that artifact
-        sqfavorites = db.session.query(ArtifactFavorites.artifact_id).filter(
-            ArtifactFavorites.artifact_id == artifact_id, ArtifactFavorites.user_id == user_id).all()
 
         artifact_affiliations = db.session.query(ArtifactAffiliation.affiliation_id).filter(
             ArtifactAffiliation.artifact_id == artifact_id).subquery()
@@ -119,11 +103,10 @@ class ArtifactAPI(Resource):
         response = jsonify({
             "artifact": artifact_schema.dump(artifact),
             "affiliations": affiliation_schema.dump(affiliations),
-            "num_ratings": sqratings[0][1],
-            "avg_rating": float(sqratings[0][2]),
-            "num_reviews": len(sqreviews),
-            "reviews": review_schema.dump(sqreviews),
-            "is_favorited": True if sqfavorites else False
+            "num_ratings": sqratings[0][1] if sqratings else 0,
+            "avg_rating": float(sqratings[0][2]) if sqratings else None,
+            "num_reviews": len(sqreviews) if sqreviews else 0,
+            "reviews": review_schema.dump(sqreviews)
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
