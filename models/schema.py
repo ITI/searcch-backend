@@ -54,14 +54,6 @@ class ArtifactTagSchema(SQLAlchemyAutoSchema):
         exclude = ('id', 'artifact_id',)
 
 
-class ArtifactCurationSchema(SQLAlchemyAutoSchema):
-    class Meta:
-        model = ArtifactCuration
-        model_converter = ModelConverter
-        include_fk = True
-        include_relationships = True
-
-
 class ArtifactAffiliationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactAffiliation
@@ -125,8 +117,19 @@ class UserSchema(SQLAlchemyAutoSchema):
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
-    
+
     person = Nested(PersonSchema)
+
+
+class ArtifactCurationSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactCuration
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    curator = Nested(UserSchema)
+
 
 class LicenseSchema(SQLAlchemyAutoSchema):
     class Meta:
@@ -177,7 +180,7 @@ class ArtifactReviewsSchema(SQLAlchemyAutoSchema):
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
-    
+
     reviewer = Nested(UserSchema)
 
 
@@ -208,14 +211,9 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     meta = Nested(ArtifactMetadataSchema, many=True)
     tags = Nested(ArtifactTagSchema, many=True)
     files = Nested(ArtifactFileSchema, many=True)
-    # owner = Nested(UserSchema, many=True)
+    # owner = Nested(UserSchema)
     importer = Nested(ImporterSchema, many=True)
     # parent = Nested(ArtifactSchema, many=True)
     curations = Nested(ArtifactCurationSchema, many=True)
     publication = Nested(ArtifactPublicationSchema, many=True)
     releases = Nested(ArtifactReleaseSchema, many=True)
-
-    # Smart hyperlinking
-    # _links = ma.Hyperlinks({
-    #     "uri": ma.URLFor("artifacts", values=dict(id="<id>")),
-    # })

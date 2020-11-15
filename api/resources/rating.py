@@ -8,37 +8,8 @@ from flask import abort, jsonify, request, make_response, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
 
 
-class RatingAPI(Resource):
-    def __init__(self):
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument(name='token',
-                                   type=str,
-                                   required=False,
-                                   default='',
-                                   location='form',
-                                   help='missing SSO token from auth provider in post request')
-        self.reqparse.add_argument(name='api_key',
-                                   type=str,
-                                   required=False,
-                                   default='',
-                                   location='form',
-                                   help='missing API secret key in post request')
-        self.reqparse.add_argument(name='userid',
-                                   type=int,
-                                   required=True,
-                                   location='form',
-                                   help='missing ID of user rating the artifact')
-        self.reqparse.add_argument(name='rating',
-                                   type=int,
-                                   required=False,
-                                   choices=(0, 1, 2, 3, 4, 5),
-                                   location='form',
-                                   help='missing rating for artifact')
-
-    def get(self, artifact_id):
-        args = self.reqparse.parse_args()
-        user_id = args['userid']
-
+class UserRatingAPI(Resource):
+    def get(self, user_id, artifact_id):
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).first()
@@ -56,6 +27,36 @@ class RatingAPI(Resource):
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
+
+
+class RatingAPI(Resource):
+    def __init__(self):
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument(name='token',
+                                   type=str,
+                                   required=True,
+                                   default='',
+                                   location='form',
+                                   help='missing SSO token from auth provider in post request')
+        self.reqparse.add_argument(name='api_key',
+                                   type=str,
+                                   required=True,
+                                   default='',
+                                   location='form',
+                                   help='missing API secret key in post request')
+        self.reqparse.add_argument(name='userid',
+                                   type=int,
+                                   required=True,
+                                   location='form',
+                                   help='missing ID of user rating the artifact')
+        self.reqparse.add_argument(name='rating',
+                                   type=int,
+                                   required=False,
+                                   choices=(0, 1, 2, 3, 4, 5),
+                                   location='form',
+                                   help='missing rating for artifact')
+
+        super(RatingAPI, self).__init__()
 
     def post(self, artifact_id):
         args = self.reqparse.parse_args()

@@ -22,13 +22,20 @@ api = Api(app)
 
 from api.resources.artifact import ArtifactAPI, ArtifactListAPI
 from api.resources.login import LoginAPI
-from api.resources.rating import RatingAPI
-from api.resources.review import ReviewAPI
-from api.resources.favorite import FavoriteAPI
+from api.resources.rating import RatingAPI, UserRatingAPI
+from api.resources.review import ReviewAPI, ReviewListAPI
+from api.resources.favorite import FavoriteAPI, FavoritesListAPI
 
 api.add_resource(LoginAPI, app.config['APPLICATION_ROOT'] + '/login', endpoint='api.login')
+
 api.add_resource(ArtifactListAPI, app.config['APPLICATION_ROOT'] + '/artifacts', endpoint='api.artifacts')
 api.add_resource(ArtifactAPI, app.config['APPLICATION_ROOT'] + '/artifact/<int:artifact_id>', endpoint='api.artifact')
+
 api.add_resource(RatingAPI, app.config['APPLICATION_ROOT'] + '/rating/<int:artifact_id>', endpoint='api.rating')
+api.add_resource(UserRatingAPI, app.config['APPLICATION_ROOT'] + '/rating/user/<int:user_id>/artifact/<int:artifact_id>', endpoint='api.userrating')
+
 api.add_resource(ReviewAPI, app.config['APPLICATION_ROOT'] + '/review/<int:artifact_id>', endpoint='api.review')
+api.add_resource(ReviewListAPI, app.config['APPLICATION_ROOT'] + '/reviews/<int:artifact_id>', endpoint='api.reviews')
+
+api.add_resource(FavoritesListAPI, app.config['APPLICATION_ROOT'] + '/favorites/<int:user_id>', endpoint='api.favorites')
 api.add_resource(FavoriteAPI, app.config['APPLICATION_ROOT'] + '/favorite/<int:artifact_id>', endpoint='api.favorite')

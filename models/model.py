@@ -114,10 +114,9 @@ class ArtifactCuration(db.Model):
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     time = db.Column(db.DateTime, nullable=False)
     notes = db.Column(db.String(1024))
-    curator_id = db.Column(
-        db.Integer, db.ForeignKey("users.id"), nullable=False)
-    # curator = db.relationship("User", uselist=False, backref="curator_user")
-    curator = db.relationship("User", uselist=False)
+    curator_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    
+    curator = db.relationship("User")
 
     def __repr__(self):
         return "<ArtifactCuration(id=%d,artifact_id=%d,time='%s',curator='%r')>" % (

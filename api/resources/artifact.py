@@ -37,12 +37,23 @@ class ArtifactListAPI(Resource):
         if keywords == '':
             docs = db.session.query(Artifact).limit(20).all()
         else:
-            sqratings = db.session.query(ArtifactRatings.artifact_id, func.count(ArtifactRatings.id).label(
-                'num_ratings'), func.avg(ArtifactRatings.rating).label('avg_rating')).group_by("artifact_id").subquery()
-            sqreviews = db.session.query(ArtifactReviews.artifact_id, func.count(
-                ArtifactReviews.id).label('num_reviews')).group_by("artifact_id").subquery()
-            res = db.session.query(Artifact, func.ts_rank_cd(Artifact.document_with_idx, func.plainto_tsquery("english", keywords)).label("rank"), 'num_ratings', 'avg_rating', 'num_reviews').filter(
-                Artifact.document_with_idx.match(keywords, postgresql_regconfig='english')).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True).order_by(desc("rank")).all()
+            sqratings = db.session.query(ArtifactRatings.artifact_id,
+                            func.count(ArtifactRatings.id).label('num_ratings'),
+                            func.avg(ArtifactRatings.rating).label('avg_rating')
+                        ).group_by("artifact_id").subquery()
+            sqreviews = db.session.query(ArtifactReviews.artifact_id,
+                            func.count(ArtifactReviews.id).label('num_reviews')
+                        ).group_by("artifact_id").subquery()
+            res = db.session.query(Artifact,
+                        func.ts_rank_cd(Artifact.document_with_idx, func.plainto_tsquery("english", keywords)).label("rank"),
+                        'num_ratings',
+                        'avg_rating',
+                        'num_reviews'
+                        ).filter(Artifact.document_with_idx.match(keywords, postgresql_regconfig='english')
+                            ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                            ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+                        ).order_by(desc("rank")
+                        ).all()
 
         artifacts = []
         for artifact, relevance_score, num_ratings, avg_rating, num_reviews in res:
@@ -86,12 +97,15 @@ class ArtifactAPI(Resource):
             abort(404, description='invalid ID for artifact')
 
         # get average rating for the artifact, number of ratings
-        sqratings = db.session.query(ArtifactRatings.artifact_id, func.count(ArtifactRatings.id).label('num_ratings'), func.avg(ArtifactRatings.rating).label('avg_rating')).filter(ArtifactRatings.artifact_id == artifact_id).group_by("artifact_id").all()        
-        sqreviews = db.session.query(ArtifactReviews).filter(ArtifactReviews.artifact_id == artifact_id).all()
+        sqratings = db.session.query(ArtifactRatings.artifact_id, func.count(ArtifactRatings.id).label('num_ratings'), func.avg(
+            ArtifactRatings.rating).label('avg_rating')).filter(ArtifactRatings.artifact_id == artifact_id).group_by("artifact_id").all()
+        sqreviews = db.session.query(ArtifactReviews).filter(
+            ArtifactReviews.artifact_id == artifact_id).all()
 
         # get whether the user has favorited that artifact
-        sqfavorites = db.session.query(ArtifactFavorites.artifact_id).filter(ArtifactFavorites.artifact_id == artifact_id, ArtifactFavorites.user_id == user_id).all()
-        
+        sqfavorites = db.session.query(ArtifactFavorites.artifact_id).filter(
+            ArtifactFavorites.artifact_id == artifact_id, ArtifactFavorites.user_id == user_id).all()
+
         artifact_affiliations = db.session.query(ArtifactAffiliation.affiliation_id).filter(
             ArtifactAffiliation.artifact_id == artifact_id).subquery()
         affiliations = db.session.query(Affiliation).filter(
@@ -99,7 +113,7 @@ class ArtifactAPI(Resource):
 
         artifact_schema = ArtifactSchema()
         affiliation_schema = AffiliationSchema(many=True)
-        
+
         review_schema = ArtifactReviewsSchema(many=True)
 
         response = jsonify({

@@ -9,52 +9,16 @@ from flask import abort, jsonify, request, make_response, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
 
 
-class ReviewAPI(Resource):
-    def __init__(self):
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument(name='token',
-                                   type=str,
-                                   required=False,
-                                   default='',
-                                   location='form',
-                                   help='missing SSO token from auth provider in post request')
-        self.reqparse.add_argument(name='api_key',
-                                   type=str,
-                                   required=False,
-                                   default='',
-                                   location='form',
-                                   help='missing API secret key in post request')
-        self.reqparse.add_argument(name='reviewid',
-                                   type=int,
-                                   required=False,
-                                   location='form',
-                                   help='missing review ID')
-        self.reqparse.add_argument(name='userid',
-                                   type=int,
-                                   required=False,
-                                   location='form',
-                                   help='missing ID of user rating the artifact')
-        self.reqparse.add_argument(name='subject',
-                                   type=str,
-                                   required=False,
-                                   location='form',
-                                   help='missing subject for review of artifact')
-        self.reqparse.add_argument(name='review',
-                                   type=str,
-                                   required=False,
-                                   location='form',
-                                   help='missing review for artifact')
-
+class ReviewListAPI(Resource):
     def get(self, artifact_id):
-        args = self.reqparse.parse_args()
-
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).first()
         if not artifact:
             abort(400, description='invalid artifact ID')
 
-        reviews = db.session.query(ArtifactReviews).filter(ArtifactReviews.artifact_id == artifact_id).all()
+        reviews = db.session.query(ArtifactReviews).filter(
+            ArtifactReviews.artifact_id == artifact_id).all()
         review_schema = ArtifactReviewsSchema(many=True)
         if not reviews:
             response = jsonify(
@@ -65,7 +29,43 @@ class ReviewAPI(Resource):
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
-    
+
+
+class ReviewAPI(Resource):
+    def __init__(self):
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument(name='token',
+                                   type=str,
+                                   required=True,
+                                   default='',
+                                   location='form',
+                                   help='missing SSO token from auth provider in post request')
+        self.reqparse.add_argument(name='api_key',
+                                   type=str,
+                                   required=True,
+                                   default='',
+                                   location='form',
+                                   help='missing API secret key in post request')
+        self.reqparse.add_argument(name='userid',
+                                   type=int,
+                                   required=True,
+                                   location='form',
+                                   help='missing ID of user review the artifact')
+        self.reqparse.add_argument(name='reviewid',
+                                   type=int,
+                                   required=False,
+                                   location='form',
+                                   help='missing review ID')
+        self.reqparse.add_argument(name='subject',
+                                   type=str,
+                                   required=False,
+                                   location='form',
+                                   help='missing subject for review of artifact')
+        self.reqparse.add_argument(name='review',
+                                   type=str,
+                                   required=False,
+                                   location='form',
+                                   help='missing review for artifact')
 
     def post(self, artifact_id):
         args = self.reqparse.parse_args()
@@ -104,6 +104,7 @@ class ReviewAPI(Resource):
         user_id = args['userid']
         review_id = args['reviewid']
         review = args['review']
+        subject = args['subject']
 
         # verify session credentials
         verify_api_key(api_key)
@@ -113,13 +114,14 @@ class ReviewAPI(Resource):
         existing_review = db.session.query(ArtifactReviews).filter(
             ArtifactReviews.id == review_id, ArtifactReviews.user_id == user_id, ArtifactReviews.artifact_id == artifact_id).first()
         existing_review.review = review
+        existing_review.subject = subject
         db.session.commit()
 
         response = jsonify({"message": "updated review"})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
-    
+
     def delete(self, artifact_id):
         args = self.reqparse.parse_args()
         api_key = args['api_key']
