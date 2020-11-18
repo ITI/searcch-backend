@@ -43,18 +43,15 @@ class FavoriteAPI(Resource):
                                     type=str,
                                     required=True,
                                     default='',
-                                    location='form',
                                     help='missing SSO token from auth provider in post request')
         self.reqparse.add_argument(name='api_key',
                                    type=str,
                                    required=True,
                                    default='',
-                                   location='form',
                                    help='missing API secret key in post request')
         self.reqparse.add_argument(name='userid',
                                    type=int,
                                    required=True,
-                                   location='form',
                                    help='missing ID of user favoriting the artifact')
         
         super(FavoriteAPI, self).__init__()

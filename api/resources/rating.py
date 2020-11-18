@@ -37,24 +37,20 @@ class RatingAPI(Resource):
                                     type=str,
                                     required=True,
                                     default='',
-                                    location='form',
                                     help='missing SSO token from auth provider in post request')
         self.reqparse.add_argument(name='api_key',
                                    type=str,
                                    required=True,
                                    default='',
-                                   location='form',
                                    help='missing API secret key in post request')
         self.reqparse.add_argument(name='userid',
                                    type=int,
                                    required=True,
-                                   location='form',
                                    help='missing ID of user rating the artifact')
         self.reqparse.add_argument(name='rating',
                                    type=int,
                                    required=False,
                                    choices=(0, 1, 2, 3, 4, 5),
-                                   location='form',
                                    help='missing rating for artifact')
 
         super(RatingAPI, self).__init__()

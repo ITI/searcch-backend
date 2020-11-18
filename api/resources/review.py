@@ -39,33 +39,27 @@ class ReviewAPI(Resource):
                                     type=str,
                                     required=True,
                                     default='',
-                                    location='form',
                                     help='missing SSO token from auth provider in post request')
         self.reqparse.add_argument(name='api_key',
                                    type=str,
                                    required=True,
                                    default='',
-                                   location='form',
                                    help='missing API secret key in post request')
         self.reqparse.add_argument(name='userid',
                                    type=int,
                                    required=True,
-                                   location='form',
                                    help='missing ID of user review the artifact')
         self.reqparse.add_argument(name='reviewid',
                                    type=int,
                                    required=False,
-                                   location='form',
                                    help='missing review ID')
         self.reqparse.add_argument(name='subject',
                                    type=str,
                                    required=False,
-                                   location='form',
                                    help='missing subject for review of artifact')
         self.reqparse.add_argument(name='review',
                                    type=str,
                                    required=False,
-                                   location='form',
                                    help='missing review for artifact')
 
     def post(self, artifact_id):

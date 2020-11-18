@@ -32,18 +32,15 @@ class LoginAPI(Resource):
                                    type=str,
                                    required=True,
                                    default='',
-                                   location='form',
                                    help='missing SSO token from auth provider in post request')
         self.reqparse.add_argument(name='api_key',
                                    type=str,
                                    required=True,
                                    default='',
-                                   location='form',
                                    help='missing API secret key in post request')
         self.reqparse.add_argument(name='strategy',
                                    type=str,
                                    default='',
-                                   location='form',
                                    required=True,
                                    help='missing auth strategy in post request')
 
