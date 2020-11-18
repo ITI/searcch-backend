@@ -1,13 +1,14 @@
 # logic for /login
 
+from flask import abort, jsonify, request, make_response, Blueprint
+from flask_restful import reqparse, Resource, fields, marshal
+import requests
+import datetime
+
 from api.app import db, app
 from api.common.auth import verify_api_key, verify_token
 from models.model import *
 from models.schema import *
-from datetime import datetime
-from flask import abort, jsonify, request, make_response, Blueprint
-from flask_restful import reqparse, Resource, fields, marshal
-import requests
 
 
 def verify_strategy(strategy):
@@ -16,7 +17,7 @@ def verify_strategy(strategy):
 
 
 def create_new_session(user_id, sso_token):
-    expiry_timestamp = datetime.now(
+    expiry_timestamp = datetime.datetime.now(
     ) + datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
     new_session = Sessions(
         user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp)
@@ -60,15 +61,16 @@ class LoginAPI(Resource):
             github_user_email_api = 'https://api.github.com/user/emails'
             headers = {
                 'Accept': 'application/vnd.github.v3+json',
-                'Authorization': 'token ' + sso_token
+                'Authorization': sso_token
             }
             response = requests.get(github_user_email_api, headers=headers)
             if response.status_code != requests.codes.ok:
                 abort(response.status_code, description="invalid SSO token")
+            response_json = response.json()[0]
 
             # check if Person entity with that email exists
             person = db.session.query(Person).filter(
-                Person.email == response.email).first()
+                Person.email == response_json["email"]).first()
 
             if person:  # create new session
                 user = db.session.query(User).filter(
@@ -77,7 +79,7 @@ class LoginAPI(Resource):
                 msg = 'login successful. created new session for the user'
             else:  # create new user
                 # TODO: get user's name from Github
-                new_person = Person(name='', email=response.email)
+                new_person = Person(name='', email=response_json["email"])
                 db.session.add(new_person)
                 db.session.commit()
                 db.session.refresh(new_person)
