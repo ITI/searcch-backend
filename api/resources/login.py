@@ -91,13 +91,20 @@ class LoginAPI(Resource):
                 user_id = new_user.id
                 msg = 'login successful. created new person and user entity'
 
-            response = jsonify({"userid": user_id, "message": msg})
+            response = jsonify({
+                "userid": user_id,
+                "message": msg
+            })
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
             return response
         else:
-            response = jsonify(
-                {"message": "login successful with valid session"})
+            login_session = db.session.query(Sessions).filter(
+                Sessions.sso_token == sso_token).first()
+            response = jsonify({
+                "userid": login_session.user_id,
+                "message": "login successful with valid session"
+            })
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
-            return response
+        return response
