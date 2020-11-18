@@ -5,7 +5,7 @@ from models.model import *
 from models.schema import *
 from flask import abort, jsonify, request, make_response, Blueprint, url_for
 from flask_restful import reqparse, Resource, fields, marshal
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, sql
 
 
 class ArtifactListAPI(Resource):
@@ -20,7 +20,7 @@ class ArtifactListAPI(Resource):
         """
         self.reqparse.add_argument(name='keywords',
                                    type=str,
-                                   required=True,
+                                   required=False,
                                    help='missing keywords in query string')
         # TODO: add all filters for filtered search here
 
@@ -34,16 +34,27 @@ class ArtifactListAPI(Resource):
         args = self.reqparse.parse_args()
         keywords = args['keywords']
 
-        if keywords == '':
-            docs = db.session.query(Artifact).limit(20).all()
+        sqratings = db.session.query(
+            ArtifactRatings.artifact_id,
+            func.count(ArtifactRatings.id).label('num_ratings'),
+            func.avg(ArtifactRatings.rating).label('avg_rating')
+            ).group_by("artifact_id").subquery()
+        sqreviews = db.session.query(
+            ArtifactReviews.artifact_id,
+            func.count(ArtifactReviews.id).label('num_reviews')
+            ).group_by("artifact_id").subquery()
+        if not keywords:
+            res = db.session.query(
+                Artifact,
+                sql.expression.bindparam("zero",0).label("rank"),
+                'num_ratings',
+                'avg_rating',
+                'num_reviews'
+                ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+                ).order_by(desc(Artifact.id)
+                ).paginate(max_per_page=20).items
         else:
-            sqratings = db.session.query(ArtifactRatings.artifact_id,
-                            func.count(ArtifactRatings.id).label('num_ratings'),
-                            func.avg(ArtifactRatings.rating).label('avg_rating')
-                        ).group_by("artifact_id").subquery()
-            sqreviews = db.session.query(ArtifactReviews.artifact_id,
-                            func.count(ArtifactReviews.id).label('num_reviews')
-                        ).group_by("artifact_id").subquery()
             res = db.session.query(Artifact,
                         func.ts_rank_cd(Artifact.document_with_idx, func.plainto_tsquery("english", keywords)).label("rank"),
                         'num_ratings',
