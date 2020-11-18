@@ -73,6 +73,7 @@ class LoginAPI(Resource):
                 user = db.session.query(User).filter(
                     User.person_id == person.id).first()
                 create_new_session(user.id, sso_token)
+                user_id = user.id
                 msg = 'login successful. created new session for the user'
             else:  # create new user
                 # TODO: get user's name from Github
@@ -87,9 +88,10 @@ class LoginAPI(Resource):
                 db.session.refresh(new_user)
 
                 create_new_session(new_user.id, sso_token)
+                user_id = new_user.id
                 msg = 'login successful. created new person and user entity'
 
-            response = jsonify({"message": msg})
+            response = jsonify({"userid": user_id, "message": msg})
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
             return response
