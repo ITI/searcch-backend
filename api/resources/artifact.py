@@ -1,10 +1,13 @@
 # logic for /artifacts
 
 from api.app import db
+from api.common.sql import object_from_json
+from api.common.auth import verify_api_key
 from models.model import *
 from models.schema import *
-from flask import abort, jsonify, request, make_response, Blueprint, url_for
+from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
 from flask_restful import reqparse, Resource, fields, marshal
+import sqlalchemy
 from sqlalchemy import func, desc, sql
 
 
@@ -22,6 +25,10 @@ class ArtifactListAPI(Resource):
                                    type=str,
                                    required=False,
                                    help='missing keywords in query string')
+        self.reqparse.add_argument(name='api_key',
+                                   type=str,
+                                   required=False,
+                                   default='')
         # TODO: add all filters for filtered search here
 
         super(ArtifactListAPI, self).__init__()
@@ -84,6 +91,29 @@ class ArtifactListAPI(Resource):
 
         response = jsonify({"artifacts": artifacts, "length": len(artifacts)})
         response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+    def post(self):
+        """
+        Creates a new artifact from the given JSON document, without invoking the importer.
+        """
+        args = self.reqparse.parse_args()
+        api_key = args['api_key']
+        verify_api_key(api_key)
+        j = request.json
+        del j["api_key"]
+        artifact = object_from_json(db.session,Artifact,request.json,skip_ids=True)
+        db.session.add(artifact)
+        try:
+            db.session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            #psycopg2.errors.UniqueViolation:
+            abort(400,description="duplicate artifact")
+        except:
+            abort(500)
+        db.session.expire_all()
+        response = jsonify({"id": artifact.id})
         response.status_code = 200
         return response
 
