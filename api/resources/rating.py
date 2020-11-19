@@ -34,10 +34,10 @@ class RatingAPI(Resource):
         self.reqparse = reqparse.RequestParser()
         if config_name == 'production':
             self.reqparse.add_argument(name='token',
-                                    type=str,
-                                    required=True,
-                                    default='',
-                                    help='missing SSO token from auth provider in post request')
+                                       type=str,
+                                       required=True,
+                                       default='',
+                                       help='missing SSO token from auth provider in post request')
         self.reqparse.add_argument(name='api_key',
                                    type=str,
                                    required=True,
@@ -100,10 +100,17 @@ class RatingAPI(Resource):
 
         existing_rating = db.session.query(ArtifactRatings).filter(
             ArtifactRatings.user_id == user_id, ArtifactRatings.artifact_id == artifact_id).first()
-        existing_rating.rating = rating
-        db.session.commit()
+        if existing_rating:
+            existing_rating.rating = rating
+            db.session.commit()
+            msg = "updated rating"
+        else:
+            new_rating = ArtifactRatings(user_id=user_id, artifact_id=artifact_id, rating=rating)
+            db.session.add(new_rating)
+            db.session.commit()
+            msg = "added new rating"
 
-        response = jsonify({"message": "updated rating"})
+        response = jsonify({"message": msg})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
