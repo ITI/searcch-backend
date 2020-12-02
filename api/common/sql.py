@@ -81,8 +81,6 @@ def object_from_json(session,obj_class,j,skip_ids=True,should_query=True,
             # table, into another table.  So check to see if that key is
             # nullable.
             colprop = getattr(obj_class,lcc.name).property.columns[0]
-            if not colprop.nullable and not k in j:
-                raise ValueError("missing required key '%s' (%r)" % (k,j))
             if k in j:
                 # Then we need to look for existing objects that match this
                 # one, and reference them if they exist.  We look in our cache
