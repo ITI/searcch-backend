@@ -19,7 +19,7 @@ class ArtifactFile(db.Model):
         db.UniqueConstraint("artifact_id", "parent_file_id", "url"),)
 
     def __repr__(self):
-        return "<ArtifactFile(id=%d,artifact_id=%d,parent_file_id=%d,url='%s',size=%d,mtime='%s')>" % (
+        return "<ArtifactFile(id=%r,artifact_id=%r,parent_file_id=%r,url='%s',size=%r,mtime='%s')>" % (
             self.id, self.artifact_id,
             self.parent_file_id if self.parent_file_id else 0,
             self.url, self.size,
@@ -54,7 +54,7 @@ class ArtifactMetadata(db.Model):
         db.UniqueConstraint("name", "artifact_id"),)
 
     def __repr__(self):
-        return "<ArtifactMetadata(artifact_id='%d',name='%s', value='%s')>" % (
+        return "<ArtifactMetadata(artifact_id=%r,name='%s', value='%s')>" % (
             self.artifact_id, self.name, self.value)
 
 
@@ -64,17 +64,14 @@ class ArtifactPublication(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     time = db.Column(db.DateTime, nullable=False)
-    notes = db.Column(db.String(1024))
-    exporter_id = db.Column(db.Integer, db.ForeignKey(
-        "exporters.id"), nullable=False)
-    exporter = db.relationship("Exporter", uselist=False)
+    notes = db.Column(db.Text)
     publisher_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=False)
     # publisher = db.relationship("User", uselist=False, backref="publisher_user")
     publisher = db.relationship("User", uselist=False)
 
     def __repr__(self):
-        return "<ArtifactPublication(id=%d,artifact_id=%d,time='%s',publisher='%r')>" % (
+        return "<ArtifactPublication(id=%r,artifact_id=%r,time='%s',publisher='%r')>" % (
             self.id, self.artifact_id, self.time.isoformat(), self.publisher)
 
 
@@ -86,10 +83,10 @@ class Exporter(db.Model):
     version = db.Column(db.String(32))
 
     __table_args__ = (
-        db.UniqueConstraint("name"),)
+        db.UniqueConstraint("name","version"),)
 
     def __repr__(self):
-        return "<Exporter(id=%d,name='%s',version='%s')>" % (self.id, self.name, self.version)
+        return "<Exporter(id=%r,name='%s',version='%s')>" % (self.id, self.name, self.version)
 
 
 class ArtifactTag(db.Model):
@@ -103,7 +100,7 @@ class ArtifactTag(db.Model):
         db.UniqueConstraint("tag", "artifact_id"),)
 
     def __repr__(self):
-        return "<ArtifactTag(artifact_id='%d',tag='%s')>" % (
+        return "<ArtifactTag(artifact_id=%r,tag='%s')>" % (
             self.artifact_id, self.tag)
 
 
@@ -113,13 +110,13 @@ class ArtifactCuration(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     time = db.Column(db.DateTime, nullable=False)
-    notes = db.Column(db.String(1024))
+    notes = db.Column(db.Text)
     curator_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     
     curator = db.relationship("User")
 
     def __repr__(self):
-        return "<ArtifactCuration(id=%d,artifact_id=%d,time='%s',curator='%r')>" % (
+        return "<ArtifactCuration(id=%r,artifact_id=%r,time='%s',curator='%r')>" % (
             self.id, self.artifact_id, self.time.isoformat(),
             self.curator)
 
@@ -133,11 +130,14 @@ class ArtifactAffiliation(db.Model):
     affiliation_id = db.Column(db.Integer, db.ForeignKey(
         "affiliations.id"), nullable=False)
 
+    artifact = db.relationship("Artifact",uselist=False)
+    affiliation = db.relationship("Affiliation",uselist=False)
+
     __table_args__ = (
         db.UniqueConstraint("artifact_id", "affiliation_id"),)
 
     def __repr__(self):
-        return "<ArtifactAffiliation(artifact_id=%d,affiliation_id=%d)>" % (
+        return "<ArtifactAffiliation(artifact_id=%r,affiliation_id=%r)>" % (
             self.artifact_id, self.affiliation_id)
 
 
@@ -170,14 +170,13 @@ class ArtifactRelease(db.Model):
     author_login = db.Column(db.String(128))
     author_email = db.Column(db.String(128))
     author_name = db.Column(db.String(128))
-    notes = db.Column(db.String(4096))
     tag = db.Column(db.String(128))
     title = db.Column(db.String(256))
     time = db.Column(db.DateTime)
-    notes = db.Column(db.String(1024))
+    notes = db.Column(db.Text)
 
     def __repr__(self):
-        return "<ArtifactRelease(id=%d,artifact_id=%d,url='%s',title='%s',author_email='%s',time='%s')>" % (
+        return "<ArtifactRelease(id=%r,artifact_id=%r,url='%s',title='%s',author_email='%s',time='%s')>" % (
             self.id, self.artifact_id, self.url, self.title, self.author_email,
             self.time.isoformat() if self.time else "")
 
@@ -193,7 +192,7 @@ class Importer(db.Model):
         db.UniqueConstraint("name", "version"),)
 
     def __repr__(self):
-        return "<Importer(id=%d,name='%s',version='%s')>" % (self.id, self.name, self.version)
+        return "<Importer(id=%r,name='%s',version='%s')>" % (self.id, self.name, self.version)
 
 
 class Person(db.Model):
@@ -201,15 +200,11 @@ class Person(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(128), nullable=True)
-    email = db.Column(db.String(128), nullable=False)
+    email = db.Column(db.String(128), nullable=True)
 
-    def __init__(self, name, email):
-        self.name = name
-        self.email = email
-    
     def __repr__(self):
-        return "<Person(id=%d,name='%s', email='%s')>" % (
-            self.id, self.name, self.email if self.email else "")
+        return "<Person(id=%r,name=%r, email=%r)>" % (
+            self.id,self.name,self.email)
 
 
 class UserAuthorization(db.Model):
@@ -232,7 +227,7 @@ class UserAuthorization(db.Model):
         db.UniqueConstraint("user_id", "roles", "scope", "scoped_id"),)
 
     def __repr__(self):
-        return "<UserAuthorization(user_id=%d,roles='%s',scope='%s',scoped_id='%s')>" % (
+        return "<UserAuthorization(user_id=%r,roles='%s',scope='%s',scoped_id='%s')>" % (
             self.user_id, self.roles, self.scope, str(self.scoped_id))
 
 
@@ -242,16 +237,13 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     person_id = db.Column(db.Integer, db.ForeignKey(
         "persons.id"), nullable=False)
-    person = db.relationship("Person")
+    person = db.relationship("Person",uselist=False)
 
     __table_args__ = (
         db.UniqueConstraint("person_id"),)
 
-    def __init__(self, person_id):
-        self.person_id = person_id
-    
     def __repr__(self):
-        return "<User(id=%d,person_id=%d)>" % (
+        return "<User(id=%r,person_id=%r)>" % (
             self.id, self.person_id)
 
 
@@ -266,7 +258,7 @@ class License(db.Model):
         db.UniqueConstraint("short_name"),)
 
     def __repr__(self):
-        return "<License(id=%d,short_name='%s')>" % (self.id, self.short_name)
+        return "<License(id=%r,short_name='%s')>" % (self.id, self.short_name)
 
 
 @db.event.listens_for(License.__table__, "after_create")
@@ -338,7 +330,7 @@ class PersonMetadata(db.Model):
         db.UniqueConstraint("person_id", "name"),)
 
     def __repr__(self):
-        return "<PersonMetadata(person_id='%d',name='%s')>" % (
+        return "<PersonMetadata(person_id=%r,name='%s')>" % (
             self.id, self.name)
 
 
@@ -359,13 +351,8 @@ class ArtifactRatings(db.Model):
         "artifacts.id"), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
 
-    def __init__(self, user_id, artifact_id, rating):
-        self.user_id = user_id
-        self.artifact_id = artifact_id
-        self.rating = rating
-    
     def __repr__(self):
-        return "<ArtifactRatings(id='%d', user_id='%d',artifact_id='%d',rating='%d')>" % (
+        return "<ArtifactRatings(id=%r, user_id=%r,artifact_id=%r,rating='%d')>" % (
             self.id, self.user_id, self.artifact_id, self.rating)
 
 
@@ -382,7 +369,7 @@ class ArtifactReviews(db.Model):
     reviewer = db.relationship("User")
 
     def __repr__(self):
-        return "<ArtifactReviews(id='%d', user_id='%d',artifact_id='%d',review='%s')>" % (
+        return "<ArtifactReviews(id=%r, user_id=%r,artifact_id=%r,review='%s')>" % (
             self.id, self.user_id, self.artifact_id, self.review)
 
 
@@ -397,12 +384,8 @@ class ArtifactFavorites(db.Model):
     artifact_id = db.Column(db.Integer, db.ForeignKey(
         "artifacts.id"), nullable=False)
     
-    def __init__(self, user_id, artifact_id):
-        self.user_id = user_id
-        self.artifact_id = artifact_id
-
     def __repr__(self):
-        return "<ArtifactFavorites(id='%d', user_id='%d',artifact_id='%d')>" % (
+        return "<ArtifactFavorites(id=%r, user_id=%r,artifact_id=%r)>" % (
             self.id, self.user_id, self.artifact_id)
 
 
@@ -418,15 +401,10 @@ class Sessions(db.Model):
     # session_id = db.Column(db.String(64), nullable=False)
     expires_on = db.Column(db.DateTime, nullable=False)
 
-    def __init__(self, user_id, sso_token, expires_on):
-        self.user_id = user_id
-        self.sso_token = sso_token
-        self.expires_on = expires_on
-    
     def __repr__(self):
-        # return "<Session(id='%d', user_id='%d', sso_token='%s', session_id='%s')>" \
+        # return "<Session(id=%r, user_id=%r, sso_token='%s', session_id='%s')>" \
         #             % (self.id, self.user_id, self.sso_token, self.session_id)
-        return "<Session(id='%d', user_id='%d', sso_token='%s')>" \
+        return "<Session(id=%r, user_id=%r, sso_token='%s')>" \
             % (self.id, self.user_id, self.sso_token)
 
 
@@ -454,6 +432,9 @@ class Artifact(db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     importer_id = db.Column(db.Integer, db.ForeignKey(
         "importers.id"), nullable=True)
+    exporter_id = db.Column(db.Integer, db.ForeignKey(
+        "exporters.id"), nullable=True)
+    exporter = db.relationship("Exporter", uselist=False)
     parent_id = db.Column(db.Integer, db.ForeignKey(
         "artifacts.id"), nullable=True)
     document_with_idx = db.Column(TSVECTOR)
@@ -464,10 +445,11 @@ class Artifact(db.Model):
     files = db.relationship("ArtifactFile")
     owner = db.relationship("User", uselist=False)
     importer = db.relationship("Importer", uselist=False)
-    parent = db.relationship("Artifact")
+    parent = db.relationship("Artifact",uselist=False)
     curations = db.relationship("ArtifactCuration")
     publication = db.relationship("ArtifactPublication", uselist=False)
-    releases = db.relationship("ArtifactRelease")
+    releases = db.relationship("ArtifactRelease", uselist=True)
+    affiliations = db.relationship("ArtifactAffiliation", uselist=True)
 
     __table_args__ = (
         db.UniqueConstraint("owner_id", "url", "version"),
@@ -475,5 +457,5 @@ class Artifact(db.Model):
     )
 
     def __repr__(self):
-        return "<Artifact(id=%d,title='%s',description='%s',type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r')>" % (
+        return "<Artifact(id=%r,title='%s',description='%s',type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r')>" % (
             self.id, self.title, self.description, self.type, self.url, self.owner, self.files, self.tags, self.meta)
