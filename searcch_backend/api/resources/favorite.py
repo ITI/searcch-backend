@@ -1,9 +1,9 @@
 # logic for /rating
 
-from api.app import db, config_name
-from api.common.auth import *
-from models.model import *
-from models.schema import *
+from searcch_backend.api.app import db, config_name
+from searcch_backend.api.common.auth import *
+from searcch_backend.models.model import *
+from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, url_for, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
 

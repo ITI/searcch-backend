@@ -1,10 +1,10 @@
 # logic for /artifacts
 
-from api.app import db
-from api.common.sql import object_from_json
-from api.common.auth import verify_api_key
-from models.model import *
-from models.schema import *
+from searcch_backend.api.app import db
+from searcch_backend.api.common.sql import object_from_json
+from searcch_backend.api.common.auth import verify_api_key
+from searcch_backend.models.model import *
+from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
 from flask_restful import reqparse, Resource, fields, marshal
 import sqlalchemy

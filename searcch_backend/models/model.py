@@ -1,5 +1,5 @@
-from api.app import db
-from models.licenses import *
+from searcch_backend.api.app import db
+from searcch_backend.models.licenses import *
 from sqlalchemy.dialects.postgresql import TSVECTOR
 
 

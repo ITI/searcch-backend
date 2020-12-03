@@ -1,1 +1,1 @@
-from api.app import app
+from searcch_backend.api.app import app

@@ -5,10 +5,10 @@ from flask_restful import reqparse, Resource, fields, marshal
 import requests
 import datetime
 
-from api.app import db, app
-from api.common.auth import verify_api_key, verify_token
-from models.model import *
-from models.schema import *
+from searcch_backend.api.app import db, app
+from searcch_backend.api.common.auth import verify_api_key, verify_token
+from searcch_backend.models.model import *
+from searcch_backend.models.schema import *
 
 
 def verify_strategy(strategy):

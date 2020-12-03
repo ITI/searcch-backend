@@ -1,6 +1,6 @@
-from api.app import app
-from api.app import db
-from models.model import *
+from searcch_backend.api.app import app
+from searcch_backend.api.app import db
+from searcch_backend.models.model import *
 from datetime import datetime
 from flask import abort
 
