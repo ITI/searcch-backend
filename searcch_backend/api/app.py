@@ -1,30 +1,33 @@
 # contains app and routes
 
-from config import app_config
+from searcch_backend.config import app_config
 from flask import Flask
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 import os
 
-
 # set up configurations
 app = Flask(__name__, instance_relative_config=True)
 config_name = os.getenv('FLASK_CONFIG')
 app.config.from_object(app_config[config_name])
-app.config.from_object('config')
-app.config.from_pyfile('config.py')
+app.config.from_object('searcch_backend.config')
+if os.getenv('FLASK_INSTANCE_CONFIG_FILE'):
+    app.config.from_pyfile(os.getenv('FLASK_INSTANCE_CONFIG_FILE'))
+else:
+    app.config.from_pyfile('config.py')
+
 
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 api = Api(app)
 
 
-from api.resources.artifact import ArtifactAPI, ArtifactListAPI
-from api.resources.login import LoginAPI
-from api.resources.rating import RatingAPI, UserRatingAPI
-from api.resources.review import ReviewAPI, ReviewListAPI
-from api.resources.favorite import FavoriteAPI, FavoritesListAPI
+from searcch_backend.api.resources.artifact import ArtifactAPI, ArtifactListAPI
+from searcch_backend.api.resources.login import LoginAPI
+from searcch_backend.api.resources.rating import RatingAPI, UserRatingAPI
+from searcch_backend.api.resources.review import ReviewAPI, ReviewListAPI
+from searcch_backend.api.resources.favorite import FavoriteAPI, FavoritesListAPI
 
 api.add_resource(LoginAPI, app.config['APPLICATION_ROOT'] + '/login', endpoint='api.login')
 

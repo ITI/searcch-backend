@@ -2,8 +2,8 @@
 import sqlalchemy
 import datetime
 
-from api.app import db
-from models import model
+from searcch_backend.api.app import db
+from searcch_backend.models import model
 
 def object_from_json(session,obj_class,j,skip_ids=True,should_query=True,
                      obj_cache=[],obj_cache_dicts=[]):

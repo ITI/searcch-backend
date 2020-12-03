@@ -2,8 +2,8 @@ from marshmallow_sqlalchemy import ModelSchema, SQLAlchemyAutoSchema, auto_field
 from marshmallow_sqlalchemy.convert import ModelConverter as BaseModelConverter
 from marshmallow_sqlalchemy.fields import Nested
 
-from api.app import ma
-from models.model import *
+from searcch_backend.api.app import ma
+from searcch_backend.models.model import *
 
 
 class ModelConverter(BaseModelConverter):
