@@ -49,6 +49,7 @@ class ArtifactMetadata(db.Model):
     artifact_id = db.Column(db.Integer, db.ForeignKey('artifacts.id'))
     name = db.Column(db.String(64), nullable=False)
     value = db.Column(db.String(1024), nullable=False)
+    source = db.Column(db.Text, nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint("name", "artifact_id"),)
@@ -95,6 +96,7 @@ class ArtifactTag(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey('artifacts.id'))
     tag = db.Column(db.String(64), nullable=False)
+    source = db.Column(db.Text, nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint("tag", "artifact_id"),)
