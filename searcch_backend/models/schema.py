@@ -217,3 +217,4 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     curations = Nested(ArtifactCurationSchema, many=True)
     publication = Nested(ArtifactPublicationSchema, many=False)
     releases = Nested(ArtifactReleaseSchema, many=True)
+    affiliations = Nested(ArtifactAffiliationSchema, many=True)
