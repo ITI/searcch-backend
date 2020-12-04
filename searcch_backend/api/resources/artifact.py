@@ -131,19 +131,11 @@ class ArtifactAPI(Resource):
         sqreviews = db.session.query(ArtifactReviews).filter(
             ArtifactReviews.artifact_id == artifact_id).all()
 
-        artifact_affiliations = db.session.query(ArtifactAffiliation.affiliation_id).filter(
-            ArtifactAffiliation.artifact_id == artifact_id).subquery()
-        affiliations = db.session.query(Affiliation).filter(
-            Affiliation.id.in_(artifact_affiliations)).all()
-
         artifact_schema = ArtifactSchema()
-        affiliation_schema = AffiliationSchema(many=True)
-
         review_schema = ArtifactReviewsSchema(many=True)
 
         response = jsonify({
             "artifact": artifact_schema.dump(artifact),
-            "affiliations": affiliation_schema.dump(affiliations),
             "num_ratings": sqratings[0][1] if sqratings else 0,
             "avg_rating": float(sqratings[0][2]) if sqratings else None,
             "num_reviews": len(sqreviews) if sqreviews else 0,

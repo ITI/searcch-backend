@@ -32,6 +32,7 @@ class ArtifactMetadataSchema(SQLAlchemyAutoSchema):
 class ArtifactPublicationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactPublication
+        exclude = ('artifact_id', 'publisher_id',)
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
@@ -54,21 +55,13 @@ class ArtifactTagSchema(SQLAlchemyAutoSchema):
         exclude = ('id', 'artifact_id',)
 
 
-class ArtifactAffiliationSchema(SQLAlchemyAutoSchema):
-    class Meta:
-        model = ArtifactAffiliation
-        model_converter = ModelConverter
-        include_fk = True
-        include_relationships = True
-
-
 class ArtifactFileSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactFile
+        exclude = ('id', 'artifact_id',)
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
-        exclude = ('id', 'artifact_id',)
 
 
 class ArtifactRelationshipSchema(SQLAlchemyAutoSchema):
@@ -114,6 +107,7 @@ class UserAuthorizationSchema(SQLAlchemyAutoSchema):
 class UserSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = User
+        exclude = ('person_id',)
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
@@ -124,6 +118,7 @@ class UserSchema(SQLAlchemyAutoSchema):
 class ArtifactCurationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactCuration
+        exclude = ('artifact_id', 'curator_id')
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
@@ -150,12 +145,24 @@ class OrganizationSchema(SQLAlchemyAutoSchema):
 class AffiliationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Affiliation
+        exclude = ('id', 'person_id', 'org_id')
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
 
     person = Nested(PersonSchema)
     org = Nested(OrganizationSchema)
+
+
+class ArtifactAffiliationSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactAffiliation
+        exclude = ('artifact_id', 'affiliation_id')
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    affiliation = Nested(AffiliationSchema, many=False)
 
 
 class PersonMetadataSchema(SQLAlchemyAutoSchema):
@@ -204,7 +211,8 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Artifact
         model_converter = ModelConverter
-        exclude = ('document_with_idx',)
+        exclude = ('license_id', 'owner_id', 'importer_id',
+                   'parent_id', 'exporter_id', 'document_with_idx')
         include_fk = True
         include_relationships = True
 
@@ -217,3 +225,4 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     curations = Nested(ArtifactCurationSchema, many=True)
     publication = Nested(ArtifactPublicationSchema, many=False)
     releases = Nested(ArtifactReleaseSchema, many=True)
+    affiliations = Nested(ArtifactAffiliationSchema, many=True)
