@@ -82,13 +82,23 @@ class ReviewAPI(Resource):
         if not artifact:
             abort(400, description='invalid artifact ID')
 
-        # add new review to the database
-        new_review = ArtifactReviews(
-            user_id=user_id, artifact_id=artifact_id, review=review, review_time=datetime.now(), subject=subject)
-        db.session.add(new_review)
+        # check if there exists a review by same user for same artifact already
+        existing_review = db.session.query(ArtifactReviews).filter(ArtifactReviews.artifact_id == artifact_id, ArtifactReviews.user_id == user_id).first()
+
+        # if it does, update the review, else add a new review
+        if existing_review:
+            existing_review.review = review
+            existing_review.subject = subject
+            existing_review.review_time = datetime.now()
+            message = "updated existing review"
+        else:
+            new_review = ArtifactReviews(
+                user_id=user_id, artifact_id=artifact_id, review=review, review_time=datetime.now(), subject=subject)
+            db.session.add(new_review)
+            message = "added new review"
         db.session.commit()
 
-        response = jsonify({"message": "added new review"})
+        response = jsonify({"message": message})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
