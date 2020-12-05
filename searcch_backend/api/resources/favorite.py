@@ -6,6 +6,7 @@ from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, url_for, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
+from sqlalchemy import func, desc, sql
 
 
 class FavoritesListAPI(Resource):
@@ -14,18 +15,35 @@ class FavoritesListAPI(Resource):
         return url_for('api.artifact', artifact_id=artifact_id)
 
     def get(self, user_id):
-        favorite_artifacts = db.session.query(Artifact).join(
-            ArtifactFavorites, Artifact.id == ArtifactFavorites.artifact_id).filter(ArtifactFavorites.user_id == user_id).all()
+        sqratings = db.session.query(
+            ArtifactRatings.artifact_id,
+            func.count(ArtifactRatings.id).label('num_ratings'),
+            func.avg(ArtifactRatings.rating).label('avg_rating')
+        ).group_by("artifact_id").subquery()
+        sqreviews = db.session.query(
+            ArtifactReviews.artifact_id,
+            func.count(ArtifactReviews.id).label('num_reviews')
+        ).group_by("artifact_id").subquery()
+
+        favorite_artifacts = db.session.query(Artifact, 'num_ratings', 'avg_rating', 'num_reviews'
+                                                ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                                                ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+                                                ).join(ArtifactFavorites, Artifact.id == ArtifactFavorites.artifact_id
+                                                ).filter(ArtifactFavorites.user_id == user_id
+                                                ).all()
 
         artifacts = []
-        for artifact in favorite_artifacts:
+        for artifact, num_ratings, avg_rating, num_reviews in favorite_artifacts:
             result = {
                 "id": artifact.id,
                 "uri": FavoritesListAPI.generate_artifact_uri(artifact.id),
                 "doi": artifact.url,
                 "type": artifact.type,
                 "title": artifact.title,
-                "description": artifact.description
+                "description": artifact.description,                
+                "avg_rating": float(avg_rating) if avg_rating else None,
+                "num_ratings": num_ratings if num_ratings else 0,
+                "num_reviews": num_reviews if num_reviews else 0
             }
             artifacts.append(result)
 
@@ -40,10 +58,10 @@ class FavoriteAPI(Resource):
         self.reqparse = reqparse.RequestParser()
         if config_name == 'production':
             self.reqparse.add_argument(name='token',
-                                    type=str,
-                                    required=True,
-                                    default='',
-                                    help='missing SSO token from auth provider in post request')
+                                       type=str,
+                                       required=True,
+                                       default='',
+                                       help='missing SSO token from auth provider in post request')
         self.reqparse.add_argument(name='api_key',
                                    type=str,
                                    required=True,
@@ -53,7 +71,7 @@ class FavoriteAPI(Resource):
                                    type=int,
                                    required=True,
                                    help='missing ID of user favoriting the artifact')
-        
+
         super(FavoriteAPI, self).__init__()
 
     def post(self, artifact_id):

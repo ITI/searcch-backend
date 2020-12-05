@@ -68,7 +68,6 @@ class ArtifactPublication(db.Model):
     notes = db.Column(db.Text)
     publisher_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=False)
-    # publisher = db.relationship("User", uselist=False, backref="publisher_user")
     publisher = db.relationship("User", uselist=False)
 
     def __repr__(self):
@@ -84,7 +83,7 @@ class Exporter(db.Model):
     version = db.Column(db.String(32))
 
     __table_args__ = (
-        db.UniqueConstraint("name","version"),)
+        db.UniqueConstraint("name", "version"),)
 
     def __repr__(self):
         return "<Exporter(id=%r,name='%s',version='%s')>" % (self.id, self.name, self.version)
@@ -113,8 +112,9 @@ class ArtifactCuration(db.Model):
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     time = db.Column(db.DateTime, nullable=False)
     notes = db.Column(db.Text)
-    curator_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    
+    curator_id = db.Column(
+        db.Integer, db.ForeignKey("users.id"), nullable=False)
+
     curator = db.relationship("User")
 
     def __repr__(self):
@@ -132,8 +132,7 @@ class ArtifactAffiliation(db.Model):
     affiliation_id = db.Column(db.Integer, db.ForeignKey(
         "affiliations.id"), nullable=False)
 
-    artifact = db.relationship("Artifact",uselist=False)
-    affiliation = db.relationship("Affiliation",uselist=False)
+    affiliation = db.relationship("Affiliation", uselist=False)
 
     __table_args__ = (
         db.UniqueConstraint("artifact_id", "affiliation_id"),)
@@ -206,7 +205,7 @@ class Person(db.Model):
 
     def __repr__(self):
         return "<Person(id=%r,name=%r, email=%r)>" % (
-            self.id,self.name,self.email)
+            self.id, self.name, self.email)
 
 
 class UserAuthorization(db.Model):
@@ -239,7 +238,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     person_id = db.Column(db.Integer, db.ForeignKey(
         "persons.id"), nullable=False)
-    person = db.relationship("Person",uselist=False)
+    person = db.relationship("Person", uselist=False)
 
     __table_args__ = (
         db.UniqueConstraint("person_id"),)
@@ -346,7 +345,6 @@ class ArtifactRatings(db.Model):
         db.UniqueConstraint("artifact_id", "user_id"),
     )
 
-    # id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
@@ -363,11 +361,12 @@ class ArtifactReviews(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"), nullable=False)
+    artifact_id = db.Column(db.Integer, db.ForeignKey(
+        "artifacts.id"), nullable=False)
     review = db.Column(db.Text, nullable=False)
     review_time = db.Column(db.DateTime, nullable=False)
     subject = db.Column(db.String(128), nullable=False)
-    
+
     reviewer = db.relationship("User")
 
     def __repr__(self):
@@ -385,7 +384,7 @@ class ArtifactFavorites(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
         "artifacts.id"), nullable=False)
-    
+
     def __repr__(self):
         return "<ArtifactFavorites(id=%r, user_id=%r,artifact_id=%r)>" % (
             self.id, self.user_id, self.artifact_id)
@@ -400,12 +399,9 @@ class Sessions(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     sso_token = db.Column(db.String(64), nullable=False)
-    # session_id = db.Column(db.String(64), nullable=False)
     expires_on = db.Column(db.DateTime, nullable=False)
 
     def __repr__(self):
-        # return "<Session(id=%r, user_id=%r, sso_token='%s', session_id='%s')>" \
-        #             % (self.id, self.user_id, self.sso_token, self.session_id)
         return "<Session(id=%r, user_id=%r, sso_token='%s')>" \
             % (self.id, self.user_id, self.sso_token)
 
@@ -436,22 +432,22 @@ class Artifact(db.Model):
         "importers.id"), nullable=True)
     exporter_id = db.Column(db.Integer, db.ForeignKey(
         "exporters.id"), nullable=True)
-    exporter = db.relationship("Exporter", uselist=False)
     parent_id = db.Column(db.Integer, db.ForeignKey(
         "artifacts.id"), nullable=True)
     document_with_idx = db.Column(TSVECTOR)
 
+    exporter = db.relationship("Exporter", uselist=False)
     license = db.relationship("License", uselist=False)
     meta = db.relationship("ArtifactMetadata")
     tags = db.relationship("ArtifactTag")
     files = db.relationship("ArtifactFile")
     owner = db.relationship("User", uselist=False)
     importer = db.relationship("Importer", uselist=False)
-    parent = db.relationship("Artifact",uselist=False)
+    parent = db.relationship("Artifact", uselist=False)
     curations = db.relationship("ArtifactCuration")
     publication = db.relationship("ArtifactPublication", uselist=False)
     releases = db.relationship("ArtifactRelease", uselist=True)
-    affiliations = db.relationship("ArtifactAffiliation", uselist=True)
+    affiliations = db.relationship("ArtifactAffiliation")
 
     __table_args__ = (
         db.UniqueConstraint("owner_id", "url", "version"),
