@@ -25,12 +25,12 @@ def object_from_json(session,obj_class,j,skip_ids=True,should_query=True,
     for k in obj_class.__mapper__.column_attrs.keys():
         # Skip primary keys or foreign keys.
         colprop = getattr(obj_class,k).property.columns[0]
-        if skip_ids and (colprop.primary_key or colprop.foreign_keys):
+        if skip_ids == True and (colprop.primary_key or colprop.foreign_keys):
             if k in j:
                 raise ValueError("disallowed id key '%s'" % (k,))
             continue
         # Do some basic type checks: python_type equiv, enum validity, length, required.
-        if not colprop.nullable and not k in j:
+        if skip_ids == False and not colprop.nullable and not k in j:
             raise ValueError("missing required key '%s'" % (k))
         elif not k in j:
             continue
@@ -68,7 +68,7 @@ def object_from_json(session,obj_class,j,skip_ids=True,should_query=True,
         # raise an error; we don't know what to do.  If there are no
         # objects, recurse and try to obtain one.
         if relprop.uselist:
-            if not isinstance(j[k],list):
+            if k in j and not isinstance(j[k],list):
                 raise ValueError("key '%s' must be a list")
             obj_kwargs[k] = []
 

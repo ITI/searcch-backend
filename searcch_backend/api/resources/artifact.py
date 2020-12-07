@@ -103,7 +103,7 @@ class ArtifactListAPI(Resource):
         verify_api_key(api_key)
         j = request.json
         del j["api_key"]
-        artifact = object_from_json(db.session,Artifact,request.json,skip_ids=True)
+        artifact = object_from_json(db.session,Artifact,j,skip_ids=None)
         db.session.add(artifact)
         try:
             db.session.commit()
