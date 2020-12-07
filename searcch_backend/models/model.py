@@ -153,7 +153,7 @@ class ArtifactRelationship(db.Model):
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     relation = db.Column(db.Enum(
         "cites", "supplements", "continues", "references", "documents",
-        "compiles",
+        "compiles","publishes",
         name="artifact_relationship_enum"))
     related_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     # related_artifact = db.relationship("Artifact", uselist=False, foreign_keys=[related_artifact_id], backref="related_artifacts")
@@ -450,6 +450,8 @@ class Artifact(db.Model):
     publication = db.relationship("ArtifactPublication", uselist=False)
     releases = db.relationship("ArtifactRelease", uselist=True)
     affiliations = db.relationship("ArtifactAffiliation")
+    relationships = db.relationship("ArtifactRelationship",uselist=True,
+                                    foreign_keys=[ArtifactRelationship.artifact_id])
 
     __table_args__ = (
         db.UniqueConstraint("owner_id", "url", "version"),
