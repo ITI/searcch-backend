@@ -49,14 +49,16 @@ class ArtifactMetadata(db.Model):
     artifact_id = db.Column(db.Integer, db.ForeignKey('artifacts.id'))
     name = db.Column(db.String(64), nullable=False)
     value = db.Column(db.String(1024), nullable=False)
+    type = db.Column(db.String(256), nullable=True)
     source = db.Column(db.Text, nullable=True)
 
     __table_args__ = (
-        db.UniqueConstraint("name", "artifact_id"),)
+        db.UniqueConstraint("name", "artifact_id", "value", "type"),)
 
     def __repr__(self):
-        return "<ArtifactMetadata(artifact_id=%r,name='%s', value='%s')>" % (
-            self.artifact_id, self.name, self.value)
+        return "<ArtifactMetadata(artifact_id=%r,name=%r,value=%r,type=%r,source=%r)>" % (
+            self.artifact_id, self.name, self.value, self.type,
+            self.source)
 
 
 class ArtifactPublication(db.Model):
