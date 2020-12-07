@@ -216,6 +216,7 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
         include_fk = True
         include_relationships = True
 
+    license = Nested(LicenseSchema, many=False)
     meta = Nested(ArtifactMetadataSchema, many=True)
     tags = Nested(ArtifactTagSchema, many=True)
     files = Nested(ArtifactFileSchema, many=True)
