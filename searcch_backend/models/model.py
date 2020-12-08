@@ -8,21 +8,44 @@ class ArtifactFile(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
-    parent_file_id = db.Column(db.Integer, db.ForeignKey("artifact_files.id"))
     url = db.Column(db.String(512), nullable=False)
+    name = db.Column(db.String(512))
+    filetype = db.Column(db.String(128), nullable=False)
+    content = db.Column(db.LargeBinary())
+    size = db.Column(db.Integer)
+    mtime = db.Column(db.DateTime)
+    
+    members = db.relationship("ArtifactFileMember", uselist=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("artifact_id", "url"),)
+
+    def __repr__(self):
+        return "<ArtifactFile(id=%r,artifact_id=%r,url=%r,name=%r,size=%r,mtime=%r)>" % (
+            self.id, self.artifact_id, self.url, self.name, self.size,
+            self.mtime.isoformat() if self.mtime else "")
+
+
+class ArtifactFileMember(db.Model):
+    __tablename__ = "artifact_file_members"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    parent_file_id = db.Column(db.Integer, db.ForeignKey("artifact_files.id"),nullable=False)
+    pathname = db.Column(db.String(512), nullable=False)
+    html_url = db.Column(db.String(512))
+    download_url = db.Column(db.String(512))
+    name = db.Column(db.String(512))
     filetype = db.Column(db.String(128), nullable=False)
     content = db.Column(db.LargeBinary())
     size = db.Column(db.Integer)
     mtime = db.Column(db.DateTime)
 
     __table_args__ = (
-        db.UniqueConstraint("artifact_id", "parent_file_id", "url"),)
+        db.UniqueConstraint("parent_file_id", "pathname"),)
 
     def __repr__(self):
-        return "<ArtifactFile(id=%r,artifact_id=%r,parent_file_id=%r,url='%s',size=%r,mtime='%s')>" % (
-            self.id, self.artifact_id,
-            self.parent_file_id if self.parent_file_id else 0,
-            self.url, self.size,
+        return "<ArtifactFileMember(id=%r,parent_file_id=%r,pathname=%r,name=%r,html_url=%r,size=%r,mtime=%r)>" % (
+            self.id,self.parent_file_id,self.pathname,self.name,self.html_url,self.size,
             self.mtime.isoformat() if self.mtime else "")
 
 

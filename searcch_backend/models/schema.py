@@ -55,6 +55,15 @@ class ArtifactTagSchema(SQLAlchemyAutoSchema):
         exclude = ('id', 'artifact_id',)
 
 
+class ArtifactFileMemberSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactFileMember
+        exclude = ('id', 'parent_file_id')
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+
 class ArtifactFileSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactFile
@@ -62,6 +71,8 @@ class ArtifactFileSchema(SQLAlchemyAutoSchema):
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
+
+    members = Nested(ArtifactFileMemberSchema, many=True)
 
 
 class ArtifactRelationshipSchema(SQLAlchemyAutoSchema):
