@@ -136,14 +136,17 @@ class ArtifactAPI(Resource):
         )).filter(ArtifactRatings.artifact_id == artifact_id).all()
         print(ratings)
 
-        res = ReviewRatingNestedSchema(many=True).dump(ratings)
+        # res = ReviewRatingNestedSchema(many=True).dump(ratings)
 
         response = jsonify({
             "artifact": ArtifactSchema().dump(artifact),
             "avg_rating": float(rating_aggregates[0][2]) if rating_aggregates else None,
             "num_ratings": rating_aggregates[0][1] if rating_aggregates else 0,
-            "num_reviews": len(res) if res else 0,
-            "review_rating_schema": res
+            "num_reviews": len(ratings) if ratings else 0,
+            "rating_review": [{
+                "rating": ArtifactRatingsSchema(only=("rating",)).dump(rating), 
+                "review": ArtifactReviewsSchema(exclude=("id", "artifact_id", "user_id")).dump(review)
+                } for rating, review in ratings]
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
