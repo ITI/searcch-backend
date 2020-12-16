@@ -239,3 +239,8 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     releases = Nested(ArtifactReleaseSchema, many=True)
     affiliations = Nested(ArtifactAffiliationSchema, many=True)
     relationships = Nested(ArtifactRelationshipSchema, many=True)
+
+
+class ReviewRatingNestedSchema(SQLAlchemyAutoSchema):
+    rating = Nested(ArtifactRatingsSchema, many=False)
+    review = Nested(ArtifactReviewsSchema, many=False)
