@@ -25,10 +25,6 @@ class ArtifactListAPI(Resource):
                                    type=str,
                                    required=False,
                                    help='missing keywords in query string')
-        self.reqparse.add_argument(name='api_key',
-                                   type=str,
-                                   required=False,
-                                   default='')
         # TODO: add all filters for filtered search here
 
         super(ArtifactListAPI, self).__init__()
@@ -38,6 +34,9 @@ class ArtifactListAPI(Resource):
         return url_for('api.artifact', artifact_id=artifact_id)
 
     def get(self):
+        api_key = request.headers.get('X-API-Key')
+        verify_api_key(api_key)
+
         args = self.reqparse.parse_args()
         keywords = args['keywords']
 
@@ -98,9 +97,9 @@ class ArtifactListAPI(Resource):
         """
         Creates a new artifact from the given JSON document, without invoking the importer.
         """
-        args = self.reqparse.parse_args()
-        api_key = args['api_key']
+        api_key = request.headers.get('X-API-Key')
         verify_api_key(api_key)
+
         j = request.json
         del j["api_key"]
         artifact = object_from_json(db.session,Artifact,j,skip_ids=None)
@@ -120,6 +119,9 @@ class ArtifactListAPI(Resource):
 
 class ArtifactAPI(Resource):
     def get(self, artifact_id):
+        api_key = request.headers.get('X-API-Key')
+        verify_api_key(api_key)
+
         artifact = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).first()
         if not artifact:
