@@ -10,6 +10,9 @@ from flask_restful import reqparse, Resource, fields, marshal
 
 class UserRatingAPI(Resource):
     def get(self, user_id, artifact_id):
+        api_key = request.headers.get('X-API-Key')
+        verify_api_key(api_key)
+
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).first()
@@ -38,11 +41,6 @@ class RatingAPI(Resource):
                                        required=True,
                                        default='',
                                        help='missing SSO token from auth provider in post request')
-        self.reqparse.add_argument(name='api_key',
-                                   type=str,
-                                   required=True,
-                                   default='',
-                                   help='missing API secret key in post request')
         self.reqparse.add_argument(name='userid',
                                    type=int,
                                    required=True,
@@ -57,13 +55,14 @@ class RatingAPI(Resource):
 
     def post(self, artifact_id):
         args = self.reqparse.parse_args()
-        api_key = args['api_key']
+
         if config_name == 'production':
             sso_token = args['token']
         user_id = args['userid']
         rating = args['rating']
 
         # verify session credentials
+        api_key = request.headers.get('X-API-Key')
         verify_api_key(api_key)
         if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
@@ -87,13 +86,14 @@ class RatingAPI(Resource):
 
     def put(self, artifact_id):
         args = self.reqparse.parse_args()
-        api_key = args['api_key']
+
         if config_name == 'production':
             sso_token = args['token']
         user_id = args['userid']
         rating = args['rating']
 
         # verify session credentials
+        api_key = request.headers.get('X-API-Key')
         verify_api_key(api_key)
         if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
@@ -117,12 +117,13 @@ class RatingAPI(Resource):
 
     def delete(self, artifact_id):
         args = self.reqparse.parse_args()
-        api_key = args['api_key']
+
         if config_name == 'production':
             sso_token = args['token']
         user_id = args['userid']
 
         # verify session credentials
+        api_key = request.headers.get('X-API-Key')
         verify_api_key(api_key)
         if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")

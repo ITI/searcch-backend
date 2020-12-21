@@ -33,11 +33,6 @@ class LoginAPI(Resource):
                                    required=True,
                                    default='',
                                    help='missing SSO token from auth provider in post request')
-        self.reqparse.add_argument(name='api_key',
-                                   type=str,
-                                   required=True,
-                                   default='',
-                                   help='missing API secret key in post request')
         self.reqparse.add_argument(name='strategy',
                                    type=str,
                                    default='',
@@ -46,13 +41,14 @@ class LoginAPI(Resource):
 
     def post(self):
         args = self.reqparse.parse_args(strict=True)
-        sso_token = args.get('token')
-        api_key = args.get('api_key')
-        strategy = args.get('strategy')
 
+        api_key = request.headers.get('X-API-Key')
         verify_api_key(api_key)
+
+        strategy = args.get('strategy')
         verify_strategy(strategy)
 
+        sso_token = args.get('token')
         if not verify_token(sso_token):
             # get email from Github
             github_user_email_api = 'https://api.github.com/user/emails'
