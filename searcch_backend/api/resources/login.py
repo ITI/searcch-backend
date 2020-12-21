@@ -64,10 +64,10 @@ class LoginAPI(Resource):
             if response.status_code != requests.codes.ok:
                 abort(response.status_code, description="invalid SSO token")
             response_json = response.json()[0]
+            user_email = response_json["email"]
 
             # check if Person entity with that email exists
-            person = db.session.query(Person).filter(
-                Person.email == response_json["email"]).first()
+            person = db.session.query(Person).filter(Person.email == user_email).first()
 
             if person:  # create new session
                 user = db.session.query(User).filter(
@@ -76,8 +76,20 @@ class LoginAPI(Resource):
                 user_id = user.id
                 msg = 'login successful. created new session for the user'
             else:  # create new user
-                # TODO: get user's name from Github
-                new_person = Person(name='', email=response_json["email"])
+                github_user_details_api = 'https://api.github.com/user'
+                headers = {
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Authorization': sso_token
+                }
+                response = requests.get(github_user_details_api, headers=headers)
+                
+                if response.status_code != requests.codes.ok:
+                    abort(response.status_code, description="invalid SSO token")
+                user_details_json = response.json()[0]
+                user_name = user_details_json["name"] if user_details_json["name"] != '' else user_details_json["login"]
+                
+                # create database entities
+                new_person = Person(name=user_name, email=user_email)
                 db.session.add(new_person)
                 db.session.commit()
                 db.session.refresh(new_person)
