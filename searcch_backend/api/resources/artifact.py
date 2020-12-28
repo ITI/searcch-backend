@@ -34,9 +34,6 @@ class ArtifactListAPI(Resource):
         return url_for('api.artifact', artifact_id=artifact_id)
 
     def get(self):
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
-
         args = self.reqparse.parse_args()
         keywords = args['keywords']
 
@@ -120,7 +117,8 @@ class ArtifactListAPI(Resource):
 class ArtifactAPI(Resource):
     def get(self, artifact_id):
         api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
+        if api_key:
+            verify_api_key(api_key)
 
         artifact = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).first()
@@ -141,7 +139,7 @@ class ArtifactAPI(Resource):
             "num_ratings": sqratings[0][1] if sqratings else 0,
             "avg_rating": float(sqratings[0][2]) if sqratings else None,
             "num_reviews": len(sqreviews) if sqreviews else 0,
-            "reviews": review_schema.dump(sqreviews)
+            "reviews": review_schema.dump(sqreviews) if api_key else []
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
