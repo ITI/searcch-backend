@@ -34,9 +34,6 @@ class ArtifactListAPI(Resource):
         return url_for('api.artifact', artifact_id=artifact_id)
 
     def get(self):
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
-
         args = self.reqparse.parse_args()
         keywords = args['keywords']
 
@@ -121,7 +118,8 @@ class ArtifactListAPI(Resource):
 class ArtifactAPI(Resource):
     def get(self, artifact_id):
         api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
+        if api_key:
+            verify_api_key(api_key)
 
         artifact = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).first()
