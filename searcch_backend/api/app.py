@@ -28,6 +28,7 @@ from searcch_backend.api.resources.login import LoginAPI
 from searcch_backend.api.resources.rating import RatingAPI, UserRatingAPI
 from searcch_backend.api.resources.review import ReviewAPI, ReviewListAPI
 from searcch_backend.api.resources.favorite import FavoriteAPI, FavoritesListAPI
+from searcch_backend.api.resources.user import UserProfileAPI
 
 api.add_resource(LoginAPI, app.config['APPLICATION_ROOT'] + '/login', endpoint='api.login')
 
@@ -42,3 +43,5 @@ api.add_resource(ReviewListAPI, app.config['APPLICATION_ROOT'] + '/reviews/<int:
 
 api.add_resource(FavoritesListAPI, app.config['APPLICATION_ROOT'] + '/favorites/<int:user_id>', endpoint='api.favorites')
 api.add_resource(FavoriteAPI, app.config['APPLICATION_ROOT'] + '/favorite/<int:artifact_id>', endpoint='api.favorite')
+
+api.add_resource(UserProfileAPI, app.config['APPLICATION_ROOT'] + '/user', endpoint='api.user')
