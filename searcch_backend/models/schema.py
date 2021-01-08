@@ -239,3 +239,37 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     releases = Nested(ArtifactReleaseSchema, many=True)
     affiliations = Nested(ArtifactAffiliationSchema, many=True)
     relationships = Nested(ArtifactRelationshipSchema, many=True)
+
+
+class ArtifactImportSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactImport
+        model_converter = ModelConverter
+        exclude = ()
+        include_fk = True
+        include_relationships = True
+
+    owner = Nested(UserSchema, many=False)
+    #parent = Nested(ArtifactSchema, many=False)
+    artifact = Nested(ArtifactSchema, many=False)
+
+
+class ImporterInstanceSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ImporterInstance
+        model_converter = ModelConverter
+        exclude = ()
+        include_fk = True
+        include_relationships = True
+
+
+class ImporterScheduleSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ImporterSchedule
+        model_converter = ModelConverter
+        exclude = ()
+        include_fk = True
+        include_relationships = True
+
+    artifact_import = Nested(ArtifactImportSchema, many=False)
+    importer_instance = Nested(ImporterInstanceSchema, many=False)

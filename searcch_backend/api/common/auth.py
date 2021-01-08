@@ -9,7 +9,7 @@ def verify_api_key(api_key):
     if api_key == '':
         abort(403, description="missing secret api key")
     if api_key != app.config.get('SHARED_SECRET_KEY'):
-        abort(403, description="incorrect secret api key")
+        abort(401, description="incorrect secret api key")
 
 
 def verify_token(sso_token):

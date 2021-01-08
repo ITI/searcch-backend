@@ -3,6 +3,15 @@ from searcch_backend.models.licenses import *
 from sqlalchemy.dialects.postgresql import TSVECTOR
 
 
+ARTIFACT_TYPES = (
+    "dataset", "executable", "methodology", "metrics",
+    "priorwork", "publication", "hypothesis", "code", "domain",
+    "supportinginfo"
+)
+ARTIFACT_IMPORT_TYPES = (
+    "unknown", *ARTIFACT_TYPES
+)
+
 class ArtifactFile(db.Model):
     __tablename__ = "artifact_files"
 
@@ -438,10 +447,7 @@ class Artifact(db.Model):
     __tablename__ = "artifacts"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    type = db.Column(db.Enum("dataset", "executable", "methodology", "metrics",
-                             "priorwork", "publication", "hypothesis", "code", "domain",
-                             "supportinginfo",
-                             name="artifact_enum"))
+    type = db.Column(db.Enum(*ARTIFACT_TYPES,name="artifact_enum"))
     version = db.Column(db.Integer, nullable=False, default=0)
     url = db.Column(db.String(1024), nullable=False)
     ext_id = db.Column(db.String(512), nullable=False)
@@ -484,3 +490,112 @@ class Artifact(db.Model):
     def __repr__(self):
         return "<Artifact(id=%r,title='%s',description='%s',type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r')>" % (
             self.id, self.title, self.description, self.type, self.url, self.owner, self.files, self.tags, self.meta)
+
+ARTIFACT_IMPORT_STATUSES = (
+    "pending", "scheduled", "running", "completed", "failed"
+)
+ARTIFACT_IMPORT_PHASES = (
+    "start", "validate", "import", "retrieve", "extract", "done"
+)
+
+class ArtifactImport(db.Model):
+    """
+    ArtifactImport represents an ongoing or completed artifact import session.
+    """
+
+    __tablename__ = "artifact_imports"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    type = db.Column(db.Enum(
+        *ARTIFACT_IMPORT_TYPES,name="artifact_imports_type_enum"),
+        nullable=False)
+    url = db.Column(db.String(1024), nullable=False)
+    #parent_id = db.Column(db.Integer, db.ForeignKey(
+    #    "artifacts.id"), nullable=True)
+    importer_module_name = db.Column(db.String(256), nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    ctime = db.Column(db.DateTime, nullable=False)
+    mtime = db.Column(db.DateTime, nullable=True)
+    # Status of the import from back end's perspective
+    status = db.Column(db.Enum(
+        *ARTIFACT_IMPORT_STATUSES,
+        name="artifact_imports_status_enum"), nullable=False)
+    # Importer phase
+    phase = db.Column(db.Enum(
+        *ARTIFACT_IMPORT_PHASES,
+        name="artifact_imports_phase_enum"), nullable=False)
+    message = db.Column(db.Text, nullable=True)
+    progress = db.Column(db.Float, default=0.0)
+    bytes_retrieved = db.Column(db.Integer, default=0, nullable=False)
+    bytes_extracted = db.Column(db.Integer, default=0, nullable=False)
+    log = db.Column(db.Text, nullable=True)
+    # Only set once status=complete and phase=done
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"), nullable=True)
+
+    owner = db.relationship("User", uselist=False)
+    #parent = db.relationship("Artifact", uselist=False)
+    artifact = db.relationship("Artifact", uselist=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("owner_id","url","artifact_id"),
+    )
+
+    def __repr__(self):
+        return "<ArtifactImport(id=%r,type=%r,url=%r,importer_module_name=%r,owner=%r,status=%r,artifact=%r)>" % (
+            self.id, self.type, self.url, self.importer_module_name,
+            self.owner, self.status, self.artifact)
+
+
+class ImporterInstance(db.Model):
+    """
+    Represents registered, authorized importer instances.
+    """
+    __tablename__ = "importer_instances"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    url = db.Column(db.String(1024), nullable=False)
+    key = db.Column(db.String(128), nullable=False)
+    max_tasks = db.Column(db.Integer, nullable=False)
+    status = db.Column(db.Enum(
+        "up", "down", "stale", name="importer_instances_status_enum"),
+        nullable=False)
+    status_time = db.Column(db.DateTime, nullable=False)
+    admin_status = db.Column(db.Enum(
+        "enabled","disabled", name="importer_instances_admin_status_enum"),
+        nullable=False)
+    admin_status_time = db.Column(db.DateTime, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("url","key"),
+    )
+
+    def __repr__(self):
+        return "<ImporterInstance(id=%r,url=%r,status=%r,status_time=%r,admin_status=%r,admin_status_time=%r)>" % (
+            self.id, self.url, self.status, self.status_time, self.admin_status, self.admin_status_time)
+
+
+class ImporterSchedule(db.Model):
+    """
+    Represents scheduled and pending imports.
+    """
+    __tablename__ = "importer_schedules"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    artifact_import_id = db.Column(
+        db.Integer, db.ForeignKey("artifact_imports.id"), nullable=False)
+    importer_instance_id = db.Column(
+        db.Integer, db.ForeignKey("importer_instances.id"), nullable=True)
+    schedule_time = db.Column(db.DateTime, nullable=True)
+    # NB: this is the ID of the artifact import in the importer instance
+    remote_id = db.Column(db.Integer, nullable=True)
+    
+    artifact_import = db.relationship("ArtifactImport", uselist=False)
+    importer_instance = db.relationship("ImporterInstance", uselist=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("artifact_import_id"),
+    )
+
+    def __repr__(self):
+        return "<ImporterSchedule(id=%r,artifact_import=%r,importer_instance=%r,schedule_time=%r" % (
+            self.id, self.artifact_import, self.importer_instance, self.schedule_time)

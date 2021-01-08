@@ -9,6 +9,7 @@ from flask import abort, jsonify, request, make_response, Blueprint, url_for, Re
 from flask_restful import reqparse, Resource, fields, marshal
 import sqlalchemy
 from sqlalchemy import func, desc, sql
+import traceback
 
 
 class ArtifactListAPI(Resource):
@@ -105,8 +106,10 @@ class ArtifactListAPI(Resource):
             db.session.commit()
         except sqlalchemy.exc.IntegrityError:
             #psycopg2.errors.UniqueViolation:
+            traceback.print_exc()
             abort(400,description="duplicate artifact")
         except:
+            traceback.print_exc()
             abort(500)
         db.session.expire_all()
         response = jsonify({"id": artifact.id})
