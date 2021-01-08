@@ -15,6 +15,9 @@ class FavoritesListAPI(Resource):
         return url_for('api.artifact', artifact_id=artifact_id)
 
     def get(self, user_id):
+        api_key = request.headers.get('X-API-Key')
+        verify_api_key(api_key)
+
         sqratings = db.session.query(
             ArtifactRatings.artifact_id,
             func.count(ArtifactRatings.id).label('num_ratings'),
@@ -62,11 +65,6 @@ class FavoriteAPI(Resource):
                                        required=True,
                                        default='',
                                        help='missing SSO token from auth provider in post request')
-        self.reqparse.add_argument(name='api_key',
-                                   type=str,
-                                   required=True,
-                                   default='',
-                                   help='missing API secret key in post request')
         self.reqparse.add_argument(name='userid',
                                    type=int,
                                    required=True,
@@ -76,12 +74,12 @@ class FavoriteAPI(Resource):
 
     def post(self, artifact_id):
         args = self.reqparse.parse_args()
-        api_key = args['api_key']
         if config_name == 'production':
             sso_token = args['token']
         user_id = args['userid']
 
         # verify session credentials
+        api_key = request.headers.get('X-API-Key')
         verify_api_key(api_key)
         if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
@@ -105,12 +103,12 @@ class FavoriteAPI(Resource):
 
     def delete(self, artifact_id):
         args = self.reqparse.parse_args()
-        api_key = args['api_key']
         if config_name == 'production':
             sso_token = args['token']
         user_id = args['userid']
 
         # verify session credentials
+        api_key = request.headers.get('X-API-Key')
         verify_api_key(api_key)
         if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
