@@ -17,12 +17,18 @@ def verify_strategy(strategy):
 
 
 def create_new_session(user_id, sso_token):
-    expiry_timestamp = datetime.datetime.now(
-    ) + datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
-    new_session = Sessions(
-        user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp)
-    db.session.add(new_session)
-    db.session.commit()
+    login_session = db.session.query(Sessions).filter(Sessions.sso_token == sso_token).first()
+    if login_session:
+        if login_session.expires_on < datetime.now():  # token has expired
+            db.session.delete(login_session)
+            db.session.commit()
+    else:
+        expiry_timestamp = datetime.datetime.now(
+        ) + datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
+        new_session = Sessions(
+            user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp)
+        db.session.add(new_session)
+        db.session.commit()
 
 
 class LoginAPI(Resource):
