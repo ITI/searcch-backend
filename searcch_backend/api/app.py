@@ -66,8 +66,8 @@ api.add_resource(FavoriteAPI, approot + '/favorite/<int:artifact_id>', endpoint=
 
 api.add_resource(UserProfileAPI, approot + '/user', endpoint='api.user')
 
-api.add_resource(ArtifactImportResourceRoot, approot + '/artifact/import')
-api.add_resource(ArtifactImportResource, approot + '/artifact/import/<int:artifact_import_id>')
+api.add_resource(ArtifactImportResourceRoot, approot + '/artifact/imports', endpoint='api.artifact_imports')
+api.add_resource(ArtifactImportResource, approot + '/artifact/import/<int:artifact_import_id>', endpoint='api.artifact_import')
 
-api.add_resource(ImporterResourceRoot, approot + '/importer')
-api.add_resource(ImporterResource, approot + '/importer/<int:importer_instance_id>')
+api.add_resource(ImporterResourceRoot, approot + '/importers', endpoint='api.importers')
+api.add_resource(ImporterResource, approot + '/importer/<int:importer_instance_id>', endpoint='api.importer')
