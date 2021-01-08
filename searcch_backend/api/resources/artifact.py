@@ -8,7 +8,7 @@ from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
 from flask_restful import reqparse, Resource, fields, marshal
 import sqlalchemy
-from sqlalchemy import func, desc, sql
+from sqlalchemy import func, desc, sql, and_
 
 
 class ArtifactListAPI(Resource):
@@ -41,33 +41,34 @@ class ArtifactListAPI(Resource):
             ArtifactRatings.artifact_id,
             func.count(ArtifactRatings.id).label('num_ratings'),
             func.avg(ArtifactRatings.rating).label('avg_rating')
-            ).group_by("artifact_id").subquery()
+        ).group_by("artifact_id").subquery()
         sqreviews = db.session.query(
             ArtifactReviews.artifact_id,
             func.count(ArtifactReviews.id).label('num_reviews')
-            ).group_by("artifact_id").subquery()
+        ).group_by("artifact_id").subquery()
         if not keywords:
             res = db.session.query(
                 Artifact,
-                sql.expression.bindparam("zero",0).label("rank"),
+                sql.expression.bindparam("zero", 0).label("rank"),
                 'num_ratings',
                 'avg_rating',
                 'num_reviews'
-                ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
-                ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
-                ).order_by(desc(Artifact.id)
-                ).paginate(max_per_page=20).items
+            ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                   ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+                          ).order_by(desc(Artifact.id)
+                                     ).paginate(max_per_page=20).items
         else:
             res = db.session.query(Artifact,
-                        func.ts_rank_cd(Artifact.document_with_idx, func.plainto_tsquery("english", keywords)).label("rank"),
-                        'num_ratings',
-                        'avg_rating',
-                        'num_reviews'
-                        ).filter(Artifact.document_with_idx.op('@@')(func.plainto_tsquery("english", keywords))
-                            ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
-                            ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
-                        ).order_by(desc("rank")
-                        ).all()
+                                   func.ts_rank_cd(Artifact.document_with_idx, func.plainto_tsquery(
+                                       "english", keywords)).label("rank"),
+                                   'num_ratings',
+                                   'avg_rating',
+                                   'num_reviews'
+                                   ).filter(Artifact.document_with_idx.op('@@')(func.plainto_tsquery("english", keywords))
+                                            ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                                                   ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+                                                          ).order_by(desc("rank")
+                                                                     ).all()
 
         artifacts = []
         for artifact, relevance_score, num_ratings, avg_rating, num_reviews in res:
@@ -99,13 +100,13 @@ class ArtifactListAPI(Resource):
 
         j = request.json
         del j["api_key"]
-        artifact = object_from_json(db.session,Artifact,j,skip_ids=None)
+        artifact = object_from_json(db.session, Artifact, j, skip_ids=None)
         db.session.add(artifact)
         try:
             db.session.commit()
         except sqlalchemy.exc.IntegrityError:
-            #psycopg2.errors.UniqueViolation:
-            abort(400,description="duplicate artifact")
+            # psycopg2.errors.UniqueViolation:
+            abort(400, description="duplicate artifact")
         except:
             abort(500)
         db.session.expire_all()
@@ -126,20 +127,26 @@ class ArtifactAPI(Resource):
             abort(404, description='invalid ID for artifact')
 
         # get average rating for the artifact, number of ratings
-        sqratings = db.session.query(ArtifactRatings.artifact_id, func.count(ArtifactRatings.id).label('num_ratings'), func.avg(
+        rating_aggregates = db.session.query(ArtifactRatings.artifact_id, func.count(ArtifactRatings.id).label('num_ratings'), func.avg(
             ArtifactRatings.rating).label('avg_rating')).filter(ArtifactRatings.artifact_id == artifact_id).group_by("artifact_id").all()
-        sqreviews = db.session.query(ArtifactReviews).filter(
-            ArtifactReviews.artifact_id == artifact_id).all()
 
-        artifact_schema = ArtifactSchema()
-        review_schema = ArtifactReviewsSchema(many=True)
+        ratings = db.session.query(ArtifactRatings, ArtifactReviews).join(ArtifactReviews, and_(
+            ArtifactRatings.user_id == ArtifactReviews.user_id,
+            ArtifactRatings.artifact_id == ArtifactReviews.artifact_id
+        )).filter(ArtifactRatings.artifact_id == artifact_id).all()
+        print(ratings)
+
+        # res = ReviewRatingNestedSchema(many=True).dump(ratings)
 
         response = jsonify({
-            "artifact": artifact_schema.dump(artifact),
-            "num_ratings": sqratings[0][1] if sqratings else 0,
-            "avg_rating": float(sqratings[0][2]) if sqratings else None,
-            "num_reviews": len(sqreviews) if sqreviews else 0,
-            "reviews": review_schema.dump(sqreviews) if api_key else []
+            "artifact": ArtifactSchema().dump(artifact),
+            "avg_rating": float(rating_aggregates[0][2]) if rating_aggregates else None,
+            "num_ratings": rating_aggregates[0][1] if rating_aggregates else 0,
+            "num_reviews": len(ratings) if ratings else 0,
+            "rating_review": [{
+                "rating": ArtifactRatingsSchema(only=("rating",)).dump(rating), 
+                "review": ArtifactReviewsSchema(exclude=("id", "artifact_id", "user_id")).dump(review)
+                } for rating, review in ratings]
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
