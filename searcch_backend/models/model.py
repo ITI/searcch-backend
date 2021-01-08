@@ -531,6 +531,7 @@ class ArtifactImport(db.Model):
     log = db.Column(db.Text, nullable=True)
     # Only set once status=complete and phase=done
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"), nullable=True)
+    archived = db.Column(db.Boolean, nullable=False, default=False)
 
     owner = db.relationship("User", uselist=False)
     #parent = db.relationship("Artifact", uselist=False)

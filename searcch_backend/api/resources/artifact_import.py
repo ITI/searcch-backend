@@ -12,7 +12,7 @@ from flask_restful import reqparse, Resource, fields, marshal
 
 from searcch_backend.models.model import (
     ArtifactImport, ImporterSchedule, ImporterInstance,
-    Artifact,
+    Artifact, User,
     ARTIFACT_IMPORT_TYPES,
     ARTIFACT_IMPORT_STATUSES, ARTIFACT_IMPORT_PHASES )
 from searcch_backend.models.schema import (
@@ -27,21 +27,66 @@ LOG = logging.getLogger(__name__)
 class ArtifactImportResourceRoot(Resource):
 
     def __init__(self):
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument(
+        self.postparse = reqparse.RequestParser()
+        self.postparse.add_argument(
             name="userid", type=int, required=True,
             help="userid argument required")
-        self.reqparse.add_argument(
+        self.postparse.add_argument(
             name="url", type=str, required=True,
             help="Artifact source URL required")
-        self.reqparse.add_argument(
+        self.postparse.add_argument(
             name="importer_module_name", type=str, required=False,
             help="A specific importer name to use")
-        self.reqparse.add_argument(
+        self.postparse.add_argument(
             name="type", type=str, required=False,
             help="A specific type of artifact; defaults to `unknown`; one of (%s)" % (
                 ",".join(ARTIFACT_IMPORT_TYPES)))
+
+        self.getparse = reqparse.RequestParser()
+        self.getparse.add_argument(
+            name="userid", type=int, required=True, location="args",
+            help="userid argument required")
+        self.getparse.add_argument(
+            name="status", type=str, required=False, location="args",
+            help="status must be one of pending,scheduled,running,completed,failed")
+        self.getparse.add_argument(
+            name="archived", type=bool, required=False, location="args",
+            default=False, help="if set True, show archived imports")
+
         super(ArtifactImportResourceRoot, self).__init__()
+
+    def get(self):
+        """
+        Get a list of artifact imports.  May be filtered by userid
+        (currently required) or status (optional)
+        (pending,scheduled,running,completed,failed).
+        """
+        api_key = request.headers.get('X-Api-Key')
+        verify_api_key(api_key)
+
+        args = self.getparse.parse_args()
+        userid = args["userid"]
+        status = args["status"]
+
+        user = db.session.query(User).filter(User.id == userid).first()
+        if not user:
+            abort(404, description="no such user")
+
+        artifact_imports = db.session.query(ArtifactImport)\
+          .filter(ArtifactImport.owner_id == userid)
+        if status:
+            artifact_imports = artifact_imports.filter(ArtifactImport.status == status)
+        if not args["archived"]:
+            artifact_imports = artifact_imports.filter(ArtifactImport.archived == False)
+        #else:
+        #    artifact_imports = db.session.query(ArtifactImport)\
+        #      .filter(ArtifactImport.owner_id == userid).all()
+        artifact_imports = artifact_imports.all()
+
+        response = jsonify({"artifact_imports": ArtifactImportSchema(many=True).dump(artifact_imports)})
+        response.status_code = 200
+        return response
+
 
     def post(self):
         """
@@ -50,56 +95,66 @@ class ArtifactImportResourceRoot(Resource):
         api_key = request.headers.get('X-Api-Key')
         verify_api_key(api_key)
 
-        args = self.reqparse.parse_args()
+        args = self.postparse.parse_args()
         if "type" in args and args["type"] and args["type"] not in ARTIFACT_IMPORT_TYPES:
             abort(400, description="invalid artifact type")
-        user_id = args["userid"]
+        userid = args["userid"]
         del args["userid"]
 
         res = db.session.query(ArtifactImport).\
           filter(ArtifactImport.url == args["url"]).\
-          filter(ArtifactImport.owner_id == user_id).\
+          filter(ArtifactImport.owner_id == userid).\
           filter(ArtifactImport.artifact_id == None).all()
         if len(res) > 0:
-            abort(400, description="userid %r already importing from %r" % (user_id,args["url"]))
+            abort(400, description="userid %r already importing from %r" % (userid,args["url"]))
 
         dt = datetime.datetime.now()
         ai = ArtifactImport(
-            **args,owner_id=user_id,ctime=dt,mtime=dt,status="pending",phase="start")
+            **args,owner_id=userid,ctime=dt,mtime=dt,status="pending",
+            phase="start",archived=False)
         ims = ImporterSchedule(artifact_import=ai)
         db.session.add(ai)
         db.session.add(ims)
         db.session.commit()
+        db.session.refresh(ai)
 
         LOG.debug("scheduling %r" % (ai,))
         threading.Thread(target=schedule_import,name="schedule_import").start()
 
-        return Response(status=200)
+        response = jsonify(ArtifactImportSchema().dump(ai))
+        response.status_code = 200
+
+        return response
 
 
 class ArtifactImportResource(Resource):
 
     def __init__(self):
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument(
-            name="mtime", type=str, required=True,
+        self.putparse = reqparse.RequestParser()
+        self.putparse.add_argument(
+            name="userid", type=int, required=False)
+        self.putparse.add_argument(
+            name="mtime", type=str, required=False,
             help="mtime argument required (ISO-formatted timestamp)")
-        self.reqparse.add_argument(
+        self.putparse.add_argument(
             name="status", type=str, required=False)
-        self.reqparse.add_argument(
+        self.putparse.add_argument(
             name="phase", type=str, required=False)
-        self.reqparse.add_argument(
+        self.putparse.add_argument(
             name="message", type=str, required=False)
-        self.reqparse.add_argument(
+        self.putparse.add_argument(
             name="progress", type=float, required=False)
-        self.reqparse.add_argument(
+        self.putparse.add_argument(
             name="bytes_retrieved", type=int, required=False)
-        self.reqparse.add_argument(
+        self.putparse.add_argument(
             name="bytes_extracted", type=int, required=False)
-        self.reqparse.add_argument(
+        self.putparse.add_argument(
             name="log", type=str, required=False)
-        self.reqparse.add_argument(
+        self.putparse.add_argument(
             name="artifact", type=dict, required=False)
+        self.putparse.add_argument(
+            name="archived", type=bool, required=False)
+
         super(ArtifactImportResource, self).__init__()
 
     def get(self, artifact_import_id):
@@ -129,8 +184,14 @@ class ArtifactImportResource(Resource):
         if not artifact_import:
             abort(404, description="invalid artifact import ID")
 
-        args = self.reqparse.parse_args()
-        args["mtime"] = dateutil.parser.parse(args["mtime"])
+        args = self.putparse.parse_args()
+        if not args or len(args) < 1:
+            abort(400, description="no properties sent to modify")
+        if args["userid"] and artifact_import.owner_id != args["userid"]:
+            abort(403, description="userid %r does not own this artifact" % (args["userid"],))
+        if args["userid"]:
+            if args["archived"] == None or len(vars(args)) > 2:
+                abort(400, description="userid %r may only change archived status" % (args["userid"],))
         if args["status"] != None and args["status"] not in ARTIFACT_IMPORT_STATUSES:
             abort(400, description="invalid status (must be one of %s)" % (
                 ",".join(ARTIFACT_IMPORT_STATUSES)))
@@ -138,6 +199,10 @@ class ArtifactImportResource(Resource):
             abort(400, description="invalid phase (must be one of %s)" % (
                 ",".join(ARTIFACT_IMPORT_PHASES)))
 
+        if args["mtime"]:
+            args["mtime"] = dateutil.parser.parse(args["mtime"])
+        else:
+            args["mtime"] = datetime.datetime.now()
         artifact = args.get("artifact",None)
         del args["artifact"]
 
