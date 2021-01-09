@@ -166,7 +166,7 @@ class ArtifactImportResource(Resource):
         if not artifact_import:
             abort(404, description="invalid artifact import ID")
 
-        response = jsonify(artifact_import)
+        response = jsonify(ArtifactImportSchema().dump(artifact_import))
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
@@ -228,6 +228,8 @@ class ArtifactImportResource(Resource):
                 try:
                     db.session.commit()
                     db.session.refresh(artifact)
+                    artifact_import.artifact = artifact
+                    db.session.commit()
                     response = jsonify(dict(id=artifact.id))
                     response.status_code = 200
                     return response
