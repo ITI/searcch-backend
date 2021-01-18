@@ -19,7 +19,7 @@ def verify_strategy(strategy):
 def create_new_session(user_id, sso_token):
     login_session = db.session.query(Sessions).filter(Sessions.sso_token == sso_token).first()
     if login_session:
-        if login_session.expires_on < datetime.now():  # token has expired
+        if login_session.expires_on < datetime.datetime.now():  # token has expired
             db.session.delete(login_session)
             db.session.commit()
     else:
@@ -87,7 +87,8 @@ class LoginAPI(Resource):
                 
                 if response.status_code != requests.codes.ok:
                     abort(response.status_code, description="invalid SSO token")
-                user_details_json = response.json()[0]
+                
+                user_details_json = response.json()
                 user_name = user_details_json["name"] if user_details_json["name"] != '' else user_details_json["login"]
                 
                 # create database entities
