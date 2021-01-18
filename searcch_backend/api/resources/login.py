@@ -75,8 +75,11 @@ class LoginAPI(Resource):
                 user = db.session.query(User).filter(
                     User.person_id == person.id).first()
                 create_new_session(user.id, sso_token)
-                user_id = user.id
-                msg = 'login successful. created new session for the user'
+                response = jsonify({
+                    "person": PersonSchema().dump(person),
+                    "message": "login successful. created new session for the user"
+                })
+
             else:  # create new user
                 github_user_details_api = 'https://api.github.com/user'
                 headers = {
@@ -103,21 +106,19 @@ class LoginAPI(Resource):
                 db.session.refresh(new_user)
 
                 create_new_session(new_user.id, sso_token)
-                user_id = new_user.id
-                msg = 'login successful. created new person and user entity'
-
-            response = jsonify({
-                "userid": user_id,
-                "message": msg
-            })
+                response = jsonify({
+                    "person": PersonSchema().dump(new_person),
+                    "message": "login successful. created new person and user entity"
+                })
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
             return response
         else:
-            login_session = db.session.query(Sessions).filter(
-                Sessions.sso_token == sso_token).first()
+            login_session = db.session.query(Sessions).filter(Sessions.sso_token == sso_token).first()
+            existing_user = db.session.query(User).filter(User.id == login_session.user_id).first()
+            existing_person = db.session.query(Person).filter(Person.id == existing_user.person_id).first()
             response = jsonify({
-                "userid": login_session.user_id,
+                "person": PersonSchema().dump(existing_person),
                 "message": "login successful with valid session"
             })
             response.headers.add('Access-Control-Allow-Origin', '*')
