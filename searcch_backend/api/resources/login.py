@@ -17,12 +17,18 @@ def verify_strategy(strategy):
 
 
 def create_new_session(user_id, sso_token):
-    expiry_timestamp = datetime.datetime.now(
-    ) + datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
-    new_session = Sessions(
-        user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp)
-    db.session.add(new_session)
-    db.session.commit()
+    login_session = db.session.query(Sessions).filter(Sessions.sso_token == sso_token).first()
+    if login_session:
+        if login_session.expires_on < datetime.datetime.now():  # token has expired
+            db.session.delete(login_session)
+            db.session.commit()
+    else:
+        expiry_timestamp = datetime.datetime.now(
+        ) + datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
+        new_session = Sessions(
+            user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp)
+        db.session.add(new_session)
+        db.session.commit()
 
 
 class LoginAPI(Resource):
@@ -60,20 +66,36 @@ class LoginAPI(Resource):
             if response.status_code != requests.codes.ok:
                 abort(response.status_code, description="invalid SSO token")
             response_json = response.json()[0]
+            user_email = response_json["email"]
 
             # check if Person entity with that email exists
-            person = db.session.query(Person).filter(
-                Person.email == response_json["email"]).first()
+            person = db.session.query(Person).filter(Person.email == user_email).first()
 
             if person:  # create new session
                 user = db.session.query(User).filter(
                     User.person_id == person.id).first()
                 create_new_session(user.id, sso_token)
-                user_id = user.id
-                msg = 'login successful. created new session for the user'
+                response = jsonify({
+                    "person": PersonSchema().dump(person),
+                    "message": "login successful. created new session for the user"
+                })
+
             else:  # create new user
-                # TODO: get user's name from Github
-                new_person = Person(name='', email=response_json["email"])
+                github_user_details_api = 'https://api.github.com/user'
+                headers = {
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Authorization': sso_token
+                }
+                response = requests.get(github_user_details_api, headers=headers)
+                
+                if response.status_code != requests.codes.ok:
+                    abort(response.status_code, description="invalid SSO token")
+                
+                user_details_json = response.json()
+                user_name = user_details_json["name"] if user_details_json["name"] != '' else user_details_json["login"]
+                
+                # create database entities
+                new_person = Person(name=user_name, email=user_email)
                 db.session.add(new_person)
                 db.session.commit()
                 db.session.refresh(new_person)
@@ -84,21 +106,19 @@ class LoginAPI(Resource):
                 db.session.refresh(new_user)
 
                 create_new_session(new_user.id, sso_token)
-                user_id = new_user.id
-                msg = 'login successful. created new person and user entity'
-
-            response = jsonify({
-                "userid": user_id,
-                "message": msg
-            })
+                response = jsonify({
+                    "person": PersonSchema().dump(new_person),
+                    "message": "login successful. created new person and user entity"
+                })
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
             return response
         else:
-            login_session = db.session.query(Sessions).filter(
-                Sessions.sso_token == sso_token).first()
+            login_session = db.session.query(Sessions).filter(Sessions.sso_token == sso_token).first()
+            existing_user = db.session.query(User).filter(User.id == login_session.user_id).first()
+            existing_person = db.session.query(Person).filter(Person.id == existing_user.person_id).first()
             response = jsonify({
-                "userid": login_session.user_id,
+                "person": PersonSchema().dump(existing_person),
                 "message": "login successful with valid session"
             })
             response.headers.add('Access-Control-Allow-Origin', '*')

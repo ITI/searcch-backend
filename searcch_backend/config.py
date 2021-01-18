@@ -14,7 +14,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_ECHO = True
     SQLALCHEMY_TRACK_MODIFICATIONS = True
-    SESSION_TIMEOUT_IN_MINUTES = 10
+    SESSION_TIMEOUT_IN_MINUTES = 120
 
 
 class ProductionConfig(Config):
@@ -25,7 +25,7 @@ class ProductionConfig(Config):
     DEBUG = False
     SQLALCHEMY_ECHO = False
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SESSION_TIMEOUT_IN_MINUTES = 10
+    SESSION_TIMEOUT_IN_MINUTES = 120
 
 app_config = {
     'development': DevelopmentConfig,
