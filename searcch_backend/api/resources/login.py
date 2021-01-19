@@ -76,6 +76,7 @@ class LoginAPI(Resource):
                     User.person_id == person.id).first()
                 create_new_session(user.id, sso_token)
                 response = jsonify({
+                    "userid": user.id,
                     "person": PersonSchema().dump(person),
                     "message": "login successful. created new session for the user"
                 })
