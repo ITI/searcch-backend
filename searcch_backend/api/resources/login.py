@@ -107,6 +107,7 @@ class LoginAPI(Resource):
 
                 create_new_session(new_user.id, sso_token)
                 response = jsonify({
+                    "userid": new_user.id,
                     "person": PersonSchema().dump(new_person),
                     "message": "login successful. created new person and user entity"
                 })
@@ -118,6 +119,7 @@ class LoginAPI(Resource):
             existing_user = db.session.query(User).filter(User.id == login_session.user_id).first()
             existing_person = db.session.query(Person).filter(Person.id == existing_user.person_id).first()
             response = jsonify({
+                "userid": login_session.user_id,
                 "person": PersonSchema().dump(existing_person),
                 "message": "login successful with valid session"
             })
