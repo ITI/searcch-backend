@@ -1,6 +1,9 @@
 
 import sqlalchemy
 import datetime
+import logging
+
+LOG = logging.getLogger(__name__)
 
 from searcch_backend.api.app import db
 from searcch_backend.models import model
@@ -22,6 +25,10 @@ def object_from_json(session,obj_class,j,skip_ids=True,should_query=True,
         }
     }
 
+    if j == None:
+        LOG.debug("null json value: %r %r" % (obj_class,j))
+        return
+
     for k in obj_class.__mapper__.column_attrs.keys():
         # Skip primary keys or foreign keys.
         colprop = getattr(obj_class,k).property.columns[0]
@@ -42,6 +49,8 @@ def object_from_json(session,obj_class,j,skip_ids=True,should_query=True,
                 except:
                     raise ValueError("invalid type for key '%s': should be '%s'" % (
                         k,conv_type_map[colprop.type.python_type]["typeinfo"]))
+            elif colprop.nullable and j[k] == None:
+                continue
             else:
                 raise ValueError("invalid type for key '%s' ('%s'): should be '%s'" % (
                     k,type(j[k]),colprop.type.python_type))
