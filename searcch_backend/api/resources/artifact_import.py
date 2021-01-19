@@ -6,7 +6,7 @@ import threading
 import traceback
 
 import sqlalchemy
-from sqlalchemy import asc, desc, sql
+from sqlalchemy import asc, desc, sql, not_
 from flask import abort, jsonify, request, Response, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
 
@@ -106,7 +106,9 @@ class ArtifactImportResourceRoot(Resource):
         res = db.session.query(ArtifactImport).\
           filter(ArtifactImport.url == args["url"]).\
           filter(ArtifactImport.owner_id == userid).\
-          filter(ArtifactImport.artifact_id == None).all()
+          filter(ArtifactImport.artifact_id == None).\
+          filter(not_(ArtifactImport.status.in_(["completed","failed"]))).\
+          all()
         if len(res) > 0:
             abort(400, description="userid %r already importing from %r" % (userid,args["url"]))
 
