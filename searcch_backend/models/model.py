@@ -483,7 +483,6 @@ class Artifact(db.Model):
                                     foreign_keys=[ArtifactRelationship.artifact_id])
 
     __table_args__ = (
-        db.UniqueConstraint("owner_id", "url", "version"),
         db.Index('document_idx', 'document_with_idx', postgresql_using='gin'),
     )
 
