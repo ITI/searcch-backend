@@ -29,10 +29,10 @@ class ArtifactImportResourceRoot(Resource):
     def __init__(self):
         self.postparse = reqparse.RequestParser()
         self.postparse.add_argument(
-            name="userid", type=int, required=True,
+            name="userid", type=int, required=True, nullable=False,
             help="userid argument required")
         self.postparse.add_argument(
-            name="url", type=str, required=True,
+            name="url", type=str, required=True, nullable=False,
             help="Artifact source URL required")
         self.postparse.add_argument(
             name="importer_module_name", type=str, required=False,
@@ -44,7 +44,7 @@ class ArtifactImportResourceRoot(Resource):
 
         self.getparse = reqparse.RequestParser()
         self.getparse.add_argument(
-            name="userid", type=int, required=True, location="args",
+            name="userid", type=int, required=True, location="args", nullable=False,
             help="userid argument required")
         self.getparse.add_argument(
             name="status", type=str, required=False, location="args",
@@ -96,7 +96,9 @@ class ArtifactImportResourceRoot(Resource):
         verify_api_key(api_key)
 
         args = self.postparse.parse_args()
-        if "type" in args and args["type"] and args["type"] not in ARTIFACT_IMPORT_TYPES:
+        if not args["url"]:
+            abort(400, description="must provide non-null URL")
+        if args["type"] and args["type"] not in ARTIFACT_IMPORT_TYPES:
             abort(400, description="invalid artifact type")
         userid = args["userid"]
         del args["userid"]
