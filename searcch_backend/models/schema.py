@@ -103,7 +103,6 @@ class PersonSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Person
         model_converter = ModelConverter
-        exclude = ("id",)
         include_fk = True
         include_relationships = True
 
@@ -200,7 +199,7 @@ class ArtifactReviewsSchema(SQLAlchemyAutoSchema):
         include_fk = True
         include_relationships = True
 
-    reviewer = Nested(UserSchema(exclude=('id',)))
+    reviewer = Nested(UserSchema())
 
 
 class ArtifactFavoritesSchema(SQLAlchemyAutoSchema):

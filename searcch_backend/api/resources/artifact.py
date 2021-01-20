@@ -137,9 +137,6 @@ class ArtifactAPI(Resource):
             ArtifactRatings.user_id == ArtifactReviews.user_id,
             ArtifactRatings.artifact_id == ArtifactReviews.artifact_id
         )).filter(ArtifactRatings.artifact_id == artifact_id).all()
-        print(ratings)
-
-        # res = ReviewRatingNestedSchema(many=True).dump(ratings)
 
         response = jsonify({
             "artifact": ArtifactSchema().dump(artifact),
