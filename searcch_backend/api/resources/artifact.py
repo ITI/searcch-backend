@@ -145,7 +145,7 @@ class ArtifactAPI(Resource):
             "num_reviews": len(ratings) if ratings else 0,
             "rating_review": [{
                 "rating": ArtifactRatingsSchema(only=("rating",)).dump(rating), 
-                "review": ArtifactReviewsSchema(exclude=("id", "artifact_id", "user_id")).dump(review)
+                "review": ArtifactReviewsSchema(exclude=("artifact_id", "user_id")).dump(review)
                 } for rating, review in ratings]
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
