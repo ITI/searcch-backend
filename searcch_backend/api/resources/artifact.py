@@ -10,6 +10,8 @@ from flask_restful import reqparse, Resource, fields, marshal
 import sqlalchemy
 from sqlalchemy import func, desc, sql, and_
 import traceback
+import datetime
+import json
 
 
 class ArtifactListAPI(Resource):
@@ -149,5 +151,68 @@ class ArtifactAPI(Resource):
                 } for rating, review in ratings]
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+    def put(self, artifact_id):
+        api_key = request.headers.get('X-API-Key')
+        if api_key:
+            verify_api_key(api_key)
+
+        # We can only change unpublished artifacts.
+        artifact = db.session.query(Artifact).\
+          filter(Artifact.id == artifact_id)\
+          .first()
+        if not artifact:
+            abort(404, description="no such artifact")
+        if artifact.publication:
+            abort(403, description="artifact already published; cannot modify")
+        if not request.is_json:
+            abort(400, description="request body must be a JSON representation of an artifact")
+
+        data = request.json
+        curations = []
+        if "title" in data and artifact.title != data["title"]:
+            if not data["title"]:
+                abort(400, description="title not nullable")
+            artifact.title = data["title"]
+            curations.append(ArtifactCuration(
+                artifact_id=artifact.id,time=datetime.datetime.now(),
+                opdata=json.dumps(
+                    [ { "obj":"artifact","op":"set",
+                        "data":{ "field":"title","value":data["title"] } } ],
+                    separators=(',',':')),
+                curator_id=artifact.owner_id))
+        if "name" in data and artifact.name != data["name"]:
+            artifact.name = data["name"]
+            curations.append(ArtifactCuration(
+                artifact_id=artifact.id,time=datetime.datetime.now(),
+                opdata=json.dumps(
+                    [ { "obj":"artifact","op":"set",
+                        "data":{ "field":"name","value":data["name"] } } ],
+                    separators=(',',':')),
+                curator_id=artifact.owner_id))
+        if "description" in data and artifact.description != data["description"]:
+            artifact.description = data["description"]
+            curations.append(ArtifactCuration(
+                artifact_id=artifact.id,time=datetime.datetime.now(),
+                opdata=json.dumps(
+                    [ { "obj":"artifact","op":"set",
+                        "data":{ "field":"description","value":data["description"] } } ],
+                    separators=(',',':')),
+                curator_id=artifact.owner_id))
+        if curations:
+            db.session.add_all(curations)
+        if "publication" in data and data["publication"] is not None:
+            notes = None
+            if "notes" in data["publication"]:
+                notes = data["publication"]
+            artifact.publication = ArtifactPublication(
+                artifact_id=artifact.id,
+                publisher_id=artifact.owner_id,
+                time=datetime.datetime.now(),notes=notes)
+        db.session.commit()
+
+        response = make_response()
         response.status_code = 200
         return response

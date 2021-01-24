@@ -146,6 +146,7 @@ class ArtifactCuration(db.Model):
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     time = db.Column(db.DateTime, nullable=False)
     notes = db.Column(db.Text)
+    opdata = db.Column(db.Text,nullable=False)
     curator_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=False)
 
