@@ -73,7 +73,8 @@ class ArtifactImportResourceRoot(Resource):
             abort(404, description="no such user")
 
         artifact_imports = db.session.query(ArtifactImport)\
-          .filter(ArtifactImport.owner_id == userid)
+          .filter(ArtifactImport.owner_id == userid)\
+          .order_by(desc(ArtifactImport.id))
         if status:
             artifact_imports = artifact_imports.filter(ArtifactImport.status == status)
         if not args["archived"]:
