@@ -159,6 +159,8 @@ class ArtifactImportResource(Resource):
             name="artifact", type=dict, required=False)
         self.putparse.add_argument(
             name="archived", type=bool, required=False)
+        self.putparse.add_argument(
+            name="type", type=str, required=False)
 
         super(ArtifactImportResource, self).__init__()
 
