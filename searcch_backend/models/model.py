@@ -488,8 +488,8 @@ class Artifact(db.Model):
     )
 
     def __repr__(self):
-        return "<Artifact(id=%r,title='%s',description='%s',type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r')>" % (
-            self.id, self.title, self.description, self.type, self.url, self.owner, self.files, self.tags, self.meta)
+        return "<Artifact(id=%r,title='%s',description='%s',type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r',publication='%r')>" % (
+            self.id, self.title, self.description, self.type, self.url, self.owner, self.files, self.tags, self.meta, self.publication)
 
 ARTIFACT_IMPORT_STATUSES = (
     "pending", "scheduled", "running", "completed", "failed"

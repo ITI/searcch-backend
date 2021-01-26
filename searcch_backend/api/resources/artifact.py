@@ -75,19 +75,20 @@ class ArtifactListAPI(Resource):
 
         artifacts = []
         for artifact, relevance_score, num_ratings, avg_rating, num_reviews in res:
-            result = {
-                "id": artifact.id,
-                "uri": ArtifactListAPI.generate_artifact_uri(artifact.id),
-                "doi": artifact.url,
-                "type": artifact.type,
-                "relevance_score": relevance_score,
-                "title": artifact.title,
-                "description": artifact.description,
-                "avg_rating": float(avg_rating) if avg_rating else None,
-                "num_ratings": num_ratings if num_ratings else 0,
-                "num_reviews": num_reviews if num_reviews else 0
-            }
-            artifacts.append(result)
+            if artifact.publication:
+                result = {
+                    "id": artifact.id,
+                    "uri": ArtifactListAPI.generate_artifact_uri(artifact.id),
+                    "doi": artifact.url,
+                    "type": artifact.type,
+                    "relevance_score": relevance_score,
+                    "title": artifact.title,
+                    "description": artifact.description,
+                    "avg_rating": float(avg_rating) if avg_rating else None,
+                    "num_ratings": num_ratings if num_ratings else 0,
+                    "num_reviews": num_reviews if num_reviews else 0
+                }
+                artifacts.append(result)
 
         response = jsonify({"artifacts": artifacts, "length": len(artifacts)})
         response.headers.add('Access-Control-Allow-Origin', '*')
