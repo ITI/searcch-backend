@@ -6,9 +6,8 @@ services:
     container_name: caddy
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "4443:5443"
+      - "4443:4443"
+      - "5443:5443"
     volumes:
       - /data/caddy/Caddyfile:/etc/caddy/Caddyfile
       - /data/caddy/data:/data
@@ -21,6 +20,7 @@ services:
   searcch-backend-prod:
     image: searcch-backend-prod
     container_name: searcch-backend-development
+    restart: unless-stopped
     build: "https://${TOKEN:-token-here}:@github.com/ITI/searcch-backend.git"
     volumes:
       - /data/searcch-backend-prod/gunicorn_conf.py:/app/gunicorn_conf.py
@@ -36,6 +36,7 @@ services:
   searcch-backend-dev:
     image: searcch-backend-dev
     container_name: searcch-backend-development
+    restart: unless-stopped
     build: "https://${TOKEN:token-here}:@github.com/ITI/searcch-backend.git#dev"
     volumes:
       - /data/searcch-backend-dev/gunicorn_conf.py:/app/gunicorn_conf.py
@@ -51,6 +52,7 @@ services:
   searcch-prod-postgres:
     image: postgres
     container_name: searcch-prod-postgres
+    restart: unless-stopped
     volumes:
       - /data/searcch-prod-psql:/var/lib/postgresql/data
     env_file:
@@ -61,6 +63,7 @@ services:
   searcch-dev-postgres:
     image: postgres
     container_name: searcch-dev-postgres
+    restart: unless-stopped
     volumes:
       - /data/searcch-dev-psql:/var/lib/postgresql/data
     env_file:
