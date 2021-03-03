@@ -1,16 +1,13 @@
-FROM python:3.8-slim-buster
-
-COPY run.py /app/
-COPY searcch_backend /app/searcch_backend/
-COPY requirements.txt /pkg/
-
-RUN apt-get update && apt-get install -y python3-pip
-RUN pip3 install -r /pkg/requirements.txt
-
-EXPOSE 80
+FROM pypy:3.7-slim-buster
 
 WORKDIR /app
 
-ENTRYPOINT ["python", "/app/run.py"]
+COPY . .
 
+RUN apt update && apt install -y build-essential libpq-dev && pip install --upgrade pip setuptools wheel && pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir gevent && mkdir logs
 
+#ENV FLASK_INSTANCE_CONFIG_FILE=/app/config-development.py
+
+Expose 80
+
+CMD ["gunicorn","--config","gunicorn_conf.py","run:app"]
