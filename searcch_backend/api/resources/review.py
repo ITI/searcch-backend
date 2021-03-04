@@ -69,6 +69,9 @@ class ReviewAPI(Resource):
         subject = args['subject']
         review = args['review']
 
+        if len(review) < 1:
+            abort(400, description='review cannot be empty')
+
         # verify session credentials
         api_key = request.headers.get('X-API-Key')
         verify_api_key(api_key)
@@ -112,6 +115,9 @@ class ReviewAPI(Resource):
         review = args['review']
         subject = args['subject']
 
+        if len(review) < 1:
+            abort(400, description='review cannot be empty')
+
         # verify session credentials
         api_key = request.headers.get('X-API-Key')
         verify_api_key(api_key)
@@ -120,6 +126,8 @@ class ReviewAPI(Resource):
 
         existing_review = db.session.query(ArtifactReviews).filter(
             ArtifactReviews.id == review_id, ArtifactReviews.user_id == user_id, ArtifactReviews.artifact_id == artifact_id).first()
+        if not existing_review:
+            abort(400, description='incorrect params passed')
         existing_review.review = review
         existing_review.subject = subject
         db.session.commit()

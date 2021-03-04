@@ -12,7 +12,7 @@ from flask_marshmallow import Marshmallow
 
 # set up configurations
 app = Flask(__name__, instance_relative_config=True)
-config_name = os.getenv("FLASK_ENV","production")
+config_name = os.getenv("FLASK_ENV", "development")
 app.config.from_object(app_config[config_name])
 if os.getenv('FLASK_INSTANCE_CONFIG_FILE'):
     app.config.from_pyfile(os.getenv('FLASK_INSTANCE_CONFIG_FILE'))
