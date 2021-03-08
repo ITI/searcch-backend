@@ -1,7 +1,8 @@
 from searcch_backend.api.app import db
 from searcch_backend.models.licenses import *
 from sqlalchemy.dialects.postgresql import TSVECTOR
-
+import sqlalchemy
+from sqlalchemy.sql import func
 
 ARTIFACT_TYPES = (
     "dataset", "executable", "methodology", "metrics",
@@ -68,7 +69,7 @@ class ArtifactFunding(db.Model):
         "organizations.id"), nullable=False)
     grant_number = db.Column(db.String(128), nullable=False)
     grant_url = db.Column(db.String(256), nullable=True)
-    grant_title = db.Column(db.String(512), nullable=True)
+    grant_title = db.Column(db.String(1024), nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint("artifact_id", "funding_org_id", "grant_number"),)
@@ -128,8 +129,8 @@ class ArtifactTag(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey('artifacts.id'))
-    tag = db.Column(db.String(64), nullable=False)
-    source = db.Column(db.Text, nullable=True)
+    tag = db.Column(db.String(256), nullable=False)
+    source = db.Column(db.String(256), nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint("tag", "artifact_id"),)
@@ -207,7 +208,7 @@ class ArtifactRelease(db.Model):
     author_email = db.Column(db.String(128))
     author_name = db.Column(db.String(128))
     tag = db.Column(db.String(128))
-    title = db.Column(db.String(256))
+    title = db.Column(db.String(1024))
     time = db.Column(db.DateTime)
     notes = db.Column(db.Text)
 
@@ -235,8 +236,8 @@ class Person(db.Model):
     __tablename__ = "persons"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(128), nullable=True)
-    email = db.Column(db.String(128), nullable=True)
+    name = db.Column(db.String(1024), nullable=True)
+    email = db.Column(db.String(256), nullable=True)
 
     def __repr__(self):
         return "<Person(id=%r,name=%r, email=%r)>" % (
@@ -484,7 +485,11 @@ class Artifact(db.Model):
                                     foreign_keys=[ArtifactRelationship.artifact_id])
 
     __table_args__ = (
-        db.Index('document_idx', 'document_with_idx', postgresql_using='gin'),
+        db.Index(
+            'document_idx',
+            func.to_tsvector('english','document_with_idx'),
+#                             sqlalchemy.text("title || ' ' || description")),
+            postgresql_using='gin'),
     )
 
     def __repr__(self):
