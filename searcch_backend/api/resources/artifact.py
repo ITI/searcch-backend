@@ -8,7 +8,7 @@ from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
 from flask_restful import reqparse, Resource, fields, marshal
 import sqlalchemy
-from sqlalchemy import func, desc, sql, and_
+from sqlalchemy import func, desc, sql, and_, or_
 import traceback
 import datetime
 import json
@@ -38,6 +38,7 @@ class ArtifactListAPI(Resource):
         self.reqparse.add_argument(name='type',
                                    type=str,
                                    required=False,
+                                   action='append',
                                    help='missing type to filter results')
 
         super(ArtifactListAPI, self).__init__()
@@ -48,16 +49,18 @@ class ArtifactListAPI(Resource):
 
     @staticmethod
     def is_artifact_type_valid(artifact_type):
-        return artifact_type in ["dataset", "executable", "methodology", "metrics", "priorwork", "publication", "hypothesis", "code", "domain", "supportinginfo"]
+        return artifact_type in ARTIFACT_TYPES
 
     def get(self):
         args = self.reqparse.parse_args()
         keywords = args['keywords']
-        artifact_type = args['type']
+        artifact_types = args['type']
         page_num = args['page']
 
-        if artifact_type and not ArtifactListAPI.is_artifact_type_valid(artifact_type):
-            abort(400, description='invalid artifact type passed')
+        if artifact_types:
+            for a_type in artifact_types:
+                if not ArtifactListAPI.is_artifact_type_valid(a_type):
+                    abort(400, description='invalid artifact type passed')
 
         sqratings = db.session.query(
             ArtifactRatings.artifact_id,
@@ -76,20 +79,36 @@ class ArtifactListAPI(Resource):
                                         'num_ratings',
                                         'avg_rating',
                                         'num_reviews'
-                                        ).order_by(desc(Artifact.id))
+                                        ).order_by(
+                                            db.case([
+                                                (Artifact.type == 'code', 1),
+                                                (Artifact.type == 'dataset', 2),
+                                                (Artifact.type == 'publication', 3),
+                                                ], else_ = 4)
+                                        )
                 
         else:
             query = db.session.query(Artifact,
-                                        func.ts_rank_cd(Artifact.document_with_idx, func.plainto_tsquery("english", keywords)).label("rank"),
+                                        func.ts_rank_cd(Artifact.document_with_idx, func.websearch_to_tsquery("english", keywords)).label("rank"),
                                         'num_ratings',
                                         'avg_rating',
                                         'num_reviews'
-                                        ).filter(Artifact.document_with_idx.op('@@')(func.plainto_tsquery("english", keywords))
+                                        ).filter(Artifact.document_with_idx.op('@@')(func.websearch_to_tsquery("english", keywords))
+                                        ).order_by(
+                                            db.case([
+                                                (Artifact.type == 'code', 1),
+                                                (Artifact.type == 'dataset', 2),
+                                                (Artifact.type == 'publication', 3),
+                                                ], else_ = 4)
                                         ).order_by(desc("rank"))
 
+        
         # add filters based on provided parameters
-        if artifact_type:
-            query = query.filter(Artifact.type == artifact_type)
+        if artifact_types:
+            if len(artifact_types) > 1:
+                query = query.filter(or_(Artifact.type == a_type for a_type in artifact_types))
+            else:
+                query = query.filter(Artifact.type == artifact_types[0])
 
         # join with ratings and reviews tables
         query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
