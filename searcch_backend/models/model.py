@@ -22,7 +22,7 @@ class ArtifactFile(db.Model):
     name = db.Column(db.String(512))
     filetype = db.Column(db.String(128), nullable=False)
     content = db.Column(db.LargeBinary())
-    size = db.Column(db.Integer)
+    size = db.Column(db.BigInteger)
     mtime = db.Column(db.DateTime)
     
     members = db.relationship("ArtifactFileMember", uselist=True)

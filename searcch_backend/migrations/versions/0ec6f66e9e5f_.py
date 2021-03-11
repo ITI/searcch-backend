@@ -175,7 +175,7 @@ def upgrade():
     sa.Column('name', sa.String(length=512), nullable=True),
     sa.Column('filetype', sa.String(length=128), nullable=False),
     sa.Column('content', sa.LargeBinary(), nullable=True),
-    sa.Column('size', sa.Integer(), nullable=True),
+    sa.Column('size', sa.BigInteger(), nullable=True),
     sa.Column('mtime', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['artifact_id'], ['artifacts.id'], ),
     sa.PrimaryKeyConstraint('id'),
