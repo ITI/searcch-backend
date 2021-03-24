@@ -8,7 +8,7 @@ from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
 from flask_restful import reqparse, Resource, fields, marshal
 import sqlalchemy
-from sqlalchemy import func, desc, sql, and_
+from sqlalchemy import func, desc, sql, and_, or_
 import traceback
 import datetime
 import json
@@ -28,7 +28,18 @@ class ArtifactListAPI(Resource):
                                    type=str,
                                    required=False,
                                    help='missing keywords in query string')
-        # TODO: add all filters for filtered search here
+        self.reqparse.add_argument(name='page',
+                                   type=int,
+                                   required=False,
+                                   default=1,
+                                   help='page number for paginated results')
+        
+        # filters
+        self.reqparse.add_argument(name='type',
+                                   type=str,
+                                   required=False,
+                                   action='append',
+                                   help='missing type to filter results')
 
         super(ArtifactListAPI, self).__init__()
 
@@ -36,9 +47,20 @@ class ArtifactListAPI(Resource):
     def generate_artifact_uri(artifact_id):
         return url_for('api.artifact', artifact_id=artifact_id)
 
+    @staticmethod
+    def is_artifact_type_valid(artifact_type):
+        return artifact_type in ARTIFACT_TYPES
+
     def get(self):
         args = self.reqparse.parse_args()
         keywords = args['keywords']
+        artifact_types = args['type']
+        page_num = args['page']
+
+        if artifact_types:
+            for a_type in artifact_types:
+                if not ArtifactListAPI.is_artifact_type_valid(a_type):
+                    abort(400, description='invalid artifact type passed')
 
         sqratings = db.session.query(
             ArtifactRatings.artifact_id,
@@ -49,30 +71,51 @@ class ArtifactListAPI(Resource):
             ArtifactReviews.artifact_id,
             func.count(ArtifactReviews.id).label('num_reviews')
         ).group_by("artifact_id").subquery()
-        if not keywords:
-            res = db.session.query(
-                Artifact,
-                sql.expression.bindparam("zero", 0).label("rank"),
-                'num_ratings',
-                'avg_rating',
-                'num_reviews'
-            ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
-                   ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
-                          ).order_by(desc(Artifact.id)
-                                     ).paginate(max_per_page=20).items
-        else:
-            res = db.session.query(Artifact,
-                                   func.ts_rank_cd(Artifact.document_with_idx, func.plainto_tsquery(
-                                       "english", keywords)).label("rank"),
-                                   'num_ratings',
-                                   'avg_rating',
-                                   'num_reviews'
-                                   ).filter(Artifact.document_with_idx.op('@@')(func.plainto_tsquery("english", keywords))
-                                            ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
-                                                   ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
-                                                          ).order_by(desc("rank")
-                                                                     ).all()
 
+        # create base query object
+        if not keywords:
+            query = db.session.query(Artifact,
+                                        sql.expression.bindparam("zero", 0).label("rank"),
+                                        'num_ratings',
+                                        'avg_rating',
+                                        'num_reviews'
+                                        ).order_by(
+                                            db.case([
+                                                (Artifact.type == 'code', 1),
+                                                (Artifact.type == 'dataset', 2),
+                                                (Artifact.type == 'publication', 3),
+                                                ], else_ = 4)
+                                        )
+                
+        else:
+            query = db.session.query(Artifact,
+                                        func.ts_rank_cd(Artifact.document_with_idx, func.websearch_to_tsquery("english", keywords)).label("rank"),
+                                        'num_ratings',
+                                        'avg_rating',
+                                        'num_reviews'
+                                        ).filter(Artifact.document_with_idx.op('@@')(func.websearch_to_tsquery("english", keywords))
+                                        ).order_by(
+                                            db.case([
+                                                (Artifact.type == 'code', 1),
+                                                (Artifact.type == 'dataset', 2),
+                                                (Artifact.type == 'publication', 3),
+                                                ], else_ = 4)
+                                        ).order_by(desc("rank"))
+
+        
+        # add filters based on provided parameters
+        if artifact_types:
+            if len(artifact_types) > 1:
+                query = query.filter(or_(Artifact.type == a_type for a_type in artifact_types))
+            else:
+                query = query.filter(Artifact.type == artifact_types[0])
+
+        # join with ratings and reviews tables
+        query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                    ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True)
+        
+        res = query.paginate(page=page_num, error_out=False, max_per_page=20).items
+        
         artifacts = []
         for artifact, relevance_score, num_ratings, avg_rating, num_reviews in res:
             if artifact.publication:

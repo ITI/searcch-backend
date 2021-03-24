@@ -16,6 +16,7 @@ pip3 install -r requirements.txt
 # Using flask run
 export FLASK_APP=run:app
 export FLASK_CONFIG=development
+export FLASK_INSTANCE_CONFIG_FILE=config.py
 flask run --host=0.0.0.0 --port=80
 
 # Using gunicorn
