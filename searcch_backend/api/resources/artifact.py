@@ -17,13 +17,6 @@ import json
 class ArtifactListAPI(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        """
-        possible filters:
-            - keywords
-            - author
-            - type
-            - organization
-        """
         self.reqparse.add_argument(name='keywords',
                                    type=str,
                                    required=False,
@@ -40,6 +33,11 @@ class ArtifactListAPI(Resource):
                                    required=False,
                                    action='append',
                                    help='missing type to filter results')
+        self.reqparse.add_argument(name='entity',
+                                   type=str,
+                                   required=False,
+                                   action='append',
+                                   help='missing entities to search for')
 
         super(ArtifactListAPI, self).__init__()
 
@@ -51,17 +49,8 @@ class ArtifactListAPI(Resource):
     def is_artifact_type_valid(artifact_type):
         return artifact_type in ARTIFACT_TYPES
 
-    def get(self):
-        args = self.reqparse.parse_args()
-        keywords = args['keywords']
-        artifact_types = args['type']
-        page_num = args['page']
-
-        if artifact_types:
-            for a_type in artifact_types:
-                if not ArtifactListAPI.is_artifact_type_valid(a_type):
-                    abort(400, description='invalid artifact type passed')
-
+    def search_artifacts(self, keywords, artifact_types, page_num):
+        """ search for artifacts based on keywords """
         sqratings = db.session.query(
             ArtifactRatings.artifact_id,
             func.count(ArtifactRatings.id).label('num_ratings'),
@@ -75,25 +64,24 @@ class ArtifactListAPI(Resource):
         # create base query object
         if not keywords:
             query = db.session.query(Artifact,
-                                        sql.expression.bindparam("zero", 0).label("rank"),
-                                        'num_ratings',
-                                        'avg_rating',
-                                        'num_reviews'
-                                        ).order_by(
-                                            db.case([
-                                                (Artifact.type == 'code', 1),
-                                                (Artifact.type == 'dataset', 2),
-                                                (Artifact.type == 'publication', 3),
-                                                ], else_ = 4)
-                                        )
-                
+                                     sql.expression.bindparam("zero", 0).label("rank"),
+                                     'num_ratings', 'avg_rating', 'num_reviews'
+                                     ).order_by(
+                                        db.case([
+                                            (Artifact.type == 'code', 1),
+                                            (Artifact.type == 'dataset', 2),
+                                            (Artifact.type ==
+                                            'publication', 3),
+                                        ], else_=4)
+                                    )                
         else:
             search_query = db.session.query(ArtifactSearchMaterializedView.artifact_id, 
-                                        func.ts_rank_cd(ArtifactSearchMaterializedView.doc_vector, func.websearch_to_tsquery("english", keywords)
-                                        ).label("rank")
-                                        ).filter(ArtifactSearchMaterializedView.doc_vector.op('@@')(func.websearch_to_tsquery("english", keywords))).subquery()
-            query = db.session.query(Artifact, search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews').join(
-                search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
+                                            func.ts_rank_cd(ArtifactSearchMaterializedView.doc_vector, func.websearch_to_tsquery("english", keywords)).label("rank")
+                                        ).filter(ArtifactSearchMaterializedView.doc_vector.op('@@')(func.websearch_to_tsquery("english", keywords))
+                                        ).subquery()
+            query = db.session.query(Artifact, 
+                                        search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews'
+                                        ).join(search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
 
         # add filters based on provided parameters
         if artifact_types:
@@ -102,21 +90,16 @@ class ArtifactListAPI(Resource):
             else:
                 query = query.filter(Artifact.type == artifact_types[0])
 
-        # join with ratings and reviews tables
         query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
                             ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
                             ).order_by(desc(search_query.c.rank))
-        
-        # res = query.order_by(desc(search_query.c.rank)).all()
-        res = query.paginate(page=page_num, error_out=False, max_per_page=20).items
+        result = query.paginate(page=page_num, error_out=False, max_per_page=20).items
 
-        
         artifacts = []
-        for row in res:
-            print(row)
+        for row in result:
             artifact, relevance_score, num_ratings, avg_rating, num_reviews = row
-            if artifact.publication:  # filter to return only published artifacts
-                result = {
+            if artifact.publication:  # return only published artifacts
+                abstract = {
                     "id": artifact.id,
                     "uri": ArtifactListAPI.generate_artifact_uri(artifact.id),
                     "doi": artifact.url,
@@ -128,9 +111,49 @@ class ArtifactListAPI(Resource):
                     "num_ratings": num_ratings if num_ratings else 0,
                     "num_reviews": num_reviews if num_reviews else 0
                 }
-                artifacts.append(result)
+                artifacts.append(abstract)
+        return artifacts
 
-        response = jsonify({"artifacts": artifacts, "length": len(artifacts)})
+    def search_users(self, keywords, page_num):
+        """ search for users based on keywords """
+        users = []
+        return users
+    
+    def search_organizations(self, keywords, page_num):
+        """ search for organizations based on keywords """
+        organizations = []
+        return organizations
+
+    def get(self):
+        args = self.reqparse.parse_args()
+        keywords = args['keywords']
+        artifact_types = args['type']
+        entities = args['entity']
+        page_num = args['page']
+
+        # sanity checks
+        if artifact_types:
+            for a_type in artifact_types:
+                if not ArtifactListAPI.is_artifact_type_valid(a_type):
+                    abort(400, description='invalid artifact type passed')
+        if entities:
+            for entity in entities:
+                if entity not in ['artifact', 'user', 'organization']:
+                    abort(400, description='invalid entity passed')
+
+        artifacts, users, organizations = [], [], []
+        if 'artifact' in entities:
+            artifacts = self.search_artifacts(keywords, artifact_types, page_num)
+        if 'user' in entities:
+            users = self.search_users(keywords, page_num)
+        if 'organization' in entities:
+             organizations = self.search_organizations(keywords, page_num)
+
+        response = jsonify({
+            "artifacts": artifacts, 
+            "users": users, 
+            "organizations": organizations
+            })
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
