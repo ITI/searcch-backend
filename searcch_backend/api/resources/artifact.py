@@ -88,21 +88,13 @@ class ArtifactListAPI(Resource):
                                         )
                 
         else:
-            query = db.session.query(Artifact,
-                                        func.ts_rank_cd(Artifact.document_with_idx, func.websearch_to_tsquery("english", keywords)).label("rank"),
-                                        'num_ratings',
-                                        'avg_rating',
-                                        'num_reviews'
-                                        ).filter(Artifact.document_with_idx.op('@@')(func.websearch_to_tsquery("english", keywords))
-                                        ).order_by(
-                                            db.case([
-                                                (Artifact.type == 'code', 1),
-                                                (Artifact.type == 'dataset', 2),
-                                                (Artifact.type == 'publication', 3),
-                                                ], else_ = 4)
-                                        ).order_by(desc("rank"))
+            search_query = db.session.query(ArtifactSearchMaterializedView.artifact_id, 
+                                        func.ts_rank_cd(ArtifactSearchMaterializedView.doc_vector, func.websearch_to_tsquery("english", keywords)
+                                        ).label("rank")
+                                        ).filter(ArtifactSearchMaterializedView.doc_vector.op('@@')(func.websearch_to_tsquery("english", keywords))).subquery()
+            query = db.session.query(Artifact, search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews').join(
+                search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
 
-        
         # add filters based on provided parameters
         if artifact_types:
             if len(artifact_types) > 1:
@@ -112,13 +104,18 @@ class ArtifactListAPI(Resource):
 
         # join with ratings and reviews tables
         query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
-                    ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True)
+                            ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+                            ).order_by(desc(search_query.c.rank))
         
+        # res = query.order_by(desc(search_query.c.rank)).all()
         res = query.paginate(page=page_num, error_out=False, max_per_page=20).items
+
         
         artifacts = []
-        for artifact, relevance_score, num_ratings, avg_rating, num_reviews in res:
-            if artifact.publication:
+        for row in res:
+            print(row)
+            artifact, relevance_score, num_ratings, avg_rating, num_reviews = row
+            if artifact.publication:  # filter to return only published artifacts
                 result = {
                     "id": artifact.id,
                     "uri": ArtifactListAPI.generate_artifact_uri(artifact.id),

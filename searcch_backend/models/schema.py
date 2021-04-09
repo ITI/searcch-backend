@@ -222,8 +222,10 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Artifact
         model_converter = ModelConverter
+        # exclude = ('license_id', 'owner_id', 'importer_id',
+        #            'parent_id', 'exporter_id', 'document_with_idx')
         exclude = ('license_id', 'owner_id', 'importer_id',
-                   'parent_id', 'exporter_id', 'document_with_idx')
+                   'parent_id', 'exporter_id')
         include_fk = True
         include_relationships = True
 
@@ -240,6 +242,13 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     affiliations = Nested(ArtifactAffiliationSchema, many=True)
     relationships = Nested(ArtifactRelationshipSchema, many=True)
 
+class ArtifactSearchMaterializedViewSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactSearchMaterializedView
+        model_converter = ModelConverter
+        exclude = ('doc_vector',)
+        include_fk = True
+        include_relationships = True
 
 class ArtifactImportSchema(SQLAlchemyAutoSchema):
     class Meta:
