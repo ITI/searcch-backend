@@ -1,6 +1,6 @@
 # logic for /artifacts
 
-from searcch_backend.api.app import db
+from searcch_backend.api.app import db, config_name
 from searcch_backend.api.common.sql import object_from_json
 from searcch_backend.api.common.auth import verify_api_key
 from searcch_backend.models.model import *
@@ -163,7 +163,7 @@ class ArtifactListAPI(Resource):
         Creates a new artifact from the given JSON document, without invoking the importer.
         """
         api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
 
         j = request.json
         del j["api_key"]
@@ -188,7 +188,7 @@ class ArtifactAPI(Resource):
     def get(self, artifact_id):
         api_key = request.headers.get('X-API-Key')
         if api_key:
-            verify_api_key(api_key)
+            verify_api_key(api_key, config_name)
 
         artifact = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).first()
@@ -221,7 +221,7 @@ class ArtifactAPI(Resource):
     def put(self, artifact_id):
         api_key = request.headers.get('X-API-Key')
         if api_key:
-            verify_api_key(api_key)
+            verify_api_key(api_key, config_name)
 
         # We can only change unpublished artifacts.
         artifact = db.session.query(Artifact).\

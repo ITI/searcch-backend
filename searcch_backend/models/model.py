@@ -1,6 +1,6 @@
 from searcch_backend.api.app import db
 from searcch_backend.models.licenses import *
-from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy.dialects.postgresql import TSVECTOR, BYTEA
 from sqlalchemy import Table, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
@@ -243,6 +243,9 @@ class Person(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(1024), nullable=True)
     email = db.Column(db.String(256), nullable=True)
+    photo = db.Column(BYTEA, nullable=True)
+    research_interests = db.Column(db.Text, nullable=True)
+    website = db.Column(db.Text, nullable=True)
 
     def __repr__(self):
         return "<Person(id=%r,name=%r, email=%r)>" % (
@@ -472,7 +475,6 @@ class Artifact(db.Model):
         "exporters.id"), nullable=True)
     parent_id = db.Column(db.Integer, db.ForeignKey(
         "artifacts.id"), nullable=True)
-    # document_with_idx = db.Column(TSVECTOR)
 
     exporter = db.relationship("Exporter", uselist=False)
     license = db.relationship("License", uselist=False)
@@ -489,14 +491,6 @@ class Artifact(db.Model):
     relationships = db.relationship("ArtifactRelationship",uselist=True,
                                     foreign_keys=[ArtifactRelationship.artifact_id])
 
-#     __table_args__ = (
-#         db.Index(
-#             'document_idx',
-#             func.to_tsvector('english','document_with_idx'),
-# #                             sqlalchemy.text("title || ' ' || description")),
-#             postgresql_using='gin'),
-#     )
-
     def __repr__(self):
         return "<Artifact(id=%r,title='%s',description='%s',type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r',publication='%r')>" % (
             self.id, self.title, self.description, self.type, self.url, self.owner, self.files, self.tags, self.meta, self.publication)
@@ -505,19 +499,10 @@ class Artifact(db.Model):
 class ArtifactSearchMaterializedView(db.Model):
     # The ArtifactSearchMaterializedView class provides an internal model of a SEARCCH artifact's searchable index.
     __tablename__ = "artifact_search_view"
-    # __table__ = Table(__tablename__, Base.metadata, autoload=True, autoload_with=db.engine)
-    # __mapper_args__ = {
-    #     'primary_key':[__table__.c.artifact_id]
-    # }
 
-    dummy_id = db.Column(db.Integer, primary_key=True)
+    dummy_id = db.Column(db.Integer, primary_key=True)  # this id does not actually exist in the database
     artifact_id = db.Column(db.Integer)
     doc_vector = db.Column(TSVECTOR)
-    # __table_args__ = (
-    #     db.Index(
-    #         'doc_idx',
-    #         func.to_tsvector('english', 'doc_vector'), postgresql_using='gin'),
-    # )
     
     def __repr__(self):
         return "<ArtifactSearchMaterializedView(artifact_id=%r,doc_vector='%s')>" % (self.id, self.doc_vector)

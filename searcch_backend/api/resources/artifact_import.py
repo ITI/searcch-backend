@@ -17,7 +17,7 @@ from searcch_backend.models.model import (
     ARTIFACT_IMPORT_STATUSES, ARTIFACT_IMPORT_PHASES )
 from searcch_backend.models.schema import (
     ArtifactImportSchema )
-from searcch_backend.api.app import db
+from searcch_backend.api.app import db, config_name
 from searcch_backend.api.common.auth import verify_api_key
 from searcch_backend.api.common.importer import schedule_import
 from searcch_backend.api.common.sql import object_from_json
@@ -62,7 +62,7 @@ class ArtifactImportResourceRoot(Resource):
         (pending,scheduled,running,completed,failed).
         """
         api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
 
         args = self.getparse.parse_args()
         userid = args["userid"]
@@ -94,7 +94,7 @@ class ArtifactImportResourceRoot(Resource):
         This is the primary artifact creation method.  It takes as input a URL, the uid, and possibly a specific importer to use.  It creates a temporary import session once handed off to the importer, and the frontend then polls based off the import session for completion of the import.  This is asynchronous, and returns an import session ID, if sanity checks succeed (e.g., an importer of the given name (if any) exists, rate limits are within tolerances, etc).  Note that the initial checks do *not* include URL reachability, since URLs may not all be reachable nor veriable over a basic HTTP(S) connection; the importer module must handle this case.  Finally, we cannot wait for the importer to do this reachability check, because there might be a queue of imports already being processed.
         """
         api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
 
         args = self.postparse.parse_args()
         if not args["url"]:
@@ -166,7 +166,7 @@ class ArtifactImportResource(Resource):
 
     def get(self, artifact_import_id):
         api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
 
         artifact_import = db.session.query(ArtifactImport).filter(
             ArtifactImport.id == artifact_import_id).first()
@@ -184,7 +184,7 @@ class ArtifactImportResource(Resource):
         data to us.
         """
         api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
 
         artifact_import = db.session.query(ArtifactImport).filter(
             ArtifactImport.id == artifact_import_id).first()

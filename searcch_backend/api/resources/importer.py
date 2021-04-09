@@ -10,7 +10,7 @@ from searcch_backend.models.model import (
     ImporterInstance )
 from searcch_backend.models.schema import (
     ImporterInstanceSchema )
-from searcch_backend.api.app import db
+from searcch_backend.api.app import db, config_name
 from searcch_backend.api.common.auth import verify_api_key
 from searcch_backend.api.common.importer import schedule_import
 
@@ -60,7 +60,7 @@ class ImporterResourceRoot(Resource):
         Importers register via this endpoint.
         """
         api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
         
         args = self.post_reqparse.parse_args()
         if not args["url"] or not args["key"]:
@@ -101,7 +101,7 @@ class ImporterResourceRoot(Resource):
         List all importer instances.
         """
         api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
         
         importer_instances = db.session.query(ImporterInstance).all()
         response = jsonify({"importers": importer_instances})
@@ -116,7 +116,7 @@ class ImporterResource(Resource):
         Get an importer instance's details.
         """
         api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
         
         importer_instance = db.session.query(ImporterInstance).filter(
             ImporterInstance.id == importer_instance_id).first()
@@ -132,7 +132,7 @@ class ImporterResource(Resource):
         Allows the importer to push its status to us.
         """
         api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
         
         importer_instance = db.session.query(ImporterInstance).filter(
             ImporterInstance.id == importer_instance_id).first()
@@ -164,7 +164,7 @@ class ImporterResource(Resource):
         # admins and the instance itself should be allowed to delete, and then
         # only if not currently running.
         api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
         
         importer_instance = db.session.query(ImporterInstance).filter(
             ImporterInstance.id == importer_instance_id).first()

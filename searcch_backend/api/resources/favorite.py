@@ -16,7 +16,7 @@ class FavoritesListAPI(Resource):
 
     def get(self, user_id):
         api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
 
         sqratings = db.session.query(
             ArtifactRatings.artifact_id,
@@ -80,7 +80,7 @@ class FavoriteAPI(Resource):
 
         # verify session credentials
         api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
         if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
 
@@ -109,7 +109,7 @@ class FavoriteAPI(Resource):
 
         # verify session credentials
         api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
         if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
 
