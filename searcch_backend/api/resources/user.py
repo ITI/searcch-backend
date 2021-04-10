@@ -49,7 +49,9 @@ class UserProfileAPI(Resource):
             if not verify_token(sso_token):
                 abort(401, "no active login session found. please login to continue")
 
-        user = db.session.query(User).filter(User.id == user_id).first()        
+        user = db.session.query(User).filter(User.id == user_id).first()
+        organizations = db.session.query(Organization).filter(Organization.id.in_(
+            db.session.query(Affiliation.org_id).filter(Affiliation.person_id == user.person.id)))
         response = jsonify({
             "user": {
                 "id": user.id,
@@ -59,8 +61,9 @@ class UserProfileAPI(Resource):
                     "name": user.person.name,
                     "research_interests": user.person.research_interests,
                     "website": user.person.website,
-                    "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8")
-                }
+                    "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
+                },
+                "organization": OrganizationSchema(many=True).dump(organizations)
             }
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
