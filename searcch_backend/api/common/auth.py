@@ -5,11 +5,13 @@ from datetime import datetime
 from flask import abort
 
 
-def verify_api_key(api_key):
+def verify_api_key(api_key, config_name):
     if api_key == '':
         abort(403, description="missing secret api key")
-    if api_key != app.config.get('SHARED_SECRET_KEY'):
-        abort(401, description="incorrect secret api key")
+    if config_name == 'development' and api_key != app.config.get('SHARED_SECRET_KEY'):
+        abort(401, description="dev: incorrect secret api key")
+    if config_name == 'production' and api_key != app.config.get('SHARED_SECRET_PROD_KEY'):
+        abort(401, description="prod: incorrect secret api key")
 
 
 def verify_token(sso_token):
