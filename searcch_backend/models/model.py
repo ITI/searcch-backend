@@ -246,6 +246,7 @@ class Person(db.Model):
     profile_photo = db.Column(BYTEA, nullable=True)
     research_interests = db.Column(db.Text, nullable=True)
     website = db.Column(db.Text, nullable=True)
+    person_tsv = db.Column(TSVECTOR)
 
     def __repr__(self):
         return "<Person(id=%r,name=%r, email=%r)>" % (

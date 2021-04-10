@@ -103,7 +103,7 @@ class PersonSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Person
         model_converter = ModelConverter
-        exclude = ('profile_photo',)
+        exclude = ('profile_photo', 'person_tsv')
         include_fk = True
         include_relationships = True
 

@@ -116,7 +116,19 @@ class ArtifactListAPI(Resource):
 
     def search_users(self, keywords, page_num):
         """ search for users based on keywords """
+        user_query = db.session.query(Person, func.ts_rank_cd(Person.person_tsv, func.websearch_to_tsquery("english", keywords)).label(
+            "rank")).filter(Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", keywords))).order_by(desc("rank"))
+        result = user_query.paginate(page=page_num, error_out=False, max_per_page=20).items
+
         users = []
+        for row in result:
+            user, relevance_score = row
+            abstract = {
+                "user": PersonSchema().dump(user),
+                "relevance_score": relevance_score
+            }
+            users.append(abstract)
+        
         return users
     
     def search_organizations(self, keywords, page_num):
