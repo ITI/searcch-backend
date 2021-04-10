@@ -17,14 +17,13 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('persons', sa.Column('photo', postgresql.BYTEA(), nullable=True))
+    op.add_column('persons', sa.Column('profile_photo', postgresql.BYTEA(), nullable=True))
     op.add_column('persons', sa.Column('research_interests', sa.Text(), nullable=True))
     op.add_column('persons', sa.Column('website', sa.Text(), nullable=True))
-    # op.add_column('person', sa.Column('google_scholar', sa.Text(), nullable=True))
-
+    
 
 def downgrade():
-    op.drop_column('persons', 'photo')
+    op.drop_column('persons', 'profile_photo')
     op.drop_column('persons', 'research_interests')
     op.drop_column('persons', 'website')
-    # op.drop_column('person', 'google_scholar')
+    

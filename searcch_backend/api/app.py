@@ -29,7 +29,7 @@ if "DEBUG" in app.config and app.config["DEBUG"]:
     @app.before_request
     def log_request_info():
         app.logger.debug('Headers: %r', flask.request.headers)
-        app.logger.debug('Body: %r', flask.request.get_data())
+        # app.logger.debug('Body: %r', flask.request.get_data())  # ignore printing body - can be huge due to images
     import importlib
     dh = flask.logging.default_handler
     for mod in ['searcch_backend','requests','werkzeug']:

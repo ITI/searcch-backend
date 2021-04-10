@@ -243,7 +243,7 @@ class Person(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(1024), nullable=True)
     email = db.Column(db.String(256), nullable=True)
-    photo = db.Column(BYTEA, nullable=True)
+    profile_photo = db.Column(BYTEA, nullable=True)
     research_interests = db.Column(db.Text, nullable=True)
     website = db.Column(db.Text, nullable=True)
 
