@@ -133,8 +133,20 @@ class ArtifactListAPI(Resource):
     
     def search_organizations(self, keywords, page_num):
         """ search for organizations based on keywords """
-        organizations = []
-        return organizations
+        org_query = db.session.query(Organization, func.ts_rank_cd(Organization.org_tsv, func.websearch_to_tsquery("english", keywords)).label(
+            "rank")).filter(Organization.org_tsv.op('@@')(func.websearch_to_tsquery("english", keywords))).order_by(desc("rank"))
+        result = org_query.paginate(page=page_num, error_out=False, max_per_page=20).items
+
+        orgs = []
+        for row in result:
+            org, relevance_score = row
+            abstract = {
+                "org": OrganizationSchema().dump(org),
+                "relevance_score": relevance_score
+            }
+            orgs.append(abstract)
+        
+        return orgs
 
     def get(self):
         args = self.reqparse.parse_args()

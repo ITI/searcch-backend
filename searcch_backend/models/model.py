@@ -330,6 +330,7 @@ class Organization(db.Model):
     latitude = db.Column(db.Float(), nullable=True)
     longitude = db.Column(db.Float(), nullable=True)
     address = db.Column(db.String(512), nullable=True)
+    org_tsv = db.Column(TSVECTOR)
 
     __table_args__ = (
         db.UniqueConstraint("name", "type", "parent_org_id"),)

@@ -150,6 +150,7 @@ class OrganizationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Organization
         model_converter = ModelConverter
+        exclude = ('org_tsv',)
         include_fk = True
         include_relationships = True
 
