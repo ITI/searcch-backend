@@ -11,7 +11,7 @@ from flask_restful import reqparse, Resource, fields, marshal
 class UserRatingAPI(Resource):
     def get(self, user_id, artifact_id):
         api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
@@ -63,7 +63,7 @@ class RatingAPI(Resource):
 
         # verify session credentials
         api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
         if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
 
@@ -94,7 +94,7 @@ class RatingAPI(Resource):
 
         # verify session credentials
         api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
         if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
 
@@ -124,7 +124,7 @@ class RatingAPI(Resource):
 
         # verify session credentials
         api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
         if config_name == 'production' and not verify_token(sso_token):
             abort(401, "no active login session found. please login to continue")
 

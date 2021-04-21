@@ -29,7 +29,7 @@ if "DEBUG" in app.config and app.config["DEBUG"]:
     @app.before_request
     def log_request_info():
         app.logger.debug('Headers: %r', flask.request.headers)
-        app.logger.debug('Body: %r', flask.request.get_data())
+        # app.logger.debug('Body: %r', flask.request.get_data())  # ignore printing body - can be huge due to images
     import importlib
     dh = flask.logging.default_handler
     for mod in ['searcch_backend','requests','werkzeug']:
@@ -45,6 +45,7 @@ from searcch_backend.api.resources.rating import RatingAPI, UserRatingAPI
 from searcch_backend.api.resources.review import ReviewAPI, ReviewListAPI
 from searcch_backend.api.resources.favorite import FavoriteAPI, FavoritesListAPI
 from searcch_backend.api.resources.user import UserProfileAPI
+from searcch_backend.api.resources.dashboard import UserDashboardAPI
 from searcch_backend.api.resources.artifact_import import (
     ArtifactImportResourceRoot, ArtifactImportResource)
 from searcch_backend.api.resources.importer import (
@@ -67,6 +68,7 @@ api.add_resource(FavoritesListAPI, approot + '/favorites/<int:user_id>', endpoin
 api.add_resource(FavoriteAPI, approot + '/favorite/<int:artifact_id>', endpoint='api.favorite')
 
 api.add_resource(UserProfileAPI, approot + '/user', endpoint='api.user')
+api.add_resource(UserDashboardAPI, approot + '/dashboard', endpoint='api.dashboard')
 
 api.add_resource(ArtifactImportResourceRoot, approot + '/artifact/imports', endpoint='api.artifact_imports')
 api.add_resource(ArtifactImportResource, approot + '/artifact/import/<int:artifact_import_id>', endpoint='api.artifact_import')

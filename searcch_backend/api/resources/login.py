@@ -5,7 +5,7 @@ from flask_restful import reqparse, Resource, fields, marshal
 import requests
 import datetime
 
-from searcch_backend.api.app import db, app
+from searcch_backend.api.app import db, app, config_name
 from searcch_backend.api.common.auth import verify_api_key, verify_token
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
@@ -49,7 +49,7 @@ class LoginAPI(Resource):
         args = self.reqparse.parse_args(strict=True)
 
         api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key)
+        verify_api_key(api_key, config_name)
 
         strategy = args.get('strategy')
         verify_strategy(strategy)
