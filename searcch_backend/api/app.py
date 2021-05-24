@@ -38,6 +38,10 @@ if "DEBUG" in app.config and app.config["DEBUG"]:
         ml.setLevel(logging.DEBUG)
         ml.addHandler(dh)
 
+if "DB_AUTO_MIGRATE" in app.config and app.config["DB_AUTO_MIGRATE"]:
+    with app.app_context():
+        import alembic
+        alembic.command.upgrade(migrate.get_config(),"head")
 
 from searcch_backend.api.resources.artifact import ArtifactAPI, ArtifactListAPI
 from searcch_backend.api.resources.login import LoginAPI

@@ -13,7 +13,6 @@ Flask-RESTful==0.3.8
 Flask-SQLAlchemy==2.4.4
 future==0.18.2
 gevent==20.5.0
-greenlet==0.4.15
 gunicorn==20.0.4
 idna==2.10
 itsdangerous==1.1.0
@@ -23,7 +22,7 @@ MarkupSafe==1.1.1
 marshmallow==3.7.1
 marshmallow-sqlalchemy==0.23.1
 prettyprint==0.1.5
-psycopg2-binary==2.8.6
+psycopg2cffi
 pymongo==3.10.1
 python-dateutil==2.8.1
 python-dotenv==0.13.0
@@ -37,3 +36,6 @@ sqlitis==0.0.5
 sqlparse==0.3.0
 urllib3==1.25.9
 Werkzeug==1.0.1
+psycogreen
+# >0.30.2 has a bug ...
+##eventlet==0.30.2

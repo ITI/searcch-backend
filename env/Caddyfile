@@ -1,0 +1,17 @@
+https://hub.cyberexperimentation.org:4443 {
+tls /etc/ssl/certs/searcch/searcch.pem /etc/ssl/certs/searcch/searcch-key.pem
+reverse_proxy /* searcch-backend-prod:80 {
+      header_down Strict-Transport-Security "max-age=15552000;"
+      header_up X-Real-IP {remote_host}
+      header_up X-Forwarded-For {remote_host}
+	}
+}
+
+https://hub.cyberexperimentation.org:5443 {
+tls /etc/ssl/certs/searcch/searcch.pem /etc/ssl/certs/searcch/searcch-key.pem
+reverse_proxy /* searcch-backend-dev:80 {
+      header_down Strict-Transport-Security "max-age=15552000;"
+      header_up X-Real-IP {remote_host}
+      header_up X-Forwarded-For {remote_host}
+        }
+}
