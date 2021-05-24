@@ -15,6 +15,7 @@ class DevelopmentConfig(Config):
     SQLALCHEMY_ECHO = True
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     SESSION_TIMEOUT_IN_MINUTES = 120
+    DB_AUTO_MIGRATE = True
 
 
 class ProductionConfig(Config):
@@ -26,6 +27,7 @@ class ProductionConfig(Config):
     SQLALCHEMY_ECHO = False
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SESSION_TIMEOUT_IN_MINUTES = 120
+    DB_AUTO_MIGRATE = True
 
 app_config = {
     'development': DevelopmentConfig,
