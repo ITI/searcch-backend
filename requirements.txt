@@ -22,7 +22,7 @@ MarkupSafe==1.1.1
 marshmallow==3.7.1
 marshmallow-sqlalchemy==0.23.1
 prettyprint==0.1.5
-psycopg2cffi
+psycopg2cffi==2.9.0
 pymongo==3.10.1
 python-dateutil==2.8.1
 python-dotenv==0.13.0
@@ -36,6 +36,6 @@ sqlitis==0.0.5
 sqlparse==0.3.0
 urllib3==1.25.9
 Werkzeug==1.0.1
-psycogreen
+psycogreen==1.0.2
 # >0.30.2 has a bug ...
 ##eventlet==0.30.2
