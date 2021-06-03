@@ -29,7 +29,7 @@ def upgrade():
         " LANGUAGE plpgsql"
         " AS $$"
         " BEGIN"
-        "   new.org_tsv := to_tsvector('english', coalesce(name, '') || ' ' || coalesce(state, '') || ' ' || coalesce(country, '') || ' ' || coalesce(address, ''));"
+        "   new.org_tsv := to_tsvector('english', coalesce(new.name, '') || ' ' || coalesce(new.state, '') || ' ' || coalesce(new.country, '') || ' ' || coalesce(new.address, ''));"
         "   return new;"
         " END"
         " $$;")

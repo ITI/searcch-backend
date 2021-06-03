@@ -46,7 +46,7 @@ def upgrade():
         " returns trigger language plpgsql"
         " as $$"
         " begin"
-        "     refresh materialized view artifact_search_view;"
+        "     refresh materialized view public.artifact_search_view;"
         "     return null;"
         " end $$;"
     )
@@ -54,18 +54,6 @@ def upgrade():
         "create trigger refresh_mat_view"
         " after insert or update or delete or truncate"
         " on artifacts for each statement "
-        " execute procedure refresh_mat_view();"
-    )
-    op.execute(
-        "create trigger refresh_mat_view"
-        " after insert or update or delete or truncate"
-        " on artifact_metadata for each statement "
-        " execute procedure refresh_mat_view();"
-    )
-    op.execute(
-        "create trigger refresh_mat_view"
-        " after insert or update or delete or truncate"
-        " on artifact_tags for each statement "
         " execute procedure refresh_mat_view();"
     )
     op.create_index('doc_idx', 'artifact_search_view', [sa.text("doc_vector")], postgresql_using='gin')
