@@ -60,6 +60,7 @@ services:
     volumes:
       - /data/searcch-backend-local-dev/gunicorn_conf.py:/app/gunicorn_conf.py
       - /data/searcch-backend-local-dev/config-local-dev.py:/app/config-local-dev.py
+      - /data/searcch-backend-local-dev/logs:/app/logs
     env_file:
       - env/searcch-backend-local-dev.env
     networks:
