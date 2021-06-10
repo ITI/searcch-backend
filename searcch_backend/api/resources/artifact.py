@@ -164,6 +164,8 @@ class ArtifactListAPI(Resource):
             for entity in entities:
                 if entity not in ['artifact', 'user', 'organization']:
                     abort(400, description='invalid entity passed')
+        else:
+            entities = ['artifact']
 
         artifacts, users, organizations = [], [], []
         if 'artifact' in entities:

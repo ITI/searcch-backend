@@ -35,12 +35,12 @@ class UserDashboardAPI(Resource):
     def get(self):
         args = self.reqparse.parse_args()
         user_id = args['userid']
+        sso_token = args['token']
 
         # verify credentials
         api_key = request.headers.get('X-API-Key')
         verify_api_key(api_key, config_name)
         if config_name == 'production':
-            sso_token = args['token']
             if not verify_token(sso_token):
                 abort(401, "no active login session found. please login to continue")
 
