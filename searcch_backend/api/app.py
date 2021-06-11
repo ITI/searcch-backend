@@ -43,7 +43,7 @@ if "DB_AUTO_MIGRATE" in app.config and app.config["DB_AUTO_MIGRATE"]:
         import alembic
         alembic.command.upgrade(migrate.get_config(),"head")
 
-from searcch_backend.api.resources.artifact import ArtifactAPI, ArtifactListAPI
+from searcch_backend.api.resources.artifact import ArtifactAPI, ArtifactListAPI, ArtifactRelationshipAPI
 from searcch_backend.api.resources.login import LoginAPI
 from searcch_backend.api.resources.rating import RatingAPI, UserRatingAPI
 from searcch_backend.api.resources.review import ReviewAPI, ReviewListAPI
@@ -61,6 +61,8 @@ api.add_resource(LoginAPI, approot + '/login', endpoint='api.login')
 
 api.add_resource(ArtifactListAPI, approot + '/artifacts', endpoint='api.artifacts')
 api.add_resource(ArtifactAPI, approot + '/artifact/<int:artifact_id>', endpoint='api.artifact')
+api.add_resource(ArtifactRelationshipAPI, approot + '/artifact/relationship/<int:artifact_id>', endpoint='api.artifact_relationship')
+
 
 api.add_resource(RatingAPI, approot + '/rating/<int:artifact_id>', endpoint='api.rating')
 api.add_resource(UserRatingAPI, approot + '/rating/user/<int:user_id>/artifact/<int:artifact_id>', endpoint='api.userrating')
