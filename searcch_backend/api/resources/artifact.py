@@ -155,6 +155,8 @@ class ArtifactListAPI(Resource):
         entities = args['entity']
         page_num = args['page']
 
+        artifacts, users, organizations = [], [], []
+
         # sanity checks
         if artifact_types:
             for a_type in artifact_types:
@@ -164,14 +166,12 @@ class ArtifactListAPI(Resource):
             for entity in entities:
                 if entity not in ['artifact', 'user', 'organization']:
                     abort(400, description='invalid entity passed')
-
-        artifacts, users, organizations = [], [], []
-        if 'artifact' in entities:
-            artifacts = self.search_artifacts(keywords, artifact_types, page_num)
-        if 'user' in entities:
-            users = self.search_users(keywords, page_num)
-        if 'organization' in entities:
-             organizations = self.search_organizations(keywords, page_num)
+            if 'artifact' in entities:
+                artifacts = self.search_artifacts(keywords, artifact_types, page_num)
+            if 'user' in entities:
+                users = self.search_users(keywords, page_num)
+            if 'organization' in entities:
+                organizations = self.search_organizations(keywords, page_num)
 
         response = jsonify({
             "artifacts": artifacts, 
