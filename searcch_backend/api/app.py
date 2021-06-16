@@ -24,19 +24,26 @@ migrate = Migrate(app, db, directory="searcch_backend/migrations")
 ma = Marshmallow(app)
 api = Api(app)
 
+#
+# If gunicorn, propagate its logging config to flask.
+#
+slog = None
+if flask.logging.default_handler.level == 0:
+    slog = logging.getLogger('gunicorn.error')
+if __name__ != "__main__" and slog and slog != app.logger:
+    app.logger.handlers = slog.handlers
+    app.logger.setLevel(slog.level)
+
 if "DEBUG" in app.config and app.config["DEBUG"]:
-    import flask
     @app.before_request
     def log_request_info():
-        app.logger.debug('Headers: %r', flask.request.headers)
-        # app.logger.debug('Body: %r', flask.request.get_data())  # ignore printing body - can be huge due to images
-    import importlib
-    dh = flask.logging.default_handler
-    for mod in ['searcch_backend','requests','werkzeug']:
-        importlib.import_module(mod)
-        ml = logging.getLogger(mod)
-        ml.setLevel(logging.DEBUG)
-        ml.addHandler(dh)
+        app.logger.debug('Headers: %r', repr(flask.request.headers))
+        cstr = flask.request.get_data(as_text=True)
+        if cstr:
+            cstr = cstr[:32]
+            app.logger.debug('Body: %r', cstr)
+
+app.logger.debug("flask config: %r",app.config)
 
 if "DB_AUTO_MIGRATE" in app.config and app.config["DB_AUTO_MIGRATE"]:
     with app.app_context():
