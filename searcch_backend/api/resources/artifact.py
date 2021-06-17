@@ -304,3 +304,200 @@ class ArtifactAPI(Resource):
         response = make_response()
         response.status_code = 200
         return response
+
+#   artifact_id, relation, related_artifact_id
+class ArtifactRelationshipAPI(Resource):
+    def __init__(self):
+        self.reqparse = reqparse.RequestParser()
+        if config_name == 'production':
+            self.reqparse.add_argument(name='token',
+                                       type=str,
+                                       required=True,
+                                       default='',
+                                       help='missing SSO token from auth provider in post request')
+        self.reqparse.add_argument(name='relation',
+                                   type=str,
+                                   required=False,
+                                   choices=("cites", "supplements", "continues", "references", "documents", "compiles","publishes"),
+                                   help='missing relation between the two artifacts')
+        self.reqparse.add_argument(name='related_artifact_id',
+                                   type=int,
+                                   required=False,
+                                   help='missing if of the related artifact')
+        self.reqparse.add_argument(name='updated_relation',
+                                   type=str,
+                                   required=False,
+                                   choices=("cites", "supplements", "continues", "references", "documents", "compiles","publishes"),
+                                   help='missing new relation between the two artifacts')
+        self.reqparse.add_argument(name='userid',
+                                   type=int,
+                                   required=False,
+                                   help='missing userid of artifact')
+
+        super(ArtifactRelationshipAPI, self).__init__()
+
+    def put(self, artifact_id):
+        args = self.reqparse.parse_args()
+
+        if config_name == 'production':
+            sso_token = args['token']
+        relation = args['relation']
+        related_artifact_id = args['related_artifact_id']
+        updated_relation = args['updated_relation']
+        userid = args['userid']
+
+        # verify session credentials
+        api_key = request.headers.get('X-API-Key')
+        verify_api_key(api_key, config_name)
+        if config_name == 'production' and not verify_token(sso_token):
+            abort(401, "no active login session found. please login to continue")
+
+        # check for valid artifact id
+        artifact = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).first()
+        if not artifact:
+            abort(400, description='invalid artifact ID')
+
+        # check for valid artifact ownership
+        artifact_ownership = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).\
+            filter(Artifact.owner_id == userid).\
+            first()
+        if not artifact_ownership:
+            abort(400, description='user doesnt own the artifact')
+
+        # Check if we are updating an existing relationship
+        queried_relationship = ArtifactRelationship.query.filter_by(artifact_id=artifact_id, relation=relation, related_artifact_id=related_artifact_id).first()
+
+        if queried_relationship:
+            queried_relationship.relation = updated_relation
+            db.session.commit()
+            msg = "updated relationship between artifacts"
+        else: 
+           # insert the new relation
+            new_relationship = ArtifactRelationship(artifact_id=artifact_id, relation=relation, related_artifact_id=related_artifact_id)
+            db.session.add(new_relationship)
+            db.session.commit()
+            msg = "inserted a new relationship between artifacts"
+
+        response = jsonify({"message": msg})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+    def post(self, artifact_id):
+        args = self.reqparse.parse_args()
+
+        if config_name == 'production':
+            sso_token = args['token']
+        relation = args['relation']
+        related_artifact_id = args['related_artifact_id']
+        userid = args['userid']
+
+        # verify session credentials
+        api_key = request.headers.get('X-API-Key')
+        verify_api_key(api_key, config_name)
+        if config_name == 'production' and not verify_token(sso_token):
+            abort(401, "no active login session found. please login to continue")
+
+        # check for valid artifact id
+        artifact = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).first()
+        if not artifact:
+            abort(400, description='invalid artifact ID')
+
+        # check for valid artifact ownership
+        artifact_ownership = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).\
+            filter(Artifact.owner_id == userid).\
+            first()
+        if not artifact_ownership:
+            abort(400, description='user doesnt own the artifact')
+            
+        # Check if we are updating an existing relationship
+        queried_relationship = ArtifactRelationship.query.filter_by(artifact_id=artifact_id, relation=relation, related_artifact_id=related_artifact_id).first()
+
+        if queried_relationship:
+            abort(403, description='relationship between artifacts already exists')
+        else: 
+           # insert the new relation
+            new_relationship = ArtifactRelationship(artifact_id=artifact_id, relation=relation, related_artifact_id=related_artifact_id)
+            db.session.add(new_relationship)
+            db.session.commit()
+            msg = "inserted a new relationship between artifacts"
+
+        response = jsonify({"message": msg})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+    def delete(self, artifact_id):
+        args = self.reqparse.parse_args()
+
+        if config_name == 'production':
+            sso_token = args['token']
+        relation = args['relation']
+        related_artifact_id = args['related_artifact_id']
+        userid = args['userid']
+
+        # verify session credentials
+        api_key = request.headers.get('X-API-Key')
+        verify_api_key(api_key, config_name)
+        if config_name == 'production' and not verify_token(sso_token):
+            abort(401, "no active login session found. please login to continue")
+
+        # check for valid artifact id
+        artifact = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).first()
+        if not artifact:
+            abort(400, description='invalid artifact ID')
+
+        # check for valid artifact ownership
+        artifact_ownership = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).\
+            filter(Artifact.owner_id == userid).\
+            first()
+        if not artifact_ownership:
+            abort(400, description='user doesnt own the artifact')
+            
+        # Check if we are updating an existing relationship
+        queried_relationship = ArtifactRelationship.query.filter_by(artifact_id=artifact_id, relation=relation, related_artifact_id=related_artifact_id).first()
+
+        if queried_relationship:
+            db.session.delete(queried_relationship)
+            db.session.commit()
+            response = jsonify({"message": "deleted relationship between the artifacts"})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.status_code = 200
+            return response
+        else: 
+            abort(404, description="Relationship does not exist between the artifacts")
+
+    def get(self, artifact_id):
+        args = self.reqparse.parse_args()
+
+        if config_name == 'production':
+            sso_token = args['token']
+
+        # verify session credentials
+        api_key = request.headers.get('X-API-Key')
+        verify_api_key(api_key, config_name)
+        if config_name == 'production' and not verify_token(sso_token):
+            abort(401, "no active login session found. please login to continue")
+
+        # check for valid artifact id
+        artifact = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).first()
+        if not artifact:
+            abort(400, description='invalid artifact ID')
+            
+        # get all relationships
+        relationships = ArtifactRelationship.query.filter_by(artifact_id=artifact_id).all()
+
+        # response = jsonify({"artifact_imports": ArtifactImportSchema(many=True).dump(artifact_imports)})
+        # response = jsonify([ArtifactRelationshipSchema().dump(relationship) for relationship in relationships])
+        response = jsonify({"relationships": ArtifactRelationshipSchema(many=True, exclude=['related_artifact']).dump(relationships)})
+        
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
