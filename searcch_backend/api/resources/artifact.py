@@ -329,10 +329,10 @@ class ArtifactRelationshipAPI(Resource):
                                    required=False,
                                    choices=("cites", "supplements", "continues", "references", "documents", "compiles","publishes"),
                                    help='missing new relation between the two artifacts')
-        self.reqparse.add_argument(name='owner_id',
+        self.reqparse.add_argument(name='userid',
                                    type=int,
                                    required=False,
-                                   help='missing owner_id of artifact')
+                                   help='missing userid of artifact')
 
         super(ArtifactRelationshipAPI, self).__init__()
 
@@ -344,7 +344,7 @@ class ArtifactRelationshipAPI(Resource):
         relation = args['relation']
         related_artifact_id = args['related_artifact_id']
         updated_relation = args['updated_relation']
-        owner_id = args['owner_id']
+        userid = args['userid']
 
         # verify session credentials
         api_key = request.headers.get('X-API-Key')
@@ -361,7 +361,7 @@ class ArtifactRelationshipAPI(Resource):
         # check for valid artifact ownership
         artifact_ownership = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).\
-            filter(Artifact.owner_id == owner_id).\
+            filter(Artifact.owner_id == userid).\
             first()
         if not artifact_ownership:
             abort(400, description='user doesnt own the artifact')
@@ -392,7 +392,7 @@ class ArtifactRelationshipAPI(Resource):
             sso_token = args['token']
         relation = args['relation']
         related_artifact_id = args['related_artifact_id']
-        owner_id = args['owner_id']
+        userid = args['userid']
 
         # verify session credentials
         api_key = request.headers.get('X-API-Key')
@@ -409,7 +409,7 @@ class ArtifactRelationshipAPI(Resource):
         # check for valid artifact ownership
         artifact_ownership = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).\
-            filter(Artifact.owner_id == owner_id).\
+            filter(Artifact.owner_id == userid).\
             first()
         if not artifact_ownership:
             abort(400, description='user doesnt own the artifact')
@@ -438,7 +438,7 @@ class ArtifactRelationshipAPI(Resource):
             sso_token = args['token']
         relation = args['relation']
         related_artifact_id = args['related_artifact_id']
-        owner_id = args['owner_id']
+        userid = args['userid']
 
         # verify session credentials
         api_key = request.headers.get('X-API-Key')
@@ -455,7 +455,7 @@ class ArtifactRelationshipAPI(Resource):
         # check for valid artifact ownership
         artifact_ownership = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).\
-            filter(Artifact.owner_id == owner_id).\
+            filter(Artifact.owner_id == userid).\
             first()
         if not artifact_ownership:
             abort(400, description='user doesnt own the artifact')
