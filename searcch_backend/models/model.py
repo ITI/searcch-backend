@@ -411,7 +411,6 @@ class ArtifactReviews(db.Model):
         "artifacts.id"), nullable=False)
     review = db.Column(db.Text, nullable=False)
     review_time = db.Column(db.DateTime, nullable=False)
-    subject = db.Column(db.String(128), nullable=False)
 
     reviewer = db.relationship("User")
 
