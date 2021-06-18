@@ -51,10 +51,6 @@ class ReviewAPI(Resource):
                                    type=int,
                                    required=False,
                                    help='missing review ID')
-        self.reqparse.add_argument(name='subject',
-                                   type=str,
-                                   required=False,
-                                   help='missing subject for review of artifact')
         self.reqparse.add_argument(name='review',
                                    type=str,
                                    required=False,
@@ -66,7 +62,6 @@ class ReviewAPI(Resource):
         if config_name == 'production':
             sso_token = args['token']
         user_id = args['userid']
-        subject = args['subject']
         review = args['review']
 
         if len(review) < 1:
@@ -90,12 +85,11 @@ class ReviewAPI(Resource):
         # if it does, update the review, else add a new review
         if existing_review:
             existing_review.review = review
-            existing_review.subject = subject
             existing_review.review_time = datetime.now()
             message = "updated existing review"
         else:
             new_review = ArtifactReviews(
-                user_id=user_id, artifact_id=artifact_id, review=review, review_time=datetime.now(), subject=subject)
+                user_id=user_id, artifact_id=artifact_id, review=review, review_time=datetime.now())
             db.session.add(new_review)
             message = "added new review"
         db.session.commit()
@@ -113,7 +107,6 @@ class ReviewAPI(Resource):
         user_id = args['userid']
         review_id = args['reviewid']
         review = args['review']
-        subject = args['subject']
 
         if len(review) < 1:
             abort(400, description='review cannot be empty')
@@ -129,7 +122,6 @@ class ReviewAPI(Resource):
         if not existing_review:
             abort(400, description='incorrect params passed')
         existing_review.review = review
-        existing_review.subject = subject
         db.session.commit()
 
         response = jsonify({"message": "updated review"})
