@@ -104,7 +104,6 @@ class ArtifactListAPI(Resource):
                     "uri": ArtifactListAPI.generate_artifact_uri(artifact.id),
                     "doi": artifact.url,
                     "type": artifact.type,
-                    "relevance_score": relevance_score,
                     "title": artifact.title,
                     "description": artifact.description,
                     "avg_rating": float(avg_rating) if avg_rating else None,
@@ -124,8 +123,7 @@ class ArtifactListAPI(Resource):
         for row in result:
             user, relevance_score = row
             abstract = {
-                "user": PersonSchema().dump(user),
-                "relevance_score": relevance_score
+                "user": PersonSchema().dump(user)
             }
             users.append(abstract)
         
@@ -141,8 +139,7 @@ class ArtifactListAPI(Resource):
         for row in result:
             org, relevance_score = row
             abstract = {
-                "org": OrganizationSchema().dump(org),
-                "relevance_score": relevance_score
+                "org": OrganizationSchema().dump(org)
             }
             orgs.append(abstract)
         
