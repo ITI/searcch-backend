@@ -2,7 +2,7 @@
 
 from searcch_backend.api.app import db, config_name
 from searcch_backend.api.common.sql import object_from_json
-from searcch_backend.api.common.auth import verify_api_key
+from searcch_backend.api.common.auth import (verify_api_key, has_api_key)
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
@@ -183,11 +183,9 @@ class ArtifactListAPI(Resource):
         """
         Creates a new artifact from the given JSON document, without invoking the importer.
         """
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
 
         j = request.json
-        del j["api_key"]
         artifact = object_from_json(db.session, Artifact, j, skip_ids=None)
         db.session.add(artifact)
         try:
@@ -207,9 +205,8 @@ class ArtifactListAPI(Resource):
 
 class ArtifactAPI(Resource):
     def get(self, artifact_id):
-        api_key = request.headers.get('X-API-Key')
-        if api_key:
-            verify_api_key(api_key, config_name)
+        if has_api_key(request):
+            verify_api_key(request)
 
         artifact = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).first()
@@ -240,9 +237,8 @@ class ArtifactAPI(Resource):
         return response
 
     def put(self, artifact_id):
-        api_key = request.headers.get('X-API-Key')
-        if api_key:
-            verify_api_key(api_key, config_name)
+        verify_api_key(request)
+        login_session = verify_token(request)
 
         # We can only change unpublished artifacts.
         artifact = db.session.query(Artifact).\
@@ -250,6 +246,8 @@ class ArtifactAPI(Resource):
           .first()
         if not artifact:
             abort(404, description="no such artifact")
+        if artifact.owner_id != login_session.user_id:
+            abort(401, description="insufficient permission to modify artifact")
         if artifact.publication:
             abort(403, description="artifact already published; cannot modify")
         if not request.is_json:
@@ -306,12 +304,6 @@ class ArtifactAPI(Resource):
 class ArtifactRelationshipAPI(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        if config_name == 'production':
-            self.reqparse.add_argument(name='token',
-                                       type=str,
-                                       required=True,
-                                       default='',
-                                       help='missing SSO token from auth provider in post request')
         self.reqparse.add_argument(name='relation',
                                    type=str,
                                    required=False,
@@ -326,28 +318,18 @@ class ArtifactRelationshipAPI(Resource):
                                    required=False,
                                    choices=("cites", "supplements", "continues", "references", "documents", "compiles","publishes"),
                                    help='missing new relation between the two artifacts')
-        self.reqparse.add_argument(name='userid',
-                                   type=int,
-                                   required=False,
-                                   help='missing userid of artifact')
 
         super(ArtifactRelationshipAPI, self).__init__()
 
     def put(self, artifact_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
         args = self.reqparse.parse_args()
 
-        if config_name == 'production':
-            sso_token = args['token']
         relation = args['relation']
         related_artifact_id = args['related_artifact_id']
         updated_relation = args['updated_relation']
-        userid = args['userid']
-
-        # verify session credentials
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
-        if config_name == 'production' and not verify_token(sso_token):
-            abort(401, "no active login session found. please login to continue")
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
@@ -358,7 +340,7 @@ class ArtifactRelationshipAPI(Resource):
         # check for valid artifact ownership
         artifact_ownership = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).\
-            filter(Artifact.owner_id == userid).\
+            filter(Artifact.owner_id == login_session.user_id).\
             first()
         if not artifact_ownership:
             abort(400, description='user doesnt own the artifact')
@@ -383,19 +365,13 @@ class ArtifactRelationshipAPI(Resource):
         return response
 
     def post(self, artifact_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
         args = self.reqparse.parse_args()
 
-        if config_name == 'production':
-            sso_token = args['token']
         relation = args['relation']
         related_artifact_id = args['related_artifact_id']
-        userid = args['userid']
-
-        # verify session credentials
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
-        if config_name == 'production' and not verify_token(sso_token):
-            abort(401, "no active login session found. please login to continue")
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
@@ -406,7 +382,7 @@ class ArtifactRelationshipAPI(Resource):
         # check for valid artifact ownership
         artifact_ownership = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).\
-            filter(Artifact.owner_id == userid).\
+            filter(Artifact.owner_id == login_session.user_id).\
             first()
         if not artifact_ownership:
             abort(400, description='user doesnt own the artifact')
@@ -429,19 +405,13 @@ class ArtifactRelationshipAPI(Resource):
         return response
 
     def delete(self, artifact_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
         args = self.reqparse.parse_args()
 
-        if config_name == 'production':
-            sso_token = args['token']
         relation = args['relation']
         related_artifact_id = args['related_artifact_id']
-        userid = args['userid']
-
-        # verify session credentials
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
-        if config_name == 'production' and not verify_token(sso_token):
-            abort(401, "no active login session found. please login to continue")
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
@@ -452,7 +422,7 @@ class ArtifactRelationshipAPI(Resource):
         # check for valid artifact ownership
         artifact_ownership = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).\
-            filter(Artifact.owner_id == userid).\
+            filter(Artifact.owner_id == login_session.user_id).\
             first()
         if not artifact_ownership:
             abort(400, description='user doesnt own the artifact')
@@ -471,16 +441,10 @@ class ArtifactRelationshipAPI(Resource):
             abort(404, description="Relationship does not exist between the artifacts")
 
     def get(self, artifact_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
         args = self.reqparse.parse_args()
-
-        if config_name == 'production':
-            sso_token = args['token']
-
-        # verify session credentials
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
-        if config_name == 'production' and not verify_token(sso_token):
-            abort(401, "no active login session found. please login to continue")
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(

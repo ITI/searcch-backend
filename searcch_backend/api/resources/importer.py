@@ -59,8 +59,7 @@ class ImporterResourceRoot(Resource):
         """
         Importers register via this endpoint.
         """
-        api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
         
         args = self.post_reqparse.parse_args()
         if not args["url"] or not args["key"]:
@@ -100,8 +99,7 @@ class ImporterResourceRoot(Resource):
         """
         List all importer instances.
         """
-        api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
         
         importer_instances = db.session.query(ImporterInstance).all()
         response = jsonify({"importers": importer_instances})
@@ -115,8 +113,7 @@ class ImporterResource(Resource):
         """
         Get an importer instance's details.
         """
-        api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
         
         importer_instance = db.session.query(ImporterInstance).filter(
             ImporterInstance.id == importer_instance_id).first()
@@ -131,8 +128,7 @@ class ImporterResource(Resource):
         """
         Allows the importer to push its status to us.
         """
-        api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
         
         importer_instance = db.session.query(ImporterInstance).filter(
             ImporterInstance.id == importer_instance_id).first()
@@ -163,8 +159,7 @@ class ImporterResource(Resource):
         # XXX: later on, need to validate this api key more tightly... only
         # admins and the instance itself should be allowed to delete, and then
         # only if not currently running.
-        api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
         
         importer_instance = db.session.query(ImporterInstance).filter(
             ImporterInstance.id == importer_instance_id).first()

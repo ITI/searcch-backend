@@ -445,6 +445,7 @@ class Sessions(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     sso_token = db.Column(db.String(64), nullable=False)
     expires_on = db.Column(db.DateTime, nullable=False)
+    user = db.relationship("User", uselist=False)
 
     def __repr__(self):
         return "<Session(id=%r, user_id=%r, sso_token='%s')>" \

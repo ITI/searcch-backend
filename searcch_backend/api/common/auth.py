@@ -1,22 +1,31 @@
 from searcch_backend.api.app import app
 from searcch_backend.api.app import db
-from searcch_backend.models.model import *
+from searcch_backend.models.model import Sessions
 from datetime import datetime
 from flask import abort
 
 
-def verify_api_key(api_key, config_name):
-    if api_key == '':
+def has_api_key(request):
+    if request.headers.get('X-Api-Key', None):
+        return True
+    return False
+
+def verify_api_key(request):
+    api_key = request.headers.get('X-Api-Key', None)
+    if not api_key:
         abort(403, description="missing secret api key")
-    if config_name == 'development' and api_key != app.config.get('SHARED_SECRET_KEY'):
-        abort(401, description="dev: incorrect secret api key")
-    if config_name == 'production' and api_key != app.config.get('SHARED_SECRET_PROD_KEY'):
-        abort(401, description="prod: incorrect secret api key")
+    if api_key != app.config.get('SHARED_SECRET_KEY'):
+        abort(401, description="incorrect api key")
 
+def has_token(request):
+    auth_val = request.headers.get('Authorization', None)
+    if auth_val:
+        return True
+    return False
 
-def verify_token(sso_token):
+def lookup_token(sso_token):
     # sanity check input
-    if sso_token == '':
+    if not sso_token:
         abort(403, description="missing SSO token from auth provider")
 
     # check for token in sessions table
@@ -30,6 +39,15 @@ def verify_token(sso_token):
             # send back for relogin
             abort(401, description="session token has expired. please re-login")
         else:
-            return True
+            return login_session
     else:
-        return False
+        return None
+
+def verify_token(request):
+    sso_token = request.headers.get('Authorization', None)
+    if not sso_token:
+        abort(403, description="missing SSO token from auth provider")
+    login_session = lookup_token(sso_token)
+    if not login_session:
+        abort(401, description="invalid session token")
+    return login_session
