@@ -29,9 +29,6 @@ class ArtifactImportResourceRoot(Resource):
     def __init__(self):
         self.postparse = reqparse.RequestParser()
         self.postparse.add_argument(
-            name="userid", type=int, required=True, nullable=False,
-            help="userid argument required")
-        self.postparse.add_argument(
             name="url", type=str, required=True, nullable=False,
             help="Artifact source URL required")
         self.postparse.add_argument(
@@ -44,9 +41,6 @@ class ArtifactImportResourceRoot(Resource):
 
         self.getparse = reqparse.RequestParser()
         self.getparse.add_argument(
-            name="userid", type=int, required=True, location="args", nullable=False,
-            help="userid argument required")
-        self.getparse.add_argument(
             name="status", type=str, required=False, location="args",
             help="status must be one of pending,scheduled,running,completed,failed")
         self.getparse.add_argument(
@@ -57,31 +51,24 @@ class ArtifactImportResourceRoot(Resource):
 
     def get(self):
         """
-        Get a list of artifact imports.  May be filtered by userid
-        (currently required) or status (optional)
-        (pending,scheduled,running,completed,failed).
+        Get a list of artifact imports.  Filtered by session.user_id,
+        status (optional) (pending,scheduled,running,completed,failed),
+        and archived state.
         """
-        api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
+        login_session = verify_token(request)
 
         args = self.getparse.parse_args()
-        userid = args["userid"]
         status = args["status"]
 
-        user = db.session.query(User).filter(User.id == userid).first()
-        if not user:
-            abort(404, description="no such user")
-
         artifact_imports = db.session.query(ArtifactImport)\
-          .filter(ArtifactImport.owner_id == userid)\
+          .filter(ArtifactImport.owner_id == login_session.user_id)\
           .order_by(desc(ArtifactImport.id))
         if status:
             artifact_imports = artifact_imports.filter(ArtifactImport.status == status)
         if not args["archived"]:
             artifact_imports = artifact_imports.filter(ArtifactImport.archived == False)
-        #else:
-        #    artifact_imports = db.session.query(ArtifactImport)\
-        #      .filter(ArtifactImport.owner_id == userid).all()
+
         artifact_imports = artifact_imports.all()
 
         response = jsonify({"artifact_imports": ArtifactImportSchema(many=True).dump(artifact_imports)})
@@ -93,29 +80,27 @@ class ArtifactImportResourceRoot(Resource):
         """
         This is the primary artifact creation method.  It takes as input a URL, the uid, and possibly a specific importer to use.  It creates a temporary import session once handed off to the importer, and the frontend then polls based off the import session for completion of the import.  This is asynchronous, and returns an import session ID, if sanity checks succeed (e.g., an importer of the given name (if any) exists, rate limits are within tolerances, etc).  Note that the initial checks do *not* include URL reachability, since URLs may not all be reachable nor veriable over a basic HTTP(S) connection; the importer module must handle this case.  Finally, we cannot wait for the importer to do this reachability check, because there might be a queue of imports already being processed.
         """
-        api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
+        login_session = verify_token(request)
 
         args = self.postparse.parse_args()
         if not args["url"]:
             abort(400, description="must provide non-null URL")
         if args["type"] and args["type"] not in ARTIFACT_IMPORT_TYPES:
             abort(400, description="invalid artifact type")
-        userid = args["userid"]
-        del args["userid"]
 
         res = db.session.query(ArtifactImport).\
           filter(ArtifactImport.url == args["url"]).\
-          filter(ArtifactImport.owner_id == userid).\
+          filter(ArtifactImport.owner_id == login_session.user_id).\
           filter(ArtifactImport.artifact_id == None).\
           filter(not_(ArtifactImport.status.in_(["completed","failed"]))).\
           all()
         if len(res) > 0:
-            abort(400, description="userid %r already importing from %r" % (userid,args["url"]))
+            abort(400, description="user_id %r already importing from %r" % (login_session.user_id,args["url"]))
 
         dt = datetime.datetime.now()
         ai = ArtifactImport(
-            **args,owner_id=userid,ctime=dt,mtime=dt,status="pending",
+            **args,owner_id=login_session.user_id,ctime=dt,mtime=dt,status="pending",
             phase="start",archived=False)
         ims = ImporterSchedule(artifact_import=ai)
         db.session.add(ai)
@@ -136,8 +121,6 @@ class ArtifactImportResource(Resource):
 
     def __init__(self):
         self.putparse = reqparse.RequestParser()
-        self.putparse.add_argument(
-            name="userid", type=int, required=False)
         self.putparse.add_argument(
             name="mtime", type=str, required=False,
             help="mtime argument required (ISO-formatted timestamp)")
@@ -165,13 +148,16 @@ class ArtifactImportResource(Resource):
         super(ArtifactImportResource, self).__init__()
 
     def get(self, artifact_import_id):
-        api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
+        login_session = verify_token(request)
 
-        artifact_import = db.session.query(ArtifactImport).filter(
-            ArtifactImport.id == artifact_import_id).first()
+        artifact_import = db.session.query(ArtifactImport)\
+          .filter(ArtifactImport.id == artifact_import_id)\
+          .first()
         if not artifact_import:
             abort(404, description="invalid artifact import ID")
+        if artifact_import.owner_id != login_session.user_id:
+            abort(403, description="insufficient permission")
 
         response = jsonify(ArtifactImportSchema().dump(artifact_import))
         response.headers.add('Access-Control-Allow-Origin', '*')
@@ -181,10 +167,12 @@ class ArtifactImportResource(Resource):
     def put(self, artifact_import_id):
         """
         Allows the importer to push an artifact_import's status and
-        data to us.
+        data to us, or for a user to modify the import's state.
         """
-        api_key = request.headers.get('X-Api-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
+        login_session = None
+        if has_token(request):
+            login_session = verify_token(request)
 
         artifact_import = db.session.query(ArtifactImport).filter(
             ArtifactImport.id == artifact_import_id).first()
@@ -194,11 +182,11 @@ class ArtifactImportResource(Resource):
         args = self.putparse.parse_args()
         if not args or len(args) < 1:
             abort(400, description="no properties sent to modify")
-        if args["userid"] and artifact_import.owner_id != args["userid"]:
-            abort(403, description="userid %r does not own this artifact" % (args["userid"],))
-        if args["userid"]:
+        if login_session:
+            if artifact_import.owner_id != login_session.user_id:
+                abort(403, description="insufficient permission to modify artifact")
             if args["archived"] == None or len(vars(args)) > 2:
-                abort(400, description="userid %r may only change archived status" % (args["userid"],))
+                abort(400, description="user may only change archived status")
         if args["status"] != None and args["status"] not in ARTIFACT_IMPORT_STATUSES:
             abort(400, description="invalid status (must be one of %s)" % (
                 ",".join(ARTIFACT_IMPORT_STATUSES)))

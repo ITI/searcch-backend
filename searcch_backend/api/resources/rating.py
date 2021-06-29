@@ -1,7 +1,7 @@
 # logic for /rating
 
 from searcch_backend.api.app import db, config_name
-from searcch_backend.api.common.auth import *
+from searcch_backend.api.common.auth import (verify_api_key, verify_token)
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, make_response, Blueprint
@@ -10,8 +10,11 @@ from flask_restful import reqparse, Resource, fields, marshal
 
 class UserRatingAPI(Resource):
     def get(self, user_id, artifact_id):
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        if user_id != login_session.user_id:
+            abort(401, description="insufficient permission to list ratings")
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
@@ -20,7 +23,7 @@ class UserRatingAPI(Resource):
             abort(400, description='invalid artifact ID')
 
         rating = db.session.query(ArtifactRatings.rating).filter(
-            ArtifactRatings.artifact_id == artifact_id, ArtifactRatings.user_id == user_id).first()
+            ArtifactRatings.artifact_id == artifact_id, ArtifactRatings.user_id == login_session.user_id).first()
         if not rating:
             response = jsonify(
                 {"message": "the user has not rated this artifact"})
@@ -35,16 +38,6 @@ class UserRatingAPI(Resource):
 class RatingAPI(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        if config_name == 'production':
-            self.reqparse.add_argument(name='token',
-                                       type=str,
-                                       required=True,
-                                       default='',
-                                       help='missing SSO token from auth provider in post request')
-        self.reqparse.add_argument(name='userid',
-                                   type=int,
-                                   required=True,
-                                   help='missing ID of user rating the artifact')
         self.reqparse.add_argument(name='rating',
                                    type=int,
                                    required=False,
@@ -54,18 +47,11 @@ class RatingAPI(Resource):
         super(RatingAPI, self).__init__()
 
     def post(self, artifact_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
         args = self.reqparse.parse_args()
-
-        if config_name == 'production':
-            sso_token = args['token']
-        user_id = args['userid']
         rating = args['rating']
-
-        # verify session credentials
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
-        if config_name == 'production' and not verify_token(sso_token):
-            abort(401, "no active login session found. please login to continue")
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
@@ -75,7 +61,7 @@ class RatingAPI(Resource):
 
         # add new rating to the database
         new_rating = ArtifactRatings(
-            user_id=user_id, artifact_id=artifact_id, rating=rating)
+            user_id=login_session.user_id, artifact_id=artifact_id, rating=rating)
         db.session.add(new_rating)
         db.session.commit()
 
@@ -85,27 +71,20 @@ class RatingAPI(Resource):
         return response
 
     def put(self, artifact_id):
-        args = self.reqparse.parse_args()
+        verify_api_key(request)
+        login_session = verify_token(request)
 
-        if config_name == 'production':
-            sso_token = args['token']
-        user_id = args['userid']
+        args = self.reqparse.parse_args()
         rating = args['rating']
 
-        # verify session credentials
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
-        if config_name == 'production' and not verify_token(sso_token):
-            abort(401, "no active login session found. please login to continue")
-
         existing_rating = db.session.query(ArtifactRatings).filter(
-            ArtifactRatings.user_id == user_id, ArtifactRatings.artifact_id == artifact_id).first()
+            ArtifactRatings.user_id == login_session.user_id, ArtifactRatings.artifact_id == artifact_id).first()
         if existing_rating:
             existing_rating.rating = rating
             db.session.commit()
             msg = "updated rating"
         else:
-            new_rating = ArtifactRatings(user_id=user_id, artifact_id=artifact_id, rating=rating)
+            new_rating = ArtifactRatings(user_id=login_session.user_id, artifact_id=artifact_id, rating=rating)
             db.session.add(new_rating)
             db.session.commit()
             msg = "added new rating"
@@ -116,20 +95,11 @@ class RatingAPI(Resource):
         return response
 
     def delete(self, artifact_id):
-        args = self.reqparse.parse_args()
-
-        if config_name == 'production':
-            sso_token = args['token']
-        user_id = args['userid']
-
-        # verify session credentials
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
-        if config_name == 'production' and not verify_token(sso_token):
-            abort(401, "no active login session found. please login to continue")
+        verify_api_key(request)
+        login_session = verify_token(request)
 
         rating = db.session.query(ArtifactRatings).filter(
-            ArtifactRatings.user_id == user_id, ArtifactRatings.artifact_id == artifact_id).first()
+            ArtifactRatings.user_id == login_session.user_id, ArtifactRatings.artifact_id == artifact_id).first()
         if rating:
             db.session.delete(rating)
             db.session.commit()

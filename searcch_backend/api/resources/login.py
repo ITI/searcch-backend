@@ -6,7 +6,7 @@ import requests
 import datetime
 
 from searcch_backend.api.app import db, app, config_name
-from searcch_backend.api.common.auth import verify_api_key, verify_token
+from searcch_backend.api.common.auth import (verify_api_key, lookup_token)
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 
@@ -48,14 +48,14 @@ class LoginAPI(Resource):
     def post(self):
         args = self.reqparse.parse_args(strict=True)
 
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
+        verify_api_key(request)
 
         strategy = args.get('strategy')
         verify_strategy(strategy)
 
         sso_token = args.get('token')
-        if not verify_token(sso_token):
+        login_session = lookup_token(sso_token)
+        if not login_session:
             # get email from Github
             github_user_email_api = 'https://api.github.com/user/emails'
             headers = {
@@ -116,7 +116,6 @@ class LoginAPI(Resource):
             response.status_code = 200
             return response
         else:
-            login_session = db.session.query(Sessions).filter(Sessions.sso_token == sso_token).first()
             existing_user = db.session.query(User).filter(User.id == login_session.user_id).first()
             existing_person = db.session.query(Person).filter(Person.id == existing_user.person_id).first()
             response = jsonify({

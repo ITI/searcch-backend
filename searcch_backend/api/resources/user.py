@@ -1,7 +1,7 @@
 # logic for /rating
 
 from searcch_backend.api.app import db, config_name
-from searcch_backend.api.common.auth import *
+from searcch_backend.api.common.auth import (verify_api_key, verify_token)
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, url_for, Blueprint
@@ -21,11 +21,6 @@ class UserProfileAPI(Resource):
 
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument(name='token', 
-                                   type=str, required=True, default='',
-                                   help='missing SSO token from auth provider in post request')
-        self.reqparse.add_argument(name='userid', 
-                                   type=int, required=True, help='missing user ID')
         self.reqparse.add_argument(name='name', 
                                    type=str, required=False)
         self.reqparse.add_argument(name='profile_photo', 
@@ -38,18 +33,10 @@ class UserProfileAPI(Resource):
         super(UserProfileAPI, self).__init__()
 
     def get(self):
-        args = self.reqparse.parse_args()
-        user_id = args['userid']
+        verify_api_key(request)
+        login_session = verify_token(request)
 
-        # verify session credentials
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
-        if config_name == 'production':
-            sso_token = args['token']
-            if not verify_token(sso_token):
-                abort(401, "no active login session found. please login to continue")
-
-        user = db.session.query(User).filter(User.id == user_id).first()
+        user = login_session.user
         organizations = db.session.query(Organization).filter(Organization.id.in_(
             db.session.query(Affiliation.org_id).filter(Affiliation.person_id == user.person.id)))
         response = jsonify({
@@ -71,29 +58,16 @@ class UserProfileAPI(Resource):
         return response
     
     def put(self):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
         args = self.reqparse.parse_args()
-        user_id = args['userid']
         name = args['name']
         profile_photo = args['profile_photo'].read()
         research_interests = args['research_interests']
         website = args['website']
 
-        api_key = request.headers.get('X-API-Key')
-        verify_api_key(api_key, config_name)
-        if config_name == 'production':
-            sso_token = args['token']
-            if not verify_token(sso_token):
-                abort(401, "no active login session found. please login to continue")
-
-            # verify that userid passed is the same as the logged-in user
-            active_login_session = db.session.query(Sessions).filter(
-                Sessions.sso_token == sso_token).first()
-            if active_login_session.user_id != user_id:
-                abort(401, "cannot edit profile for another user")
-
-        user = db.session.query(User).filter(User.id == user_id).first()
-        if not user:
-            abort(400, description='no user found with given user ID')
+        user = login_session.user
         person = db.session.query(Person).filter(Person.id == user.person_id).first()
         
         if name is not None:
