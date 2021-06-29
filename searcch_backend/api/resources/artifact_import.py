@@ -18,7 +18,7 @@ from searcch_backend.models.model import (
 from searcch_backend.models.schema import (
     ArtifactImportSchema )
 from searcch_backend.api.app import db, config_name
-from searcch_backend.api.common.auth import verify_api_key
+from searcch_backend.api.common.auth import (verify_api_key, verify_token)
 from searcch_backend.api.common.importer import schedule_import
 from searcch_backend.api.common.sql import object_from_json
 
