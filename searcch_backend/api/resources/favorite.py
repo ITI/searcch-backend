@@ -8,6 +8,19 @@ from flask import abort, jsonify, request, url_for, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
 from sqlalchemy import func, desc, sql
 
+def subquery_constructs():
+    sqratings = db.session.query(
+        ArtifactRatings.artifact_id,
+        func.count(ArtifactRatings.id).label('num_ratings'),
+        func.avg(ArtifactRatings.rating).label('avg_rating')
+    ).group_by("artifact_id").subquery()
+
+    sqreviews = db.session.query(
+        ArtifactReviews.artifact_id,
+        func.count(ArtifactReviews.id).label('num_reviews')
+    ).group_by("artifact_id").subquery()
+    
+    return sqratings, sqreviews
 
 class FavoritesListAPI(Resource):
     @staticmethod
@@ -21,15 +34,7 @@ class FavoritesListAPI(Resource):
         if user_id != login_session.user_id:
             abort(401, description="insufficient permission to list favorites")
 
-        sqratings = db.session.query(
-            ArtifactRatings.artifact_id,
-            func.count(ArtifactRatings.id).label('num_ratings'),
-            func.avg(ArtifactRatings.rating).label('avg_rating')
-        ).group_by("artifact_id").subquery()
-        sqreviews = db.session.query(
-            ArtifactReviews.artifact_id,
-            func.count(ArtifactReviews.id).label('num_reviews')
-        ).group_by("artifact_id").subquery()
+        sqratings, sqreviews = subquery_constructs()
 
         favorite_artifacts = db.session.query(Artifact, 'num_ratings', 'avg_rating', 'num_reviews'
                                                 ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
