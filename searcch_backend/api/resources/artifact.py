@@ -2,7 +2,7 @@
 
 from searcch_backend.api.app import db, config_name
 from searcch_backend.api.common.sql import object_from_json
-from searcch_backend.api.common.auth import (verify_api_key, has_api_key)
+from searcch_backend.api.common.auth import (verify_api_key, has_api_key, verify_token)
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
