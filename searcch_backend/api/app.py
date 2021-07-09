@@ -58,6 +58,7 @@ from searcch_backend.api.resources.review import ReviewAPI, ReviewListAPI
 from searcch_backend.api.resources.favorite import FavoriteAPI, FavoritesListAPI
 from searcch_backend.api.resources.user import UserProfileAPI
 from searcch_backend.api.resources.dashboard import UserDashboardAPI, ArtifactStatsAPI
+from searcch_backend.api.resources.recommender import KeywordsAPI
 from searcch_backend.api.resources.artifact_import import (
     ArtifactImportResourceRoot, ArtifactImportResource)
 from searcch_backend.api.resources.importer import (
@@ -80,6 +81,8 @@ api.add_resource(UserRatingAPI, approot + '/rating/user/<int:user_id>/artifact/<
 
 api.add_resource(ReviewAPI, approot + '/review/<int:artifact_id>', endpoint='api.review')
 api.add_resource(ReviewListAPI, approot + '/reviews/<int:artifact_id>', endpoint='api.reviews')
+
+api.add_resource(KeywordsAPI, approot + '/recommend/keywords/<int:artifact_id>', endpoint='api.recommend_keywords')
 
 api.add_resource(FavoritesListAPI, approot + '/favorites/<int:user_id>', endpoint='api.favorites')
 api.add_resource(FavoriteAPI, approot + '/favorite/<int:artifact_id>', endpoint='api.favorite')
