@@ -13,6 +13,72 @@ import traceback
 import datetime
 import json
 
+def generate_artifact_uri(artifact_id):
+    return url_for('api.artifact', artifact_id=artifact_id)
+
+def search_artifacts( keywords, artifact_types, page_num):
+    """ search for artifacts based on keywords """
+    sqratings = db.session.query(
+        ArtifactRatings.artifact_id,
+        func.count(ArtifactRatings.id).label('num_ratings'),
+        func.avg(ArtifactRatings.rating).label('avg_rating')
+    ).group_by("artifact_id").subquery()
+    sqreviews = db.session.query(
+        ArtifactReviews.artifact_id,
+        func.count(ArtifactReviews.id).label('num_reviews')
+    ).group_by("artifact_id").subquery()
+
+    # create base query object
+    if not keywords:
+        query = db.session.query(Artifact,
+                                    sql.expression.bindparam("zero", 0).label("rank"),
+                                    'num_ratings', 'avg_rating', 'num_reviews'
+                                    ).order_by(
+                                    db.case([
+                                        (Artifact.type == 'code', 1),
+                                        (Artifact.type == 'dataset', 2),
+                                        (Artifact.type ==
+                                        'publication', 3),
+                                    ], else_=4)
+                                )                
+    else:
+        search_query = db.session.query(ArtifactSearchMaterializedView.artifact_id, 
+                                        func.ts_rank_cd(ArtifactSearchMaterializedView.doc_vector, func.websearch_to_tsquery("english", keywords)).label("rank")
+                                    ).filter(ArtifactSearchMaterializedView.doc_vector.op('@@')(func.websearch_to_tsquery("english", keywords))
+                                    ).subquery()
+        query = db.session.query(Artifact, 
+                                    search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews'
+                                    ).join(search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
+
+    # add filters based on provided parameters
+    if artifact_types:
+        if len(artifact_types) > 1:
+            query = query.filter(or_(Artifact.type == a_type for a_type in artifact_types))
+        else:
+            query = query.filter(Artifact.type == artifact_types[0])
+
+    query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                        ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+                        ).order_by(desc(search_query.c.rank))
+    result = query.paginate(page=page_num, error_out=False, max_per_page=20).items
+
+    artifacts = []
+    for row in result:
+        artifact, relevance_score, num_ratings, avg_rating, num_reviews = row
+        if artifact.publication:  # return only published artifacts
+            abstract = {
+                "id": artifact.id,
+                "uri": generate_artifact_uri(artifact.id),
+                "doi": artifact.url,
+                "type": artifact.type,
+                "title": artifact.title,
+                "description": artifact.description,
+                "avg_rating": float(avg_rating) if avg_rating else None,
+                "num_ratings": num_ratings if num_ratings else 0,
+                "num_reviews": num_reviews if num_reviews else 0
+            }
+            artifacts.append(abstract)
+    return artifacts
 
 class ArtifactListAPI(Resource):
     def __init__(self):
@@ -41,77 +107,10 @@ class ArtifactListAPI(Resource):
 
         super(ArtifactListAPI, self).__init__()
 
-    @staticmethod
-    def generate_artifact_uri(artifact_id):
-        return url_for('api.artifact', artifact_id=artifact_id)
 
     @staticmethod
     def is_artifact_type_valid(artifact_type):
         return artifact_type in ARTIFACT_TYPES
-
-    def search_artifacts(self, keywords, artifact_types, page_num):
-        """ search for artifacts based on keywords """
-        sqratings = db.session.query(
-            ArtifactRatings.artifact_id,
-            func.count(ArtifactRatings.id).label('num_ratings'),
-            func.avg(ArtifactRatings.rating).label('avg_rating')
-        ).group_by("artifact_id").subquery()
-        sqreviews = db.session.query(
-            ArtifactReviews.artifact_id,
-            func.count(ArtifactReviews.id).label('num_reviews')
-        ).group_by("artifact_id").subquery()
-
-        # create base query object
-        if not keywords:
-            query = db.session.query(Artifact,
-                                     sql.expression.bindparam("zero", 0).label("rank"),
-                                     'num_ratings', 'avg_rating', 'num_reviews'
-                                     ).order_by(
-                                        db.case([
-                                            (Artifact.type == 'code', 1),
-                                            (Artifact.type == 'dataset', 2),
-                                            (Artifact.type ==
-                                            'publication', 3),
-                                        ], else_=4)
-                                    )                
-        else:
-            search_query = db.session.query(ArtifactSearchMaterializedView.artifact_id, 
-                                            func.ts_rank_cd(ArtifactSearchMaterializedView.doc_vector, func.websearch_to_tsquery("english", keywords)).label("rank")
-                                        ).filter(ArtifactSearchMaterializedView.doc_vector.op('@@')(func.websearch_to_tsquery("english", keywords))
-                                        ).subquery()
-            query = db.session.query(Artifact, 
-                                        search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews'
-                                        ).join(search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
-
-        # add filters based on provided parameters
-        if artifact_types:
-            if len(artifact_types) > 1:
-                query = query.filter(or_(Artifact.type == a_type for a_type in artifact_types))
-            else:
-                query = query.filter(Artifact.type == artifact_types[0])
-
-        query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
-                            ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
-                            ).order_by(desc(search_query.c.rank))
-        result = query.paginate(page=page_num, error_out=False, max_per_page=20).items
-
-        artifacts = []
-        for row in result:
-            artifact, relevance_score, num_ratings, avg_rating, num_reviews = row
-            if artifact.publication:  # return only published artifacts
-                abstract = {
-                    "id": artifact.id,
-                    "uri": ArtifactListAPI.generate_artifact_uri(artifact.id),
-                    "doi": artifact.url,
-                    "type": artifact.type,
-                    "title": artifact.title,
-                    "description": artifact.description,
-                    "avg_rating": float(avg_rating) if avg_rating else None,
-                    "num_ratings": num_ratings if num_ratings else 0,
-                    "num_reviews": num_reviews if num_reviews else 0
-                }
-                artifacts.append(abstract)
-        return artifacts
 
     def search_users(self, keywords, page_num):
         """ search for users based on keywords """
@@ -164,7 +163,7 @@ class ArtifactListAPI(Resource):
                 if entity not in ['artifact', 'user', 'organization']:
                     abort(400, description='invalid entity passed')
             if 'artifact' in entities:
-                artifacts = self.search_artifacts(keywords, artifact_types, page_num)
+                artifacts = search_artifacts(keywords, artifact_types, page_num)
             if 'user' in entities:
                 users = self.search_users(keywords, page_num)
             if 'organization' in entities:
@@ -459,6 +458,49 @@ class ArtifactRelationshipAPI(Resource):
         # response = jsonify([ArtifactRelationshipSchema().dump(relationship) for relationship in relationships])
         response = jsonify({"relationships": ArtifactRelationshipSchema(many=True, exclude=['related_artifact']).dump(relationships)})
         
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+class ArtifactRecommendationAPI(Resource):
+    def __init__(self):
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument(name='page',
+                                   type=int,
+                                   required=False,
+                                   default=1,
+                                   help='page number for paginated results')
+        
+
+        super(ArtifactRecommendationAPI, self).__init__()
+    
+    def get(self, artifact_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+        args = self.reqparse.parse_args()
+        page_num = args['page']
+
+        # check for valid artifact id
+        artifact = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).first()
+        if not artifact:
+            abort(400, description='invalid artifact ID')
+
+        top_keywords = db.session.query(ArtifactMetadata.value).filter(
+            ArtifactMetadata.artifact_id == artifact_id, ArtifactMetadata.name == "top_ngram_keywords").first()
+        if not top_keywords:
+            response = jsonify(
+                {"message": "The artifact doesnt have any top rated keywords"})
+        else:
+            top_keywords_list = json.loads(top_keywords[0])
+            keywords = []
+            for keyword in top_keywords_list:
+                keywords.append(keyword[0])
+            artifacts = search_artifacts(" or ".join(keywords), ARTIFACT_TYPES, page_num)
+            response = jsonify({"artifacts": artifacts})
+
+
+
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
