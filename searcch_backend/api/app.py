@@ -70,7 +70,7 @@ api.add_resource(LoginAPI, approot + '/login', endpoint='api.login')
 api.add_resource(ArtifactListAPI, approot + '/artifacts', endpoint='api.artifacts')
 api.add_resource(ArtifactAPI, approot + '/artifact/<int:artifact_id>', endpoint='api.artifact')
 api.add_resource(ArtifactRelationshipAPI, approot + '/artifact/relationship/<int:artifact_id>', endpoint='api.artifact_relationship')
-api.add_resource(ArtifactRecommendationAPI, approot + '/artifact/recommend/<int:artifact_id>', endpoint='api.artifact_recommender')
+api.add_resource(ArtifactRecommendationAPI, approot + '/artifact/recommendation/<int:artifact_id>', endpoint='api.artifact_recommender')
 
 api.add_resource(OrganizationListAPI, approot + '/organizations', endpoint='api.organizations')
 api.add_resource(OrganizationAPI, approot + '/organization/<int:org_id>', endpoint='api.organization')
