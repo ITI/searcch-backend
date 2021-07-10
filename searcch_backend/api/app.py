@@ -50,7 +50,7 @@ if "DB_AUTO_MIGRATE" in app.config and app.config["DB_AUTO_MIGRATE"]:
         import alembic
         alembic.command.upgrade(migrate.get_config(),"head")
 
-from searcch_backend.api.resources.artifact import ArtifactAPI, ArtifactListAPI, ArtifactRelationshipAPI
+from searcch_backend.api.resources.artifact import ArtifactAPI, ArtifactListAPI, ArtifactRelationshipAPI, ArtifactRecommendationAPI
 from searcch_backend.api.resources.organization import OrganizationAPI, OrganizationListAPI
 from searcch_backend.api.resources.login import LoginAPI
 from searcch_backend.api.resources.rating import RatingAPI, UserRatingAPI
@@ -58,7 +58,6 @@ from searcch_backend.api.resources.review import ReviewAPI, ReviewListAPI
 from searcch_backend.api.resources.favorite import FavoriteAPI, FavoritesListAPI
 from searcch_backend.api.resources.user import UserProfileAPI
 from searcch_backend.api.resources.dashboard import UserDashboardAPI, ArtifactStatsAPI
-from searcch_backend.api.resources.recommender import KeywordsAPI
 from searcch_backend.api.resources.artifact_import import (
     ArtifactImportResourceRoot, ArtifactImportResource)
 from searcch_backend.api.resources.importer import (
@@ -71,6 +70,7 @@ api.add_resource(LoginAPI, approot + '/login', endpoint='api.login')
 api.add_resource(ArtifactListAPI, approot + '/artifacts', endpoint='api.artifacts')
 api.add_resource(ArtifactAPI, approot + '/artifact/<int:artifact_id>', endpoint='api.artifact')
 api.add_resource(ArtifactRelationshipAPI, approot + '/artifact/relationship/<int:artifact_id>', endpoint='api.artifact_relationship')
+api.add_resource(ArtifactRecommendationAPI, approot + '/artifact/recommend/<int:artifact_id>', endpoint='api.artifact_recommender')
 
 api.add_resource(OrganizationListAPI, approot + '/organizations', endpoint='api.organizations')
 api.add_resource(OrganizationAPI, approot + '/organization/<int:org_id>', endpoint='api.organization')
@@ -81,8 +81,6 @@ api.add_resource(UserRatingAPI, approot + '/rating/user/<int:user_id>/artifact/<
 
 api.add_resource(ReviewAPI, approot + '/review/<int:artifact_id>', endpoint='api.review')
 api.add_resource(ReviewListAPI, approot + '/reviews/<int:artifact_id>', endpoint='api.reviews')
-
-api.add_resource(KeywordsAPI, approot + '/recommend/keywords/<int:artifact_id>', endpoint='api.recommend_keywords')
 
 api.add_resource(FavoritesListAPI, approot + '/favorites/<int:user_id>', endpoint='api.favorites')
 api.add_resource(FavoriteAPI, approot + '/favorite/<int:artifact_id>', endpoint='api.favorite')
