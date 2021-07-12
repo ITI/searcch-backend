@@ -23,6 +23,8 @@ class UserProfileAPI(Resource):
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument(name='name', 
                                    type=str, required=False)
+        self.reqparse.add_argument(name='userid', 
+                                   type=int, required=False, help='missing user ID')
         self.reqparse.add_argument(name='profile_photo', 
                                    type=werkzeug.datastructures.FileStorage, location='files', required=False)
         self.reqparse.add_argument(name='research_interests', 
@@ -35,24 +37,46 @@ class UserProfileAPI(Resource):
     def get(self):
         verify_api_key(request)
         login_session = verify_token(request)
-
-        user = login_session.user
-        organizations = db.session.query(Organization).filter(Organization.id.in_(
-            db.session.query(Affiliation.org_id).filter(Affiliation.person_id == user.person.id)))
-        response = jsonify({
-            "user": {
-                "id": user.id,
-                "person": {
-                    "email": user.person.email,
-                    "id": user.person.id,
-                    "name": user.person.name,
-                    "research_interests": user.person.research_interests,
-                    "website": user.person.website,
-                    "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
-                },
-                "organization": OrganizationSchema(many=True).dump(organizations)
-            }
-        })
+        args = self.reqparse.parse_args()
+        user_id = args['userid']
+        
+        if not user_id:
+            user = login_session.user
+            organizations = db.session.query(Organization).filter(Organization.id.in_(
+                db.session.query(Affiliation.org_id).filter(Affiliation.person_id == user.person.id)))
+            response = jsonify({
+                "user": {
+                    "id": user.id,
+                    "person": {
+                        "email": user.person.email,
+                        "id": user.person.id,
+                        "name": user.person.name,
+                        "research_interests": user.person.research_interests,
+                        "website": user.person.website,
+                        "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
+                    },
+                    "organization": OrganizationSchema(many=True).dump(organizations)
+                }
+            })
+        else:
+            user = db.session.query(User).filter(User.id == user_id).first()
+            if not user:
+                abort(400, description='User does not exist')
+            organizations = db.session.query(Organization).filter(Organization.id.in_(
+                db.session.query(Affiliation.org_id).filter(Affiliation.person_id == user.person.id)))
+            response = jsonify({
+                "user": {
+                    "id": user.id,
+                    "person": {
+                        "id": user.person.id,
+                        "name": user.person.name,
+                        "research_interests": user.person.research_interests,
+                        "website": user.person.website,
+                        "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
+                    },
+                    "organization": OrganizationSchema(many=True).dump(organizations)
+                }
+            })
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
