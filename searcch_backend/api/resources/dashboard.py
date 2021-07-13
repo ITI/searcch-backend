@@ -21,7 +21,7 @@ class UserDashboardAPI(Resource):
         - reviews and ratings provided by the user
         - past searches made by the user
         - Comments provided by the user
-        - User favourites
+        - User favorites
     """
     @staticmethod
     def generate_artifact_uri(artifact_id):
@@ -35,36 +35,39 @@ class UserDashboardAPI(Resource):
         user = db.session.query(User).filter(User.id == login_session.user_id).first()
         
         # artifacts owned by the logged-in user
-        artifact_schema = ArtifactSchema(many=True, exclude=('meta', 'tags', 'files', 'affiliations', 'relationships'))
-        rating_schema = ArtifactRatingsSchema(many=True)
-        review_schema = ArtifactReviewsSchema(many=True, exclude=('reviewer',))
+        artifact_schema = ArtifactSchema(many=True, only=('id', 'type', 'title'))
         owned_artifacts = db.session.query(Artifact).filter(Artifact.owner_id == login_session.user_id)
-        given_ratings = db.session.query(ArtifactRatings).filter(ArtifactRatings.user_id == login_session.user_id)
-        given_reviews = db.session.query(ArtifactReviews).filter(ArtifactReviews.user_id == login_session.user_id)
-        favourite_artifacts =  db.session.query(Artifact
+        given_ratings = db.session.query(ArtifactRatings.artifact_id, ArtifactRatings.rating, Artifact.title, Artifact.type).filter(ArtifactRatings.user_id == login_session.user_id
+                                        ).join(Artifact, Artifact.id == ArtifactRatings.artifact_id).all()
+        favorite_artifacts =  db.session.query(Artifact
                                                 ).join(ArtifactFavorites, Artifact.id == ArtifactFavorites.artifact_id
                                                 ).filter(ArtifactFavorites.user_id == login_session.user_id
                                                 ).all()
 
         fav_artifacts = []
-        for artifact in favourite_artifacts:
+        for artifact in favorite_artifacts:
             result = {
                 "id": artifact.id,
-                "uri": UserDashboardAPI.generate_artifact_uri(artifact.id),
-                "doi": artifact.url,
                 "type": artifact.type,
-                "title": artifact.title,
-                "description": artifact.description
+                "title": artifact.title
             }
             fav_artifacts.append(result)
+        
+        rated_artifacts = [] 
+        for artifact in given_ratings:
+            result = {
+                "id": artifact.artifact_id,
+                "rating": artifact.rating,
+                "title": artifact.title,
+                "type": artifact.type
+            }
+            rated_artifacts.append(result)
 
 
         response = jsonify({
-            "user": UserSchema().dump(user),
             "owned_artifacts": artifact_schema.dump(owned_artifacts),
-            "given_ratings": rating_schema.dump(given_ratings),
-            "given_reviews": review_schema.dump(given_reviews),
-            "favourite_artifacts": fav_artifacts
+            "given_ratings": rated_artifacts,
+            "favorite_artifacts": fav_artifacts
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
