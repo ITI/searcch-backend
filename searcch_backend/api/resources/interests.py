@@ -27,7 +27,16 @@ class InterestsListAPI(Resource):
     def get(self):
         verify_api_key(request)
 
-        research_interests = [row.research_interests for row in db.session.query(Person.research_interests).distinct() if row.research_interests is not None]
+        args = self.reqparse.parse_args()
+        page = args['page']
+        all_interests = args['all']
+
+        query = db.session.query(Person.research_interests).distinct().filter(Person.research_interests != None)
+        
+        if not all_interests:
+            query = query.paginate(page=page, error_out=False, max_per_page=20).items
+            
+        research_interests = [row.research_interests for row in query]
 
         if not research_interests:
             response = jsonify(
