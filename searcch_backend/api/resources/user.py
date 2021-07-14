@@ -31,6 +31,8 @@ class UserProfileAPI(Resource):
                                    type=str, required=False)
         self.reqparse.add_argument(name='website', 
                                    type=str, required=False)
+        self.reqparse.add_argument(name='email', 
+                                   type=str, required=False)
 
         super(UserProfileAPI, self).__init__()
 
@@ -83,6 +85,7 @@ class UserProfileAPI(Resource):
         profile_photo = args['profile_photo'].read()
         research_interests = args['research_interests']
         website = args['website']
+        email = args['email']
 
         user = login_session.user
         person = db.session.query(Person).filter(Person.id == user.person_id).first()
@@ -95,6 +98,8 @@ class UserProfileAPI(Resource):
             person.website = website
         if profile_photo is not None:
             person.profile_photo = profile_photo
+        if email:
+            person.email = email
 
         db.session.commit()
 
