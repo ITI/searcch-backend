@@ -58,6 +58,7 @@ from searcch_backend.api.resources.review import ReviewAPI, ReviewListAPI
 from searcch_backend.api.resources.favorite import FavoriteAPI, FavoritesListAPI
 from searcch_backend.api.resources.user import UserProfileAPI
 from searcch_backend.api.resources.dashboard import UserDashboardAPI, ArtifactStatsAPI
+from searcch_backend.api.resources.interests import InterestsListAPI
 from searcch_backend.api.resources.artifact_import import (
     ArtifactImportResourceRoot, ArtifactImportResource)
 from searcch_backend.api.resources.importer import (
@@ -75,6 +76,7 @@ api.add_resource(ArtifactRecommendationAPI, approot + '/artifact/recommendation/
 api.add_resource(OrganizationListAPI, approot + '/organizations', endpoint='api.organizations')
 api.add_resource(OrganizationAPI, approot + '/organization/<int:org_id>', endpoint='api.organization')
 
+api.add_resource(InterestsListAPI, approot + '/interests', endpoint='api.interests')
 
 api.add_resource(RatingAPI, approot + '/rating/<int:artifact_id>', endpoint='api.rating')
 api.add_resource(UserRatingAPI, approot + '/rating/user/<int:user_id>/artifact/<int:artifact_id>', endpoint='api.userrating')
