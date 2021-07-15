@@ -90,9 +90,6 @@ class ArtifactMetadata(db.Model):
     type = db.Column(db.String(256), nullable=True)
     source = db.Column(db.String(256), nullable=True)
 
-    __table_args__ = (
-        db.UniqueConstraint("name", "artifact_id", "value", "type"),)
-
     def __repr__(self):
         return "<ArtifactMetadata(artifact_id=%r,name=%r,value=%r,type=%r,source=%r)>" % (
             self.artifact_id, self.name, self.value, self.type,
