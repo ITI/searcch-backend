@@ -35,7 +35,7 @@ class UserDashboardAPI(Resource):
         user = db.session.query(User).filter(User.id == login_session.user_id).first()
         
         # artifacts owned by the logged-in user
-        artifact_schema = ArtifactSchema(many=True, only=('id', 'type', 'title'))
+        artifact_schema = ArtifactSchema(many=True, only=('id', 'type', 'title', 'ctime'))
         owned_artifacts = db.session.query(Artifact).filter(Artifact.owner_id == login_session.user_id)
         given_ratings = db.session.query(ArtifactRatings.artifact_id, ArtifactRatings.rating, Artifact.title, Artifact.type).filter(ArtifactRatings.user_id == login_session.user_id
                                         ).join(Artifact, Artifact.id == ArtifactRatings.artifact_id).all()
