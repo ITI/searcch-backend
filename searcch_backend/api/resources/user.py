@@ -108,3 +108,21 @@ class UserProfileAPI(Resource):
         response.status_code = 200
         return response
 
+class UserArtifactsAPI(Resource):
+    def get(self):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        #logged in user record
+        user = db.session.query(User).filter(User.id == login_session.user_id).first()
+
+        artifact_schema = ArtifactSchema(many=True)
+        owned_artifacts = db.session.query(Artifact).filter(Artifact.owner_id == login_session.user_id)
+
+        response = jsonify({
+            "owned_artifacts": artifact_schema.dump(owned_artifacts)
+        })
+        
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
