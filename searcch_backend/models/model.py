@@ -169,15 +169,19 @@ class ArtifactAffiliation(db.Model):
         "artifacts.id"), nullable=False)
     affiliation_id = db.Column(db.Integer, db.ForeignKey(
         "affiliations.id"), nullable=False)
+    roles = db.Column(
+        db.Enum("Author", "ContactPerson", "Other",
+                name="artifact_affiliation_enum"),
+        nullable=False, default="Author")
 
     affiliation = db.relationship("Affiliation", uselist=False)
 
     __table_args__ = (
-        db.UniqueConstraint("artifact_id", "affiliation_id"),)
+        db.UniqueConstraint("artifact_id", "affiliation_id", "roles"),)
 
     def __repr__(self):
-        return "<ArtifactAffiliation(artifact_id=%r,affiliation_id=%r)>" % (
-            self.artifact_id, self.affiliation_id)
+        return "<ArtifactAffiliation(artifact_id=%r,affiliation_id=%r,roles=%r)>" % (
+            self.artifact_id, self.affiliation_id, self.roles)
 
 
 class ArtifactRelationship(db.Model):
@@ -344,21 +348,16 @@ class Affiliation(db.Model):
         "persons.id"), nullable=False)
     org_id = db.Column(db.Integer, db.ForeignKey(
         "organizations.id"))
-    roles = db.Column(
-        db.Enum("Author", "ProjectManager", "Researcher", "ContactPerson",
-                "PrincipalInvestigator", "CoPrincipalInvestigator", "Other",
-                name="affiliation_enum"),
-        nullable=False)
 
     person = db.relationship("Person", uselist=False)
     org = db.relationship("Organization", uselist=False)
 
     __table_args__ = (
-        db.UniqueConstraint("person_id", "org_id", "roles"),)
+        db.UniqueConstraint("person_id", "org_id"),)
 
     def __repr__(self):
-        return "<Affiliation(person='%r',org='%r',roles='%s')>" % (
-            self.person, self.org, self.roles)
+        return "<Affiliation(person=%r,org=%r)>" % (
+            self.person, self.org)
 
 
 class PersonMetadata(db.Model):
