@@ -321,23 +321,20 @@ class Organization(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(1024), nullable=False)
     type = db.Column(
-        db.Enum("Institution", "Institute", "ResearchGroup", "Sponsor", "Other",
+        db.Enum("Institution", "Company", "Institute", "ResearchGroup", "Sponsor", "Other",
                 name="organization_enum"),
         nullable=False)
-    parent_org_id = db.Column(db.Integer, db.ForeignKey(
-        "organizations.id"), nullable=True)
     state = db.Column(db.String(64), nullable=True)
     country = db.Column(db.String(64), nullable=True)
     latitude = db.Column(db.Float(), nullable=True)
     longitude = db.Column(db.Float(), nullable=True)
     address = db.Column(db.String(512), nullable=True)
+    verified = db.Column(db.Boolean, nullable=False, default=False)
     org_tsv = db.Column(TSVECTOR)
 
-    __table_args__ = (
-        db.UniqueConstraint("name", "type", "parent_org_id"),)
-
     def __repr__(self):
-        return "<Organization(name='%s',type='%s')>" % (self.name, self.type)
+        return "<Organization(name=%r,type=%r,verified=%r)>" % (
+            self.name, self.type, self.verified)
 
 
 class Affiliation(db.Model):
