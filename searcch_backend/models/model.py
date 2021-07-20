@@ -132,14 +132,14 @@ class ArtifactTag(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey('artifacts.id'))
     tag = db.Column(db.String(256), nullable=False)
-    source = db.Column(db.String(256), nullable=True)
+    source = db.Column(db.String(256), nullable=False, default="")
 
     __table_args__ = (
-        db.UniqueConstraint("tag", "artifact_id"),)
+        db.UniqueConstraint("tag", "artifact_id", "source"),)
 
     def __repr__(self):
-        return "<ArtifactTag(artifact_id=%r,tag='%s')>" % (
-            self.artifact_id, self.tag)
+        return "<ArtifactTag(artifact_id=%r,tag=%r,source=%r)>" % (
+            self.artifact_id, self.tag, self.source)
 
 
 class ArtifactCuration(db.Model):
