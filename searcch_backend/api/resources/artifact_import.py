@@ -18,7 +18,7 @@ from searcch_backend.models.model import (
 from searcch_backend.models.schema import (
     ArtifactImportSchema )
 from searcch_backend.api.app import db, config_name
-from searcch_backend.api.common.auth import (verify_api_key, verify_token)
+from searcch_backend.api.common.auth import (verify_api_key, verify_token, has_token)
 from searcch_backend.api.common.importer import schedule_import
 from searcch_backend.api.common.sql import object_from_json
 
@@ -88,6 +88,8 @@ class ArtifactImportResourceRoot(Resource):
             abort(400, description="must provide non-null URL")
         if args["type"] and args["type"] not in ARTIFACT_IMPORT_TYPES:
             abort(400, description="invalid artifact type")
+        elif not "type" in args or not args["type"]:
+            args["type"] = "unknown"
 
         res = db.session.query(ArtifactImport).\
           filter(ArtifactImport.url == args["url"]).\
@@ -198,7 +200,7 @@ class ArtifactImportResource(Resource):
             args["mtime"] = dateutil.parser.parse(args["mtime"])
         else:
             args["mtime"] = datetime.datetime.now()
-        artifact = args.get("artifact",None)
+        artifact_json = args.get("artifact",None)
         del args["artifact"]
 
         for (k,v) in args.items():
@@ -217,8 +219,27 @@ class ArtifactImportResource(Resource):
             threading.Thread(target=schedule_import,name="schedule_import").start()
 
         if args["status"] == "completed" and args["phase"] == "done":
-            if artifact:
-                artifact = object_from_json(db.session,Artifact,artifact,skip_ids=None)
+            if artifact_json:
+                if "owner" in artifact_json:
+                    del artifact_json["owner"]
+                if "owner_id" in artifact_json:
+                    del artifact_json["owner_id"]
+                artifact = None
+                try:
+                    artifact = object_from_json(db.session,Artifact,artifact_json,skip_ids=None)
+                except (TypeError, ValueError):
+                    ex = sys.exc_info()[1]
+                    LOG.exception(ex)
+                    db.session.rollback()
+                    if ex.args:
+                        abort(500, description="%r" % (ex.args))
+                    else:
+                        abort(500, description="%r" % (ex))
+                except:
+                    LOG.exception(sys.exc_info()[1])
+                    db.session.rollback()
+                    abort(500, description="unexpected internal error")
+                artifact.owner_id = artifact_import.owner_id
                 db.session.add(artifact)
                 try:
                     db.session.commit()

@@ -2,6 +2,7 @@ import datetime
 import requests
 import threading
 import logging
+import sys
 
 from flask import abort, jsonify, request, Response, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
@@ -26,17 +27,25 @@ class ImporterCheckThread(threading.Thread):
           .filter(ImporterInstance.id == importer_instance_id).first()
 
     def run(self,*args,**kwargs):
-        r = requests.get(self.importer_instance.url + "/status",
-                         headers={"X-Api-Key":self.importer_instance.key})
-        if r.status_code != requests.codes.ok:
-            LOG.error("%s/status check failed (%d)" % (
-                self.importer_instance.url,r.status_code))
+        url = self.importer_instance.url + "/status"
+        LOG.debug("checking importer %s (key %s)" %
+            (url,self.importer_instance.key))
+        try:
+            r = requests.Session().get(url,headers={"X-Api-Key":self.importer_instance.key},
+                             timeout=4)
+            if r.status_code != requests.codes.ok:
+                LOG.error("%s/status check failed (%d)" % (
+                    self.importer_instance.url,r.status_code))
+                return
+            LOG.debug("importer %s ok" % (url,))
+            self.importer_instance.admin_status = "enabled"
+            self.importer_instance.admin_status_time = datetime.datetime.now()
+            db.session.add(self.importer_instance)
+            db.session.commit()
+            LOG.debug("%r ok" % (self.importer_instance),)
+        except:
+            LOG.exception(sys.exc_info()[1])
             return
-        self.importer_instance.admin_status = "enabled"
-        self.importer_instance.admin_status_time = datetime.datetime.now()
-        db.session.add(self.importer_instance)
-        db.session.commit()
-        LOG.debug("%r ok" % (self.importer_instance),)
         # Invoke the scheduler in case we changed state.
         threading.Thread(target=schedule_import,name="schedule_import").start()
 
@@ -144,11 +153,11 @@ class ImporterResource(Resource):
         db.session.add(importer_instance)
         db.session.commit()
 
-        LOG.debug("about to schedule_import (thread=%r, threads=%r)" % (
-            threading.current_thread().getName(),threading.active_count()))
-
-        # Invoke the scheduler in case we changed state.
-        threading.Thread(target=schedule_import,name="schedule_import").start()
+        if importer_instance.admin_status == "disabled":
+            ImporterCheckThread(importer_instance.id).start()
+        else:
+            # Invoke the scheduler in case we changed state.
+            threading.Thread(target=schedule_import,name="schedule_import").start()
 
         return Response(status=200)
 
