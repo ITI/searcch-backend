@@ -39,9 +39,7 @@ class OrganizationListAPI(Resource):
 
         query = db.session.query(Organization)
         if verified:
-            query = query.filter(Organization.state != None)\
-              .filter(Organization.country != None)\
-              .filter(Organization.address != None)
+            query = query.filter(Organization.verified == True)
         query = query.order_by(asc(Organization.name))
         if all_orgs:
             organizations = query.all()
