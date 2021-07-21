@@ -455,7 +455,7 @@ class Artifact(db.Model):
     type = db.Column(db.Enum(*ARTIFACT_TYPES,name="artifact_enum"))
     version = db.Column(db.Integer, nullable=False, default=0)
     url = db.Column(db.String(1024), nullable=False)
-    ext_id = db.Column(db.String(512), nullable=False)
+    ext_id = db.Column(db.String(512))
     title = db.Column(db.Text, nullable=False)
     name = db.Column(db.String(1024), nullable=True)
     ctime = db.Column(db.DateTime, nullable=False)
