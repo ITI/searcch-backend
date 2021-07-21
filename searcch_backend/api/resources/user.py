@@ -2,14 +2,20 @@
 
 from searcch_backend.api.app import db, config_name
 from searcch_backend.api.common.auth import (verify_api_key, verify_token)
+from searcch_backend.api.common.sql import object_from_json
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, url_for, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
 from sqlalchemy import func, desc, sql
+import sqlalchemy
+import sys
+import logging
 
 import base64
 import werkzeug
+
+LOG = logging.getLogger(__name__)
 
 class UserProfileAPI(Resource):
     """ 
@@ -127,6 +133,65 @@ class UserArtifactsAPI(Resource):
             "owned_artifacts": artifact_schema.dump(owned_artifacts)
         })
         
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+
+class UserAffiliationResourceRoot(Resource):
+    """
+    API to:
+        - GET: user's affiliations
+        - POST: add a new affiliation
+    """
+
+    def get(self):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        user = login_session.user
+        affiliations = db.session.query(Affiliation).\
+          filter(Affiliation.person_id == user.person.id).\
+          all()
+
+        response = jsonify({"affiliations": AffiliationSchema(many=True).dump(affiliations)})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+    def post(self):
+        """
+        Creates a new affiliation from the given JSON document.
+        """
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        j = request.json
+        if "affiliation" in j:
+            j = j["affiliation"]
+        if "person" in j:
+            abort(400, description="cannot specify person in affiliation; it will be populated from the session user's person")
+        if "person_id" in j:
+            if j["person_id"] != login_session.user.person.id:
+                abort(400, description="person_id must match user person_id if provided")
+        else:
+            j["person_id"] = login_session.user.person.id
+
+        affiliation = object_from_json(
+            db.session, Affiliation, request.json, skip_primary_keys=False,
+            error_on_primary_key=False, allow_fk=True)
+        db.session.add(affiliation)
+        try:
+            db.session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            # psycopg2.errors.UniqueViolation:
+            LOG.exception(sys.exc_info()[1])
+            abort(400, description="duplicate affiliation")
+        except:
+            LOG.exception(sys.exc_info()[1])
+            abort(500)
+        db.session.expire_all()
+        response = jsonify({"affiliation": AffiliationSchema(many=False).dump(affiliation)})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
