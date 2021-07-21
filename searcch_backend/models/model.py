@@ -17,6 +17,10 @@ ARTIFACT_TYPES = (
 ARTIFACT_IMPORT_TYPES = (
     "unknown", *ARTIFACT_TYPES
 )
+RELATION_TYPES = (
+    "cites", "supplements", "continues", "references", "documents",
+    "compiles","publishes"
+)
 
 class ArtifactFile(db.Model):
     __tablename__ = "artifact_files"
@@ -192,8 +196,7 @@ class ArtifactRelationship(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     relation = db.Column(db.Enum(
-        "cites", "supplements", "continues", "references", "documents",
-        "compiles","publishes",
+        *RELATION_TYPES,
         name="artifact_relationship_enum"))
     related_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     # related_artifact = db.relationship("Artifact", uselist=False, foreign_keys=[related_artifact_id], backref="related_artifacts")
