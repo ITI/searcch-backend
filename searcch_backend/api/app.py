@@ -112,7 +112,7 @@ api.add_resource(ReviewListAPI, approot + '/reviews/<int:artifact_id>', endpoint
 api.add_resource(FavoritesListAPI, approot + '/favorites/<int:user_id>', endpoint='api.favorites')
 api.add_resource(FavoriteAPI, approot + '/favorite/<int:artifact_id>', endpoint='api.favorite')
 
-api.add_resource(UserProfileAPI, approot + '/user', endpoint='api.user')
+api.add_resource(UserProfileAPI, approot + '/user/<int:user_id>', approot + '/user', endpoint='api.user')
 api.add_resource(UserArtifactsAPI, approot + '/user/artifacts', endpoint='api.user_artifacts')
 
 api.add_resource(UserDashboardAPI, approot + '/dashboard', endpoint='api.dashboard')

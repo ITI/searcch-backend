@@ -23,8 +23,6 @@ class UserProfileAPI(Resource):
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument(name='name', 
                                    type=str, required=False)
-        self.reqparse.add_argument(name='userid', 
-                                   type=int, required=False, help='missing user ID')
         self.reqparse.add_argument(name='profile_photo', 
                                    type=werkzeug.datastructures.FileStorage, location='files', required=False)
         self.reqparse.add_argument(name='research_interests', 
@@ -36,14 +34,17 @@ class UserProfileAPI(Resource):
 
         super(UserProfileAPI, self).__init__()
 
-    def get(self):
+    def get(self, user_id=None):
         verify_api_key(request)
         login_session = verify_token(request)
-        args = self.reqparse.parse_args()
-        user_id = args['userid']
-        
+
+        is_logged_in_user = False
+        if user_id == login_session.user_id:
+            is_logged_in_user = True
+
         if not user_id:
             user = login_session.user
+            is_logged_in_user = True
         else:
             user = db.session.query(User).filter(User.id == user_id).first()
             if not user:
@@ -66,23 +67,26 @@ class UserProfileAPI(Resource):
                 }
             }
 
-        if not user_id:
+        if is_logged_in_user:
             response["user"]["person"]["email"] = user.person.email
-            response = jsonify(response)
-        else:
-            response = jsonify(response)
 
+        response = jsonify(response)
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
     
-    def put(self):
+    def put(self, user_id):
         verify_api_key(request)
         login_session = verify_token(request)
 
+        if user_id != login_session.user_id:
+            abort(400, description="insufficient permission to edit user profile")
+
         args = self.reqparse.parse_args()
         name = args['name']
-        profile_photo = args['profile_photo'].read()
+        profile_photo = None
+        if args['profile_photo']:
+            profile_photo = args['profile_photo'].read()
         research_interests = args['research_interests']
         website = args['website']
         email = args['email']
