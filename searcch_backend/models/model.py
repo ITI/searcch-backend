@@ -486,6 +486,17 @@ class Artifact(db.Model):
     relationships = db.relationship("ArtifactRelationship",uselist=True,
                                     foreign_keys=[ArtifactRelationship.artifact_id])
 
+    # NB: all foreign keys are read-only, so not included here.
+    __user_ro_fields__ = (
+        "version","ctime","mtime","ext_id" )
+    __user_ro_relationships__ = (
+        "exporter","owner","importer","parent","curations","publication",
+        "relationships"
+    )
+    __user_skip_relationships__ = (
+        "curations",
+    )
+
     def __repr__(self):
         return "<Artifact(id=%r,title='%s',description='%s',type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r',publication='%r')>" % (
             self.id, self.title, self.description, self.type, self.url, self.owner, self.files, self.tags, self.meta, self.publication)

@@ -226,7 +226,7 @@ class ArtifactImportResource(Resource):
                     del artifact_json["owner_id"]
                 artifact = None
                 try:
-                    artifact = object_from_json(db.session,Artifact,artifact_json,skip_ids=None)
+                    artifact = object_from_json(db.session,Artifact,artifact_json,skip_primary_keys=True)
                 except (TypeError, ValueError):
                     ex = sys.exc_info()[1]
                     LOG.exception(ex)

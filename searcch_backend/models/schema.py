@@ -26,16 +26,7 @@ class ArtifactMetadataSchema(SQLAlchemyAutoSchema):
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
-        exclude = ('id', 'artifact_id',)
-
-
-class ArtifactPublicationSchema(SQLAlchemyAutoSchema):
-    class Meta:
-        model = ArtifactPublication
-        exclude = ('artifact_id', 'publisher_id',)
-        model_converter = ModelConverter
-        include_fk = True
-        include_relationships = True
+        exclude = ('artifact_id',)
 
 
 class ExporterSchema(SQLAlchemyAutoSchema):
@@ -52,13 +43,13 @@ class ArtifactTagSchema(SQLAlchemyAutoSchema):
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
-        exclude = ('id', 'artifact_id',)
+        exclude = ('artifact_id',)
 
 
 class ArtifactFileMemberSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactFileMember
-        exclude = ('id', 'parent_file_id')
+        exclude = ('parent_file_id',)
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
@@ -67,7 +58,7 @@ class ArtifactFileMemberSchema(SQLAlchemyAutoSchema):
 class ArtifactFileSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactFile
-        exclude = ('id', 'artifact_id',)
+        exclude = ('artifact_id',)
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
@@ -127,6 +118,17 @@ class UserSchema(SQLAlchemyAutoSchema):
     person = Nested(PersonSchema)
 
 
+class ArtifactPublicationSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactPublication
+        exclude = ('artifact_id', 'publisher_id',)
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    publisher = Nested(UserSchema)
+
+
 class ArtifactCurationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactCuration
@@ -158,7 +160,7 @@ class OrganizationSchema(SQLAlchemyAutoSchema):
 class AffiliationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Affiliation
-        exclude = ('id', 'person_id', 'org_id')
+        exclude = ('person_id', 'org_id')
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
