@@ -88,6 +88,8 @@ from searcch_backend.api.resources.artifact_import import (
     ArtifactImportResourceRoot, ArtifactImportResource)
 from searcch_backend.api.resources.importer import (
     ImporterResourceRoot, ImporterResource)
+from searcch_backend.api.resources.schema import (
+    SchemaArtifactAPI, SchemaAffiliationAPI)
 
 approot = app.config['APPLICATION_ROOT']
 
@@ -123,3 +125,6 @@ api.add_resource(ArtifactImportResource, approot + '/artifact/import/<int:artifa
 
 api.add_resource(ImporterResourceRoot, approot + '/importers', endpoint='api.importers')
 api.add_resource(ImporterResource, approot + '/importer/<int:importer_instance_id>', endpoint='api.importer')
+
+api.add_resource(SchemaArtifactAPI, approot + "/schema/artifact", endpoint='api.schema_artifact')
+api.add_resource(SchemaAffiliationAPI, approot + "/schema/affiliation", endpoint='api.schema_affiliation')
