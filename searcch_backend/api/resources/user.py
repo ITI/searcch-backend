@@ -177,6 +177,18 @@ class UserAffiliationResourceRoot(Resource):
         else:
             j["person_id"] = login_session.user.person.id
 
+        # Brutal hack for frontend ease: allow POST to just return what's there.
+        if "person_id" in j and "org_id" in j:
+            affiliation = db.session.query(Affiliation).\
+              filter(Affiliation.person_id == j["person_id"]).\
+              filter(Affiliation.org_id == j["org_id"]).\
+              first()
+            if affiliation:
+                response = jsonify({"affiliation": AffiliationSchema(many=False).dump(affiliation)})
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.status_code = 200
+                return response
+
         affiliation = object_from_json(
             db.session, Affiliation, request.json, skip_primary_keys=False,
             error_on_primary_key=False, allow_fk=True)
@@ -192,6 +204,67 @@ class UserAffiliationResourceRoot(Resource):
             abort(500)
         db.session.expire_all()
         response = jsonify({"affiliation": AffiliationSchema(many=False).dump(affiliation)})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+class UserAffiliationResource(Resource):
+    """
+    API to:
+        - GET: a specific user affiliation
+        - DEL: remove a user's affiliation
+    """
+
+    def get(self, affiliation_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        user = login_session.user
+        affiliation = db.session.query(Affiliation).\
+          filter(Affiliation.id == affiliation_id).\
+          first()
+        if not affiliation:
+            abort(404, description="affiliation does not exist")
+
+        response_dict = {
+            "affiliation": {
+                "id": affiliation.id,
+                "person_id": affiliation.person_id,
+                "org_id": affiliation.org_id,
+                "person": {
+                    "id": user.person.id,
+                    "name": user.person.name,
+                    "research_interests": user.person.research_interests,
+                    "website": user.person.website,
+                    "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
+                },
+                "org": OrganizationSchema(many=False).dump(affilation.org) if affiliation.org is not None else None
+            }
+        }
+        if affiliation.person_id == user.person_id:
+            response_dict["affiliation"]["person"]["email"] = user.person.email
+
+        response = jsonify(response_dict)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+    def delete(self, affiliation_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        affiliation = db.session.query(Affiliation).\
+          filter(Affiliation.id == affiliation_id).\
+          first()
+        if not affiliation:
+            abort(404, description="affiliation does not exist")
+        if affiliation.person_id != login_session.user.person_id:
+            abort(400, description="insufficient permission to delete affiliation; not affiliated person")
+
+        db.session.delete(affiliation)
+        db.session.commit()
+
+        response = jsonify({"message": "delete affiliation"})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
