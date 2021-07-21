@@ -269,3 +269,37 @@ class ArtifactImportResource(Resource):
                 abort(400, description="must provide artifact on successful import")
 
         return Response(status=200)
+
+    def delete(self, artifact_import_id):
+        """
+        Deletes an import if the import does not (yet) point to a completed artifact (and also deletes from importer_schedules if necessary).  If import points to a live artifact, we mark the import as archived.
+        """
+        verify_api_key(request)
+        login_session = None
+        if has_token(request):
+            login_session = verify_token(request)
+
+        artifact_import = db.session.query(ArtifactImport).filter(
+            ArtifactImport.id == artifact_import_id).first()
+        if not artifact_import:
+            abort(404, description="invalid artifact import ID")
+        if login_session:
+            if artifact_import.owner_id != login_session.user_id:
+                abort(403, description="insufficient permission to modify artifact_import")
+
+        if artifact_import.artifact_id is not None:
+            if artifact_import.archived:
+                abort(404, description="invalid artifact import ID")
+            artifact_import.archived = True
+            db.session.add(artifact_import)
+            db.session.commit()
+            return Response(status=200)
+        else:
+            sched = db.session.query(ImporterSchedule).\
+              filter(ImporterSchedule.artifact_import_id == artifact_import.id).\
+              first()
+            if sched:
+                db.session.delete(sched)
+            db.session.delete(artifact_import)
+            db.session.commit()
+            return Response(status=200)
