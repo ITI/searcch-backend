@@ -75,7 +75,9 @@ if "DB_AUTO_MIGRATE" in app.config and app.config["DB_AUTO_MIGRATE"]:
         # Commit (unlock).
         db.session.commit()
 
-from searcch_backend.api.resources.artifact import ArtifactAPI, ArtifactListAPI, ArtifactRelationshipAPI, ArtifactRecommendationAPI
+from searcch_backend.api.resources.artifact import (
+    ArtifactAPI, ArtifactListAPI, ArtifactRecommendationAPI,
+    ArtifactRelationshipResourceRoot, ArtifactRelationshipResource)
 from searcch_backend.api.resources.organization import OrganizationAPI, OrganizationListAPI
 from searcch_backend.api.resources.login import LoginAPI
 from searcch_backend.api.resources.rating import RatingAPI, UserRatingAPI
@@ -98,7 +100,8 @@ api.add_resource(LoginAPI, approot + '/login', endpoint='api.login')
 
 api.add_resource(ArtifactListAPI, approot + '/artifacts', endpoint='api.artifacts')
 api.add_resource(ArtifactAPI, approot + '/artifact/<int:artifact_id>', endpoint='api.artifact')
-api.add_resource(ArtifactRelationshipAPI, approot + '/artifact/relationship/<int:artifact_id>', endpoint='api.artifact_relationship')
+api.add_resource(ArtifactRelationshipResourceRoot, approot + '/artifact/relationships', endpoint='api.artifact_relationships')
+api.add_resource(ArtifactRelationshipResource, approot + '/artifact/relationship/<int:artifact_relationship_id>', endpoint='api.artifact_relationship')
 api.add_resource(ArtifactRecommendationAPI, approot + '/artifact/recommendation/<int:artifact_id>', endpoint='api.artifact_recommender')
 
 api.add_resource(OrganizationListAPI, approot + '/organizations', endpoint='api.organizations')
