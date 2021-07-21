@@ -427,3 +427,96 @@ def object_to_json(o,recurse=True,skip_ids=True):
             v = str(v)
         j[k] = v
     return j
+
+python_jsonschema_type_map = {
+    str: "string",bytes: "string",float: "float",int: "int",datetime.datetime: "string"
+}
+def conv_python_type_to_jsonschema(t):
+    if t in python_jsonschema_type_map:
+        return python_jsonschema_type_map[t]
+    return "string"
+
+def class_to_jsonschema(kls,skip_pk=True,skip_fk=True,skip_relations=False,
+                        defs={},root=True):
+    #if not isinstance(o,db.Model):
+    #    raise ValueError("object %r not an instance of our model.Base" % (o))
+    name = kls.__name__
+    if name in defs:
+        return
+
+    typedef = {
+        "description": name, "type": "object", "required": [], "properties": {}
+    }
+    if not root:
+        defs[name] = typedef
+
+    user_ro_fields = getattr(kls,"__user_ro_fields__",{})
+    for k in kls.__mapper__.column_attrs.keys():
+        colprop = getattr(kls,k).property.columns[0]
+        if skip_pk and colprop.primary_key:
+            continue
+        if skip_fk and colprop.foreign_keys:
+            continue
+        if k in user_ro_fields:
+            continue
+        if isinstance(colprop.type,sqlalchemy.sql.sqltypes.Enum):
+            typedef["properties"][k] = dict(type="string",enum=colprop.type._enums_argument)
+            if not colprop.nullable:
+                typedef["required"].append(k)
+        else:
+            pt = None
+            try:
+                pt = str(colprop.type.python_type.__name__)
+            except:
+                continue
+            typedef["properties"][k] = dict(type=conv_python_type_to_jsonschema(pt))
+            if not colprop.nullable:
+                typedef["required"].append(k)
+
+    #
+    # NB: the commented bits are to support the LCD of jsonschema generators.
+    #
+    if not skip_relations:
+        user_ro_relationships = getattr(kls,"__user_ro_relationships__",{})
+        user_skip_relationships = getattr(kls,"__user_skip_relationships__",{})
+        for k in kls.__mapper__.relationships.keys():
+            relprop = getattr(kls,k).property
+            if k.startswith("parent_") or relprop.backref or relprop.viewonly:
+                continue
+            if k in user_ro_relationships or k in user_skip_relationships:
+                continue
+            fclass = relprop.argument()
+            fname = fclass.__name__
+            if relprop.uselist:
+                typedef["properties"][k] = {
+                    "type": "array",
+                    "items": {
+                        #"schema": {
+                            "$ref": "#/definitions/%s" % (fname,)
+                        #}
+                    }
+                }
+            else:
+                typedef["properties"][k] = {
+                    #"type": "object",
+                    #"schema": {
+                        "$ref": "#/definitions/%s" % (fname,)
+                    #}
+                }
+            class_to_jsonschema(
+                fclass,skip_pk=skip_pk,skip_fk=skip_fk,skip_relations=skip_relations,
+                defs=defs,root=False)
+
+    if root:
+        ret = {
+            "id": "https://hub.cyberexperimentation.org/v1/schema/%s.schema.json" % (name,),
+            #"$schema": "https://json-schema.org/draft/2020-12/schema",
+            #"description": name,
+            #"type": "object",
+            #"$ref": "#/definitions/%s" % (name,),
+            "definitions": defs
+        }
+        ret.update(typedef)
+        return ret
+    else:
+        return
