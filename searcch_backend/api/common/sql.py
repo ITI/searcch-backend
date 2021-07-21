@@ -447,8 +447,7 @@ def class_to_jsonschema(kls,skip_pk=True,skip_fk=True,skip_relations=False,
     typedef = {
         "description": name, "type": "object", "required": [], "properties": {}
     }
-    if not root:
-        defs[name] = typedef
+    defs[name] = typedef
 
     user_ro_fields = getattr(kls,"__user_ro_fields__",{})
     for k in kls.__mapper__.column_attrs.keys():
