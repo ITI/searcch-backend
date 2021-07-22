@@ -139,4 +139,4 @@ api.add_resource(SchemaArtifactAPI, approot + "/schema/artifact", endpoint='api.
 api.add_resource(SchemaAffiliationAPI, approot + "/schema/affiliation", endpoint='api.schema_affiliation')
 
 api.add_resource(BadgeResourceRoot, approot + '/badges', endpoint='api.badges')
-api.add_resource(BadgeResource, approot + '/badge/<int:org_id>', endpoint='api.badge')
+api.add_resource(BadgeResource, approot + '/badge/<int:badge_id>', endpoint='api.badge')
