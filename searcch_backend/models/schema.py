@@ -157,6 +157,25 @@ class OrganizationSchema(SQLAlchemyAutoSchema):
         include_relationships = True
 
 
+class BadgeSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = Badge
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+
+class ArtifactBadgeSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactBadge
+        exclude = ('artifact_id', 'badge_id')
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    badge = Nested(BadgeSchema, many=False)
+
+
 class AffiliationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Affiliation
@@ -245,6 +264,7 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     releases = Nested(ArtifactReleaseSchema, many=True)
     affiliations = Nested(ArtifactAffiliationSchema, many=True)
     relationships = Nested(ArtifactRelationshipSchema, many=True)
+    badges = Nested(ArtifactBadgeSchema, many=True)
 
 class ArtifactSearchMaterializedViewSchema(SQLAlchemyAutoSchema):
     class Meta:
