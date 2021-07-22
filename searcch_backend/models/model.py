@@ -377,6 +377,48 @@ class PersonMetadata(db.Model):
             self.id, self.name)
 
 
+class Badge(db.Model):
+    __tablename__ = "badges"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    title = db.Column(db.String(1024), nullable=False)
+    url = db.Column(db.String(1024), nullable=False)
+    image_url = db.Column(db.String(1024))
+    description = db.Column(db.Text)
+    version = db.Column(db.String(256), nullable=False, default="")
+    organization = db.Column(db.String(1024), nullable=False)
+    venue = db.Column(db.String(1024))
+    issue_time = db.Column(db.DateTime)
+    doi = db.Column(db.String(128))
+    verified = db.Column(db.Boolean, nullable=False, default=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("title", "url", "version", "organization"),)
+
+    def __repr__(self):
+        return "<Badge(title=%r,url=%r,version=%r,organization=%r,venue=%r,verified=%r)>" % (
+            self.title, self.url, self.version, self.organization, self.venue, self.verified)
+
+
+class ArtifactBadge(db.Model):
+    __tablename__ = "artifact_badges"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    artifact_id = db.Column(db.Integer, db.ForeignKey(
+        "artifacts.id"), nullable=False)
+    badge_id = db.Column(db.Integer, db.ForeignKey(
+        "badges.id"), nullable=False)
+
+    badge = db.relationship("Badge", uselist=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("artifact_id", "badge_id"),)
+
+    def __repr__(self):
+        return "<ArtifactBadge(artifact_id=%r,badge_id=%r)>" % (
+            self.artifact_id, self.badge_id)
+
+
 class ArtifactRatings(db.Model):
     __tablename__ = "artifact_ratings"
     __table_args__ = (
@@ -488,6 +530,7 @@ class Artifact(db.Model):
     affiliations = db.relationship("ArtifactAffiliation")
     relationships = db.relationship("ArtifactRelationship",uselist=True,
                                     foreign_keys=[ArtifactRelationship.artifact_id])
+    badges = db.relationship("ArtifactBadge", uselist=True)
 
     # NB: all foreign keys are read-only, so not included here.
     __user_ro_fields__ = (
