@@ -156,7 +156,10 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
             val = getattr(x,foreign_primary_key,None)
             if val is not None:
                 if val not in obj1_rval_pk_map:
-                    raise ValueError("cannot set primary key to value not present in original object")
+                    if not getattr(foreign_class,"__object_from_json_allow_pk__",False):
+                        raise ValueError("cannot set primary key to value not present in original object")
+                    LOG.debug("added relation %r item: %r" % (k,x))
+                    adds.append(x)
                 obj2_rval_pk_map[val] = (i,x)
             else:
                 LOG.debug("added relation %r item: %r" % (k,x))
@@ -329,7 +332,7 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
                 next_obj = object_from_json(
                     session,foreign_class,j[k],skip_primary_keys=skip_primary_keys,
                     error_on_primary_key=error_on_primary_key,should_query=True,
-                    obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
+                    allow_fk=allow_fk,obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
                 obj_kwargs[k] = next_obj
                 obj_cache.append(next_obj)
                 obj_cache_dicts.append(j[k])
@@ -346,13 +349,13 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
                 next_obj = object_from_json(
                     session,relprop.argument(),x,skip_primary_keys=skip_primary_keys,
                     error_on_primary_key=error_on_primary_key,should_query=False,
-                    obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
+                    allow_fk=allow_fk,obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
                 obj_kwargs[k].append(next_obj)
         else:
             next_obj = object_from_json(
                 session,relprop.argument(),j[k],skip_primary_keys=skip_primary_keys,
                 error_on_primary_key=error_on_primary_key,should_query=False,
-                obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
+                allow_fk=allow_fk,obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
             obj_kwargs[k] = next_obj
 
     # Query the DB iff all top-level obj_kwargs are basic types or persistent

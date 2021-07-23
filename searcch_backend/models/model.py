@@ -397,6 +397,8 @@ class Badge(db.Model):
     __table_args__ = (
         db.UniqueConstraint("title", "url", "version", "organization"),)
 
+    __object_from_json_allow_pk__ = True
+
     def __repr__(self):
         return "<Badge(title=%r,url=%r,version=%r,organization=%r,venue=%r,verified=%r)>" % (
             self.title, self.url, self.version, self.organization, self.venue, self.verified)
