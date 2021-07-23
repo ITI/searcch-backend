@@ -104,13 +104,15 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
 
         # We must delete referenced objects if we cannot nullify their foreign
         # keys into this object.
-        delete_referenced_objects = True
+        delete_referenced_objects = False
         for rsk in relprop.remote_side:
-            if rsk.nullable:
-                delete_referenced_objects = False
-                break
-        if delete_referenced_objects:
-            LOG.debug("will delete referenced objects of relation %s.%s",obj_class.__name__,k)
+            for fk in rsk.foreign_keys:
+                # If the foreign key is not nullable, AND
+                # If it points into obj_class's table
+                if not rsk.nullable and obj_class.__mapper__.local_table.name == fk.column.table.fullname:
+                    LOG.debug("dro: %r %r %r" % (rsk,obj_class.__mapper__.local_table.name,fk.column.table.fullname))
+                    delete_referenced_objects = True
+                    break
 
         # Otherwise, this is a relationship into another table via a key in our
         # table, probably our primary key.  We check via primary key of the
@@ -177,6 +179,9 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
                 curations.extend(rcurations)
 
         deletes.reverse()
+        if deletes and delete_referenced_objects:
+            LOG.debug("will delete referenced objects of relation %s.%s",obj_class.__name__,k)
+
         for (i,x) in deletes:
             acj = json.dumps(
                 { "obj": foreign_class.__name__,"op": "del",
