@@ -197,7 +197,10 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
             if delete_referenced_objects:
                 LOG.debug("deleting referenced object %r",x)
                 session.delete(x)
-            del getattr(obj1,k)[i]
+            if not relprop.uselist:
+                setattr(obj1,k,None)
+            else:
+                del getattr(obj1,k)[i]
         for x in adds:
             acj = json.dumps(
                 { "obj": foreign_class.__name__,"op": "add",
@@ -207,7 +210,10 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
                 artifact_id=artifact.id,time=datetime.datetime.now(),
                 opdata=acj,curator_id=artifact.owner_id)
             curations.append(ac)
-            getattr(obj1,k).append(x)
+            if not relprop.uselist:
+                setattr(obj1,k,x)
+            else:
+                getattr(obj1,k).append(x)
 
     return curations
 
