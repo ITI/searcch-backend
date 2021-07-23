@@ -87,7 +87,7 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
     user_skip_relationships = getattr(obj_class,"__user_skip_relationships__",{})
     for k in obj_class.__mapper__.relationships.keys():
         # We don't care if user does or does not supply these.
-        if k in user_skip_relationships:
+        if k in user_skip_relationships or k in user_ro_relationships:
             continue
 
         relprop = getattr(obj_class,k).property
