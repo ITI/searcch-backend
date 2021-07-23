@@ -282,9 +282,10 @@ class ArtifactAPI(Resource):
             abort(400, description="request body must be a JSON representation of an artifact")
 
         data = request.json
+        artifact_data = data
         if "artifact" in data:
-            data = data["artifact"]
-        if not ("publication" in data and len(data) == 1):
+            artifact_data = data["artifact"]
+        if "artifact" in data or len(data) > 1:
             mod_artifact = None
             try:
                 # Beware -- in order to use this diff-style comparison,
@@ -296,7 +297,7 @@ class ArtifactAPI(Resource):
                 # how things work.
                 #
                 mod_artifact = object_from_json(
-                    db.session, Artifact, data, skip_primary_keys=False,
+                    db.session, Artifact, artifact_data, skip_primary_keys=False,
                     error_on_primary_key=False, should_query=True, allow_fk=True)
                 mod_artifact.owner = artifact.owner
             except:
