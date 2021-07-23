@@ -324,6 +324,7 @@ class Organization(db.Model):
         db.Enum("Institution", "Company", "Institute", "ResearchGroup", "Sponsor", "Other",
                 name="organization_enum"),
         nullable=False)
+    url = db.Column(db.String(512), nullable=True)
     state = db.Column(db.String(64), nullable=True)
     country = db.Column(db.String(64), nullable=True)
     latitude = db.Column(db.Float(), nullable=True)
@@ -333,8 +334,8 @@ class Organization(db.Model):
     org_tsv = db.Column(TSVECTOR)
 
     def __repr__(self):
-        return "<Organization(name=%r,type=%r,verified=%r)>" % (
-            self.name, self.type, self.verified)
+        return "<Organization(name=%r,type=%r,url=%r,verified=%r)>" % (
+            self.name, self.type, self.url, self.verified)
 
 
 class Affiliation(db.Model):
