@@ -87,7 +87,7 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
     user_skip_relationships = getattr(obj_class,"__user_skip_relationships__",{})
     for k in obj_class.__mapper__.relationships.keys():
         # We don't care if user does or does not supply these.
-        if k in user_skip_relationships:
+        if k in user_skip_relationships or k in user_ro_relationships:
             continue
 
         relprop = getattr(obj_class,k).property
@@ -104,13 +104,15 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
 
         # We must delete referenced objects if we cannot nullify their foreign
         # keys into this object.
-        delete_referenced_objects = True
+        delete_referenced_objects = False
         for rsk in relprop.remote_side:
-            if rsk.nullable:
-                delete_referenced_objects = False
-                break
-        if delete_referenced_objects:
-            LOG.debug("will delete referenced objects of relation %s.%s",obj_class.__name__,k)
+            for fk in rsk.foreign_keys:
+                # If the foreign key is not nullable, AND
+                # If it points into obj_class's table
+                if not rsk.nullable and obj_class.__mapper__.local_table.name == fk.column.table.fullname:
+                    LOG.debug("dro: %r %r %r" % (rsk,obj_class.__mapper__.local_table.name,fk.column.table.fullname))
+                    delete_referenced_objects = True
+                    break
 
         # Otherwise, this is a relationship into another table via a key in our
         # table, probably our primary key.  We check via primary key of the
@@ -154,7 +156,10 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
             val = getattr(x,foreign_primary_key,None)
             if val is not None:
                 if val not in obj1_rval_pk_map:
-                    raise ValueError("cannot set primary key to value not present in original object")
+                    if not getattr(foreign_class,"__object_from_json_allow_pk__",False):
+                        raise ValueError("cannot set primary key to value not present in original object")
+                    LOG.debug("added relation %r item: %r" % (k,x))
+                    adds.append(x)
                 obj2_rval_pk_map[val] = (i,x)
             else:
                 LOG.debug("added relation %r item: %r" % (k,x))
@@ -177,6 +182,9 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
                 curations.extend(rcurations)
 
         deletes.reverse()
+        if deletes and delete_referenced_objects:
+            LOG.debug("will delete referenced objects of relation %s.%s",obj_class.__name__,k)
+
         for (i,x) in deletes:
             acj = json.dumps(
                 { "obj": foreign_class.__name__,"op": "del",
@@ -189,7 +197,10 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
             if delete_referenced_objects:
                 LOG.debug("deleting referenced object %r",x)
                 session.delete(x)
-            del getattr(obj1,k)[i]
+            if not relprop.uselist:
+                setattr(obj1,k,None)
+            else:
+                del getattr(obj1,k)[i]
         for x in adds:
             acj = json.dumps(
                 { "obj": foreign_class.__name__,"op": "add",
@@ -199,7 +210,10 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
                 artifact_id=artifact.id,time=datetime.datetime.now(),
                 opdata=acj,curator_id=artifact.owner_id)
             curations.append(ac)
-            getattr(obj1,k).append(x)
+            if not relprop.uselist:
+                setattr(obj1,k,x)
+            else:
+                getattr(obj1,k).append(x)
 
     return curations
 
@@ -324,7 +338,7 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
                 next_obj = object_from_json(
                     session,foreign_class,j[k],skip_primary_keys=skip_primary_keys,
                     error_on_primary_key=error_on_primary_key,should_query=True,
-                    obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
+                    allow_fk=allow_fk,obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
                 obj_kwargs[k] = next_obj
                 obj_cache.append(next_obj)
                 obj_cache_dicts.append(j[k])
@@ -341,13 +355,13 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
                 next_obj = object_from_json(
                     session,relprop.argument(),x,skip_primary_keys=skip_primary_keys,
                     error_on_primary_key=error_on_primary_key,should_query=False,
-                    obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
+                    allow_fk=allow_fk,obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
                 obj_kwargs[k].append(next_obj)
         else:
             next_obj = object_from_json(
                 session,relprop.argument(),j[k],skip_primary_keys=skip_primary_keys,
                 error_on_primary_key=error_on_primary_key,should_query=False,
-                obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
+                allow_fk=allow_fk,obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
             obj_kwargs[k] = next_obj
 
     # Query the DB iff all top-level obj_kwargs are basic types or persistent

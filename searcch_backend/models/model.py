@@ -200,10 +200,14 @@ class ArtifactRelationship(db.Model):
     related_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     # related_artifact = db.relationship("Artifact", uselist=False, foreign_keys=[related_artifact_id], backref="related_artifacts")
     related_artifact = db.relationship(
-        "Artifact", uselist=False, foreign_keys=[related_artifact_id])
+        "Artifact", uselist=False, foreign_keys=[related_artifact_id], viewonly=True)
 
     __table_args__ = (
         db.UniqueConstraint("artifact_id", "relation", "related_artifact_id"),)
+
+    __user_ro_relationships__ = (
+        "related_artifact",
+    )
 
 
 class ArtifactRelease(db.Model):
@@ -392,6 +396,8 @@ class Badge(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint("title", "url", "version", "organization"),)
+
+    __object_from_json_allow_pk__ = True
 
     def __repr__(self):
         return "<Badge(title=%r,url=%r,version=%r,organization=%r,venue=%r,verified=%r)>" % (

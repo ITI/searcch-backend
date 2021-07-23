@@ -297,7 +297,7 @@ class ArtifactAPI(Resource):
                 #
                 mod_artifact = object_from_json(
                     db.session, Artifact, data, skip_primary_keys=False,
-                    error_on_primary_key=False, should_query=True)
+                    error_on_primary_key=False, should_query=True, allow_fk=True)
                 mod_artifact.owner = artifact.owner
             except:
                 LOG.exception(sys.exc_info()[1])

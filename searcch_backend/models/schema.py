@@ -69,6 +69,7 @@ class ArtifactFileSchema(SQLAlchemyAutoSchema):
 class ArtifactRelationshipSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactRelationship
+        exclude = ('related_artifact',)
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
