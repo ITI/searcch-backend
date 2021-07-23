@@ -11,6 +11,14 @@ import logging
 
 LOG = logging.getLogger(__name__)
 
+def filter_dict_or_list(d,val):
+    if isinstance(d,list):
+        return list(filter_dict_or_list(v,val) for v in d if v != val)
+    elif isinstance(d,dict):
+        return dict((k,filter_dict_or_list(v,val)) for k,v in d.items() if v != val)
+    else:
+        return d
+
 class OrganizationListAPI(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
@@ -46,7 +54,9 @@ class OrganizationListAPI(Resource):
         else:
             organizations = query.paginate(page=page, error_out=False, max_per_page=20).items
 
-        response = jsonify({"organizations": OrganizationSchema(many=True).dump(organizations)})
+        d = { "organizations": OrganizationSchema(many=True).dump(organizations) }
+        d = filter_dict_or_list(d,None)
+        response = jsonify(d)
         response.status_code = 200
         return response
 
