@@ -1,5 +1,4 @@
 from searcch_backend.api.app import db
-from searcch_backend.models.licenses import *
 from sqlalchemy.dialects.postgresql import TSVECTOR, BYTEA
 from sqlalchemy import Table, MetaData
 from sqlalchemy.ext.declarative import declarative_base
@@ -301,21 +300,19 @@ class License(db.Model):
     __tablename__ = "licenses"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    short_name = db.Column(db.String(64), nullable=False)
-    long_name = db.Column(db.String(512))
+    short_name = db.Column(db.String(64))
+    long_name = db.Column(db.String(512), nullable=False)
+    url = db.Column(db.String(1024), nullable=False)
+    verified = db.Column(db.Boolean, nullable=False, default=False)
 
     __table_args__ = (
-        db.UniqueConstraint("short_name"),)
+        db.UniqueConstraint("long_name", "url", "verified"),)
+
+    __object_from_json_allow_pk__ = True
 
     def __repr__(self):
-        return "<License(id=%r,short_name='%s')>" % (self.id, self.short_name)
-
-
-@db.event.listens_for(License.__table__, "after_create")
-def insert_licenses(target, connection, **kwargs):
-    for key in sorted(license_map):
-        connection.execute(
-            "INSERT INTO %s (short_name) VALUES ('%s')" % (target.name, key))
+        return "<License(id=%r,long_name=%r,short_name=%r,url=%r,verified=%r)>" % (
+            self.id, self.long_name, self.short_name, self.url, self.verified)
 
 
 class Organization(db.Model):

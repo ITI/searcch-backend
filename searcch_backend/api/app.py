@@ -95,6 +95,7 @@ from searcch_backend.api.resources.importer import (
 from searcch_backend.api.resources.schema import (
     SchemaArtifactAPI, SchemaAffiliationAPI)
 from searcch_backend.api.resources.badge import BadgeResourceRoot, BadgeResource
+from searcch_backend.api.resources.license import LicenseResourceRoot, LicenseResource
 
 approot = app.config['APPLICATION_ROOT']
 
@@ -140,3 +141,6 @@ api.add_resource(SchemaAffiliationAPI, approot + "/schema/affiliation", endpoint
 
 api.add_resource(BadgeResourceRoot, approot + '/badges', endpoint='api.badges')
 api.add_resource(BadgeResource, approot + '/badge/<int:badge_id>', endpoint='api.badge')
+
+api.add_resource(LicenseResourceRoot, approot + '/licenses', endpoint='api.licenses')
+api.add_resource(LicenseResource, approot + '/license/<int:org_id>', endpoint='api.license')
