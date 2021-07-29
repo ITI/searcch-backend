@@ -68,16 +68,17 @@ class LoginAPI(Resource):
             response_json = response.json()[0]
             user_email = response_json["email"]
 
-            # check if Person entity with that email exists
-            person = db.session.query(Person).filter(Person.email == user_email).first()
+            # check if User entity with that email exists
+            user = db.session.query(User).\
+              join(Person, Person.id == User.person_id).\
+              filter(Person.email == user_email).\
+              first()
 
-            if person:  # create new session
-                user = db.session.query(User).filter(
-                    User.person_id == person.id).first()
+            if user:  # create new session
                 create_new_session(user.id, sso_token)
                 response = jsonify({
                     "userid": user.id,
-                    "person": PersonSchema().dump(person),
+                    "person": PersonSchema().dump(user.person),
                     "message": "login successful. created new session for the user"
                 })
 

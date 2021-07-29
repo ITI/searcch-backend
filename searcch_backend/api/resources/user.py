@@ -55,10 +55,11 @@ class UserProfileAPI(Resource):
             user = db.session.query(User).filter(User.id == user_id).first()
             if not user:
                 abort(400, description='User does not exist')
-        
-        organizations = db.session.query(Organization).filter(Organization.id.in_(
-                db.session.query(Affiliation.org_id).filter(Affiliation.person_id == user.person.id)))
-        
+
+        affiliations = db.session.query(Affiliation).\
+          filter(Affiliation.person_id == user.person.id).\
+          all()
+
         response = {
                 "user": {
                     "id": user.id,
@@ -69,7 +70,7 @@ class UserProfileAPI(Resource):
                         "website": user.person.website,
                         "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
                     },
-                    "organization": OrganizationSchema(many=True).dump(organizations)
+                    "affiliations": AffiliationSchema(many=True).dump(affiliations)
                 }
             }
 
