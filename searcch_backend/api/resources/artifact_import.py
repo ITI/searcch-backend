@@ -220,6 +220,7 @@ class ArtifactImportResource(Resource):
 
         if args["status"] == "completed" and args["phase"] == "done":
             if artifact_json:
+                dt = datetime.datetime.now()
                 if "owner" in artifact_json:
                     del artifact_json["owner"]
                 if "owner_id" in artifact_json:
@@ -231,14 +232,30 @@ class ArtifactImportResource(Resource):
                     ex = sys.exc_info()[1]
                     LOG.exception(ex)
                     db.session.rollback()
+                    msg = ""
                     if ex.args:
-                        abort(500, description="%r" % (ex.args))
+                        msg = "Internal error: %r" % (ex.args,)
                     else:
-                        abort(500, description="%r" % (ex))
+                        msg = "Internal error: %r" % (ex,)
+                    db.session.refresh(artifact_import)
+                    artifact_import.status = "failed"
+                    artifact_import.mtime = dt
+                    artifact_import.message = msg
+                    db.session.add(artifact_import)
+                    db.session.commit()
+                    abort(500, description=msg)
                 except:
                     LOG.exception(sys.exc_info()[1])
                     db.session.rollback()
-                    abort(500, description="unexpected internal error")
+                    db.session.refresh(artifact_import)
+                    artifact_import.status = "failed"
+                    artifact_import.mtime = dt
+                    msg = "Unexpected internal error"
+                    artifact_import.message = msg
+                    db.session.add(artifact_import)
+                    db.session.commit()
+                    abort(500, description=msg)
+
                 artifact.owner_id = artifact_import.owner_id
                 db.session.add(artifact)
                 try:
@@ -251,17 +268,27 @@ class ArtifactImportResource(Resource):
                     return response
                 except sqlalchemy.exc.IntegrityError:
                     #psycopg2.errors.UniqueViolation:
-                    traceback.print_exc()
+                    ex = sys.exc_info()[1]
+                    LOG.exception(ex)
+                    db.session.rollback()
+                    msg = "failed to upload artifact from importer (possible duplicate or malformed data)"
+                    db.session.refresh(artifact_import)
                     artifact_import.status = "failed"
-                    artifact_import.message = "failed to upload artifact from importer (duplicate)"
+                    artifact_import.message = msg
+                    artifact_import.mtime = dt
+                    db.session.add(artifact_import)
                     db.session.commit()
-                    abort(400,description="duplicate artifact")
+                    abort(400,description=msg)
                 except:
-                    traceback.print_exc()
+                    ex = sys.exc_info()[1]
+                    LOG.exception(ex)
+                    db.session.rollback()
+                    msg = "failed to upload artifact from importer (unknown cause)"
+                    db.session.refresh(artifact_import)
                     artifact_import.status = "failed"
-                    artifact_import.message = "failed to upload artifact from importer"
+                    artifact_import.message = msg
                     db.session.commit()
-                    abort(500)
+                    abort(500,description=msg)
             else:
                 artifact_import.status = "failed"
                 artifact_import.message = "no artifact returned from importer"
