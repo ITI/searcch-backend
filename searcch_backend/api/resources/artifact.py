@@ -349,6 +349,66 @@ class ArtifactAPI(Resource):
 
         return response
 
+    def delete(self, artifact_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        # We can only delete unpublished artifacts.
+        artifact = db.session.query(Artifact).\
+          filter(Artifact.id == artifact_id).\
+          first()
+        if not artifact:
+            abort(404, description="no such artifact")
+        if artifact.owner_id != login_session.user_id:
+            abort(401, description="insufficient permission to delete artifact")
+        if artifact.publication:
+            abort(403, description="artifact already published; cannot delete")
+
+        # If currently importing, delete that first, and commit:
+        artifact_import = db.session.query(ArtifactImport).\
+          filter(ArtifactImport.artifact_id == artifact_id).\
+          first()
+        if artifact_import:
+            schedule = db.session.query(ImporterSchedule).\
+              filter(ImporterSchedule.artifact_import_id == artifact_import.id).\
+              first()
+            if schedule:
+                db.session.delete(schedule)
+            db.session.delete(artifact_import)
+            db.session.commit()
+
+        db.session.refresh(artifact)
+        db.session.refresh(login_session)
+
+        for af in getattr(artifact, "files", []):
+            for afm in getattr(af, "members", []):
+                db.session.delete(afm)
+            af.members = []
+            db.session.delete(af)
+        artifact.files = []
+        many = [ "meta", "tags", "curations", "affiliations", "relationships", "releases",
+                 "badges", "ratings", "reviews", "favorites" ]
+        for field in many:
+            for x in getattr(artifact, field, []):
+                db.session.delete(x)
+            setattr(artifact, field, [])
+        single = [ "publication" ]
+        for field in single:
+            x = getattr(artifact, field, None)
+            if x:
+                db.session.delete(x)
+                setattr(artifact, field, None)
+
+        db.session.delete(artifact)
+        try:
+            db.session.commit()
+        except:
+            LOG.error("failed to delete artifact %r", artifact_id)
+            LOG.exception(sys.exc_info()[1])
+            abort(500, description="failed to delete artifact %r" % (artifact_id,))
+
+        return Response(status=200)
+
 
 class ArtifactRelationshipResourceRoot(Resource):
     def __init__(self):
