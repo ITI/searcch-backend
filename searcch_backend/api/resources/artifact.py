@@ -186,7 +186,9 @@ class ArtifactListAPI(Resource):
         Creates a new artifact from the given JSON document, without invoking the importer.
         """
         verify_api_key(request)
-        login_session = verify_token(request)
+        login_session = None
+        if has_token(request):
+            login_session = verify_token(request)
 
         data = request.json
         if "artifact" in data:
@@ -195,11 +197,15 @@ class ArtifactListAPI(Resource):
                                     error_on_primary_key=True)
         if not artifact.ctime:
             artifact.ctime = datetime.datetime.now()
-        artifact.owner = login_session.user
+        if login_session:
+            artifact.owner = login_session.user
         db.session.add(artifact)
+        fake_module_name = "manual"
+        if not login_session:
+            fake_module_name = "cli-export"
         fake_artifact_import = ArtifactImport(
-            type=artifact.type,url=artifact.url,importer_module_name="manual",
-            owner_id=login_session.user_id,ctime=artifact.ctime,status="completed",
+            type=artifact.type,url=artifact.url,importer_module_name=fake_module_name,
+            owner=artifact.owner,ctime=artifact.ctime,status="completed",
             phase="done",artifact=artifact)
         db.session.add(fake_artifact_import)
         try:
