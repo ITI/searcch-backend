@@ -43,7 +43,10 @@ def search_artifacts( keywords, artifact_types, page_num):
                                         (Artifact.type ==
                                         'publication', 3),
                                     ], else_=4)
-                                )                
+                                )      
+        query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                        ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+                        ).order_by(sqratings.c.avg_rating.desc().nullslast(),sqreviews.c.num_reviews.desc())
     else:
         search_query = db.session.query(ArtifactSearchMaterializedView.artifact_id, 
                                         func.ts_rank_cd(ArtifactSearchMaterializedView.doc_vector, func.websearch_to_tsquery("english", keywords)).label("rank")
@@ -52,6 +55,10 @@ def search_artifacts( keywords, artifact_types, page_num):
         query = db.session.query(Artifact, 
                                     search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews'
                                     ).join(search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
+        
+        query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                        ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+                        ).order_by(desc(search_query.c.rank))
 
     # add filters based on provided parameters
     if artifact_types:
@@ -60,9 +67,7 @@ def search_artifacts( keywords, artifact_types, page_num):
         else:
             query = query.filter(Artifact.type == artifact_types[0])
 
-    query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
-                        ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
-                        ).order_by(desc(search_query.c.rank))
+    
     result = query.paginate(page=page_num, error_out=False, max_per_page=20).items
 
     artifacts = []
