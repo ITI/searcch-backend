@@ -7,15 +7,97 @@ from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, url_for, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
-from sqlalchemy import func, desc, sql
+from sqlalchemy import func, desc, asc, sql, or_
 import sqlalchemy
 import sys
 import logging
+import math
 
 import base64
 import werkzeug
 
 LOG = logging.getLogger(__name__)
+
+class UsersIndexAPI(Resource):
+
+    def __init__(self):
+        self.getparse = reqparse.RequestParser()
+        self.getparse.add_argument(
+            name="can_admin", type=int, required=False,
+            help="if 1, show only sessions by users who could have admin privileges")
+        self.getparse.add_argument(
+            name="allusers", type=int, required=False, default=0, location="args",
+            help="if set 1, and if caller is authorized, show all user artifacts")
+        self.getparse.add_argument(
+            name="owner", type=str, required=False, location="args",
+            help="if set, filter by user email and name")
+        self.getparse.add_argument(
+            name="page", type=int, required=False,
+            help="page number for paginated results")
+        self.getparse.add_argument(
+            name="items_per_page", type=int, required=False, default=20,
+            help="results per page if paginated")
+        self.getparse.add_argument(
+            name="sort", type=str, required=False, default="id",
+            choices=("id", "expires_on", "is_admin"),
+            help="bad sort field: {error_msg}")
+        self.getparse.add_argument(
+            name="sort_desc", type=int, required=False, default=1,
+            help="if set True, sort descending, else ascending")
+
+        super(UsersIndexAPI, self).__init__()
+
+    def get(self):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        args = self.getparse.parse_args()
+
+        users = db.session.query(User).\
+          filter(True if login_session.is_admin and args["allusers"] \
+                      else User.id == login_session.user_id)
+        users = users.\
+          join(Person, User.id == Person.id)
+        if args["owner"]:
+            owner_cond = "%" + args["owner"] + "%"
+            users = users.\
+              filter(or_(Person.name.ilike(owner_cond),
+                         Person.email.ilike(owner_cond)))
+        if args["can_admin"] is not None:
+            users = users.\
+              filter(User.can_admin == bool(args["can_admin"]))
+        if not args["sort"]:
+            args["sort"] = "id"
+        if args["sort_desc"]:
+            users = users.\
+              order_by(desc(getattr(User,args["sort"])))
+        else:
+            users = users.\
+              order_by(asc(getattr(User,args["sort"])))
+
+        pagination = None
+        if "page" in args and args["page"]:
+            if args["items_per_page"] <= 0:
+                args["items_per_page"] = sys.maxsize
+            pagination = users.paginate(
+                page=args["page"], error_out=False, per_page=args["items_per_page"])
+            users = pagination.items
+        else:
+            users = users.all()
+
+        response_dict = {
+            "users": UserSchema(many=True).dump(users)
+        }
+        if pagination:
+            response_dict["page"] = pagination.page
+            response_dict["total"] = pagination.total
+            response_dict["pages"] = int(math.ceil(pagination.total / args["items_per_page"]))
+
+        response = jsonify(response_dict)
+
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
 
 class UserProfileAPI(Resource):
     """ 
@@ -70,6 +152,8 @@ class UserProfileAPI(Resource):
                         "website": user.person.website,
                         "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
                     },
+                    "can_admin": user.can_admin,
+                    "is_admin": login_session.is_admin,
                     "affiliations": AffiliationSchema(many=True).dump(affiliations)
                 }
             }

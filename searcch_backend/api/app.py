@@ -76,16 +76,18 @@ if "DB_AUTO_MIGRATE" in app.config and app.config["DB_AUTO_MIGRATE"]:
         db.session.commit()
 
 from searcch_backend.api.resources.artifact import (
-    ArtifactAPI, ArtifactListAPI, ArtifactRecommendationAPI,
+    ArtifactAPI, ArtifactIndexAPI, ArtifactRecommendationAPI,
     ArtifactRelationshipResourceRoot, ArtifactRelationshipResource)
+from searcch_backend.api.resources.artifact_search import ArtifactSearchIndexAPI
 from searcch_backend.api.resources.organization import OrganizationAPI, OrganizationListAPI
 from searcch_backend.api.resources.login import LoginAPI
+from searcch_backend.api.resources.session import SessionResourceRoot
 from searcch_backend.api.resources.rating import RatingAPI, UserRatingAPI
 from searcch_backend.api.resources.review import ReviewAPI, ReviewListAPI
 from searcch_backend.api.resources.favorite import FavoriteAPI, FavoritesListAPI
 from searcch_backend.api.resources.user import (
     UserProfileAPI, UserArtifactsAPI, UserAffiliationResourceRoot,
-    UserAffiliationResource)
+    UserAffiliationResource, UsersIndexAPI)
 from searcch_backend.api.resources.dashboard import UserDashboardAPI, ArtifactStatsAPI
 from searcch_backend.api.resources.interests import InterestsListAPI
 from searcch_backend.api.resources.artifact_import import (
@@ -101,8 +103,11 @@ approot = app.config['APPLICATION_ROOT']
 
 api.add_resource(LoginAPI, approot + '/login', endpoint='api.login')
 
-api.add_resource(ArtifactListAPI, approot + '/artifacts', endpoint='api.artifacts')
+api.add_resource(SessionResourceRoot, approot + '/sessions', endpoint='api.sessions')
+
+api.add_resource(ArtifactIndexAPI, approot + '/artifacts', endpoint='api.artifacts')
 api.add_resource(ArtifactAPI, approot + '/artifact/<int:artifact_id>', endpoint='api.artifact')
+api.add_resource(ArtifactSearchIndexAPI, approot + '/artifact/search', endpoint='api.artifact_search')
 api.add_resource(ArtifactRelationshipResourceRoot, approot + '/artifact/relationships', endpoint='api.artifact_relationships')
 api.add_resource(ArtifactRelationshipResource, approot + '/artifact/relationship/<int:artifact_relationship_id>', endpoint='api.artifact_relationship')
 api.add_resource(ArtifactRecommendationAPI, approot + '/artifact/recommendation/<int:artifact_id>', endpoint='api.artifact_recommender')
@@ -121,6 +126,7 @@ api.add_resource(ReviewListAPI, approot + '/reviews/<int:artifact_id>', endpoint
 api.add_resource(FavoritesListAPI, approot + '/favorites/<int:user_id>', endpoint='api.favorites')
 api.add_resource(FavoriteAPI, approot + '/favorite/<int:artifact_id>', endpoint='api.favorite')
 
+api.add_resource(UsersIndexAPI, approot + '/users', endpoint='api.users')
 api.add_resource(UserProfileAPI, approot + '/user/<int:user_id>', approot + '/user', endpoint='api.user')
 api.add_resource(UserArtifactsAPI, approot + '/user/artifacts', endpoint='api.user_artifacts')
 
