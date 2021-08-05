@@ -241,6 +241,8 @@ class SessionsSchema(SQLAlchemyAutoSchema):
         include_fk = True
         include_relationships = True
 
+    user = Nested(UserSchema())
+
 
 class ArtifactSchema(SQLAlchemyAutoSchema):
     class Meta:
@@ -288,15 +290,6 @@ class ArtifactImportSchema(SQLAlchemyAutoSchema):
     artifact = Nested(ArtifactSchema, many=False)
 
 
-class ImporterInstanceSchema(SQLAlchemyAutoSchema):
-    class Meta:
-        model = ImporterInstance
-        model_converter = ModelConverter
-        exclude = ()
-        include_fk = True
-        include_relationships = True
-
-
 class ImporterScheduleSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ImporterSchedule
@@ -306,4 +299,14 @@ class ImporterScheduleSchema(SQLAlchemyAutoSchema):
         include_relationships = True
 
     artifact_import = Nested(ArtifactImportSchema, many=False)
-    importer_instance = Nested(ImporterInstanceSchema, many=False)
+
+
+class ImporterInstanceSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ImporterInstance
+        model_converter = ModelConverter
+        exclude = ()
+        include_fk = True
+        include_relationships = True
+
+    scheduled = Nested(ImporterScheduleSchema, many=True)

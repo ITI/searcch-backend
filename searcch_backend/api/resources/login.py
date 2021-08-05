@@ -1,12 +1,13 @@
 # logic for /login
 
-from flask import abort, jsonify, request, make_response, Blueprint
+from flask import abort, jsonify, request, make_response, Blueprint, Response
 from flask_restful import reqparse, Resource, fields, marshal
 import requests
 import datetime
 
 from searcch_backend.api.app import db, app, config_name
-from searcch_backend.api.common.auth import (verify_api_key, lookup_token)
+from searcch_backend.api.common.auth import (
+    verify_api_key, lookup_token, verify_token)
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 
@@ -26,7 +27,8 @@ def create_new_session(user_id, sso_token):
         expiry_timestamp = datetime.datetime.now(
         ) + datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
         new_session = Sessions(
-            user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp)
+            user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp,
+            is_admin=False)
         db.session.add(new_session)
         db.session.commit()
 
@@ -44,6 +46,25 @@ class LoginAPI(Resource):
                                    default='',
                                    required=True,
                                    help='missing auth strategy in post request')
+
+        self.putparse = reqparse.RequestParser()
+        self.putparse.add_argument(name='is_admin',
+                                   type=bool,
+                                   required=True,
+                                   help='Set admin mode for this session, if authorized')
+
+    def put(self):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        if not login_session.user.can_admin:
+            abort(403, description="unauthorized")
+
+        args = self.putparse.parse_args(strict=True)
+        login_session.is_admin = args["is_admin"]
+        db.session.commit()
+
+        return Response(status=200)
 
     def post(self):
         args = self.reqparse.parse_args(strict=True)
@@ -79,6 +100,8 @@ class LoginAPI(Resource):
                 response = jsonify({
                     "userid": user.id,
                     "person": PersonSchema().dump(user.person),
+                    "can_admin": user.can_admin,
+                    "is_admin": False,
                     "message": "login successful. created new session for the user"
                 })
 
@@ -111,6 +134,8 @@ class LoginAPI(Resource):
                 response = jsonify({
                     "userid": new_user.id,
                     "person": PersonSchema().dump(new_person),
+                    "can_admin": False,
+                    "is_admin": False,
                     "message": "login successful. created new person and user entity"
                 })
             response.headers.add('Access-Control-Allow-Origin', '*')
@@ -122,6 +147,8 @@ class LoginAPI(Resource):
             response = jsonify({
                 "userid": login_session.user_id,
                 "person": PersonSchema().dump(existing_person),
+                "can_admin": existing_user.can_admin,
+                "is_admin": login_session.is_admin,
                 "message": "login successful with valid session"
             })
             response.headers.add('Access-Control-Allow-Origin', '*')

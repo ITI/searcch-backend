@@ -12,7 +12,8 @@ from searcch_backend.models.model import (
 from searcch_backend.models.schema import (
     ImporterInstanceSchema )
 from searcch_backend.api.app import db, config_name
-from searcch_backend.api.common.auth import verify_api_key
+from searcch_backend.api.common.auth import (
+    verify_api_key, has_token, verify_token)
 from searcch_backend.api.common.importer import schedule_import
 
 
@@ -109,9 +110,14 @@ class ImporterResourceRoot(Resource):
         List all importer instances.
         """
         verify_api_key(request)
+        login_session = None
+        if has_token(request):
+            login_session = verify_token(request)
+        if login_session and not login_session.is_admin:
+            abort(403, description="unauthorized")
         
         importer_instances = db.session.query(ImporterInstance).all()
-        response = jsonify({"importers": importer_instances})
+        response = jsonify({"importers": ImporterInstanceSchema(many=True).dump(importer_instances)})
         response.status_code = 200
         return response
 
@@ -123,13 +129,18 @@ class ImporterResource(Resource):
         Get an importer instance's details.
         """
         verify_api_key(request)
+        login_session = None
+        if has_token(request):
+            login_session = verify_token(request)
+        if login_session and not login_session.is_admin:
+            abort(403, description="unauthorized")
         
         importer_instance = db.session.query(ImporterInstance).filter(
             ImporterInstance.id == importer_instance_id).first()
         if not importer_instance:
             abort(404, description="invalid importer instance ID")
 
-        response = jsonify(importer_instance)
+        response = jsonify({"importer": ImporterInstanceSchema().dump(importer_instance)})
         response.status_code = 200
         return response
 

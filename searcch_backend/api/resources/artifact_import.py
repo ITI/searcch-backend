@@ -4,15 +4,16 @@ import logging
 import sys
 import threading
 import traceback
+import math
 
 import sqlalchemy
-from sqlalchemy import asc, desc, sql, not_
+from sqlalchemy import asc, desc, sql, not_, or_
 from flask import abort, jsonify, request, Response, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
 
 from searcch_backend.models.model import (
     ArtifactImport, ImporterSchedule, ImporterInstance,
-    Artifact, User,
+    Artifact, User, Person,
     ARTIFACT_IMPORT_TYPES,
     ARTIFACT_IMPORT_STATUSES, ARTIFACT_IMPORT_PHASES )
 from searcch_backend.models.schema import (
@@ -44,8 +45,27 @@ class ArtifactImportResourceRoot(Resource):
             name="status", type=str, required=False, location="args",
             help="status must be one of pending,scheduled,running,completed,failed")
         self.getparse.add_argument(
-            name="archived", type=bool, required=False, location="args",
-            default=False, help="if set True, show archived imports")
+            name="archived", type=int, required=False, location="args",
+            default=0, help="if 1, show archived imports")
+        self.getparse.add_argument(
+            name="allusers", type=int, required=False, default=0, location="args",
+            help="if set 1, and if caller is authorized, show all user imports")
+        self.getparse.add_argument(
+            name="owner", type=str, required=False, location="args",
+            help="if set, filter by user email and name")
+        self.getparse.add_argument(
+            name="page", type=int, required=False,
+            help="page number for paginated results")
+        self.getparse.add_argument(
+            name="items_per_page", type=int, required=False, default=20,
+            help="results per page if paginated")
+        self.getparse.add_argument(
+            name="sort", type=str, required=False, default="id",
+            choices=("id", "url", "ctime", "status", "artifact_id"),
+            help="bad sort field: {error_msg}")
+        self.getparse.add_argument(
+            name="sort_desc", type=int, required=False, default=1,
+            help="if set True, sort descending, else ascending")
 
         super(ArtifactImportResourceRoot, self).__init__()
 
@@ -62,16 +82,51 @@ class ArtifactImportResourceRoot(Resource):
         status = args["status"]
 
         artifact_imports = db.session.query(ArtifactImport)\
-          .filter(ArtifactImport.owner_id == login_session.user_id)\
-          .order_by(desc(ArtifactImport.id))
+          .filter(True if login_session.is_admin and args["allusers"] \
+                      else ArtifactImport.owner_id == login_session.user_id)
         if status:
             artifact_imports = artifact_imports.filter(ArtifactImport.status == status)
         if not args["archived"]:
             artifact_imports = artifact_imports.filter(ArtifactImport.archived == False)
+        if args["owner"]:
+            owner_cond = "%" + args["owner"] + "%"
+            artifact_imports = artifact_imports.\
+              join(User, ArtifactImport.owner_id == User.id).\
+              join(Person, User.id == Person.id)
+            artifact_imports = artifact_imports.\
+              filter(or_(Person.name.ilike(owner_cond),
+                         Person.email.ilike(owner_cond)))
+        if not args["sort"]:
+            args["sort"] = "id"
+        if args["sort_desc"]:
+            LOG.debug("desc: desc")
+            artifact_imports = artifact_imports.\
+              order_by(desc(getattr(ArtifactImport,args["sort"])))
+        else:
+            LOG.debug("desc: asc")
+            artifact_imports = artifact_imports.\
+              order_by(asc(getattr(ArtifactImport,args["sort"])))
 
-        artifact_imports = artifact_imports.all()
+        pagination = None
+        if "page" in args and args["page"]:
+            if args["items_per_page"] <= 0:
+                args["items_per_page"] = sys.maxsize
+            pagination = artifact_imports.paginate(
+                page=args["page"], error_out=False, per_page=args["items_per_page"])
+            artifact_imports = pagination.items
+        else:
+            artifact_imports = artifact_imports.all()
 
-        response = jsonify({"artifact_imports": ArtifactImportSchema(many=True).dump(artifact_imports)})
+        response_dict = {
+            "artifact_imports": ArtifactImportSchema(
+                many=True,exclude=("artifact",)).dump(artifact_imports)
+        }
+        if pagination:
+            response_dict["page"] = pagination.page
+            response_dict["total"] = pagination.total
+            response_dict["pages"] = int(math.ceil(pagination.total / args["items_per_page"]))
+
+        response = jsonify(response_dict)
         response.status_code = 200
         return response
 
@@ -158,7 +213,7 @@ class ArtifactImportResource(Resource):
           .first()
         if not artifact_import:
             abort(404, description="invalid artifact import ID")
-        if artifact_import.owner_id != login_session.user_id:
+        if artifact_import.owner_id != login_session.user_id and not login_session.is_admin:
             abort(403, description="insufficient permission")
 
         response = jsonify(ArtifactImportSchema().dump(artifact_import))

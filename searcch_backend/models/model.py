@@ -291,13 +291,14 @@ class User(db.Model):
     person_id = db.Column(db.Integer, db.ForeignKey(
         "persons.id"), nullable=False)
     person = db.relationship("Person", uselist=False)
+    can_admin = db.Column(db.Boolean, nullable=False, default=False)
 
     __table_args__ = (
         db.UniqueConstraint("person_id"),)
 
     def __repr__(self):
-        return "<User(id=%r,person_id=%r)>" % (
-            self.id, self.person_id)
+        return "<User(id=%r,person_id=%r,can_admin=%r)>" % (
+            self.id, self.person_id, self.can_admin)
 
 
 class License(db.Model):
@@ -487,11 +488,12 @@ class Sessions(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     sso_token = db.Column(db.String(64), nullable=False)
     expires_on = db.Column(db.DateTime, nullable=False)
+    is_admin = db.Column(db.Boolean, nullable=False, default=False)
     user = db.relationship("User", uselist=False)
 
     def __repr__(self):
-        return "<Session(id=%r, user_id=%r, sso_token='%s')>" \
-            % (self.id, self.user_id, self.sso_token)
+        return "<Session(id=%r, user_id=%r, sso_token=%r, is_admin=%r)>" \
+            % (self.id, self.user_id, self.sso_token, self.is_admin)
 
 
 class Artifact(db.Model):
@@ -638,6 +640,8 @@ class ImporterInstance(db.Model):
         "enabled","disabled", name="importer_instances_admin_status_enum"),
         nullable=False)
     admin_status_time = db.Column(db.DateTime, nullable=False)
+
+    scheduled = db.relationship("ImporterSchedule", uselist=True)
 
     __table_args__ = (
         db.UniqueConstraint("url","key"),
