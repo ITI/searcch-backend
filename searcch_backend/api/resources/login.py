@@ -4,6 +4,8 @@ from flask import abort, jsonify, request, make_response, Blueprint, Response
 from flask_restful import reqparse, Resource, fields, marshal
 import requests
 import datetime
+import sqlalchemy
+import logging
 
 from searcch_backend.api.app import db, app, config_name
 from searcch_backend.api.common.auth import (
@@ -11,27 +13,38 @@ from searcch_backend.api.common.auth import (
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 
+LOG = logging.getLogger(__name__)
 
 def verify_strategy(strategy):
     if strategy not in ['github']:
         abort(403, description="missing/incorrect strategy")
 
 
-def create_new_session(user_id, sso_token):
-    login_session = db.session.query(Sessions).filter(Sessions.sso_token == sso_token).first()
-    if login_session:
-        if login_session.expires_on < datetime.datetime.now():  # token has expired
-            db.session.delete(login_session)
-            db.session.commit()
-    else:
-        expiry_timestamp = datetime.datetime.now(
-        ) + datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
-        new_session = Sessions(
-            user_id=user_id, sso_token=sso_token, expires_on=expiry_timestamp,
-            is_admin=False)
-        db.session.add(new_session)
+def create_new_session(user, sso_token):
+    expiry_timestamp = datetime.datetime.now() + \
+      datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
+    new_session = Sessions(
+        user=user, sso_token=sso_token, expires_on=expiry_timestamp,
+        is_admin=False)
+    db.session.add(new_session)
+    #
+    # Handle race condition caused by the choice not to lock this table; hit
+    # lookup_token if error on assumption it is most likely a duplicate
+    # session, to check for a race triggered by multi-post login frontend case.
+    # But if still a problem, re-raise.
+    #
+    try:
         db.session.commit()
-
+        db.session.refresh(new_session)
+        return (new_session, True)
+    except sqlalchemy.exc.IntegrityError as err:
+        db.session.rollback()
+        login_session = lookup_token(sso_token)
+        if login_session:
+            return (login_session, False)
+        raise
+    except:
+        abort(500, description="unexpected internal error in session creation")
 
 class LoginAPI(Resource):
     def __init__(self):
@@ -96,15 +109,24 @@ class LoginAPI(Resource):
               first()
 
             if user:  # create new session
-                create_new_session(user.id, sso_token)
+                (login_session, is_new) = create_new_session(user, sso_token)
+                # Use the login_session.user object for consistency with the
+                # following case, even though it cannot matter here.
+                user = login_session.user
+                msg = "created new session"
+                if not is_new:
+                    msg = "existing valid session"
                 response = jsonify({
                     "userid": user.id,
                     "person": PersonSchema().dump(user.person),
                     "can_admin": user.can_admin,
                     "is_admin": False,
-                    "message": "login successful. created new session for the user"
+                    "message": "login successful: %s" % (msg,)
                 })
-
+                LOG.debug("login successful: existing user, %s (%r)", msg, login_session)
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.status_code = 200
+                return response
             else:  # create new user
                 github_user_details_api = 'https://api.github.com/user'
                 headers = {
@@ -117,40 +139,52 @@ class LoginAPI(Resource):
                     abort(response.status_code, description="invalid SSO token")
                 
                 user_details_json = response.json()
-                user_name = user_details_json["name"] if user_details_json["name"] != '' else user_details_json["login"]
-                
+                user_name = user_details_json["name"] if user_details_json["name"] else user_details_json["login"]
+
                 # create database entities
+                #
+                # Handle race condition due to not locking this table where
+                # user creation can race by not committing the new user until
+                # we commit the session add.  Sesssion.sso_token is fully
+                # unique; only one session per token.
+                #
+                # NB: note that is not safe to use the new_user or new_person
+                # objects here, because if we have to rollback the session
+                # in create_new_session due to duplicate, they are uncommitted.
+                # So after a call to create_new_session, only use the returned
+                # login_session object.
+                #
                 new_person = Person(name=user_name, email=user_email)
-                db.session.add(new_person)
-                db.session.commit()
-                db.session.refresh(new_person)
-
-                new_user = User(person_id=new_person.id)
+                new_user = User(person=new_person)
                 db.session.add(new_user)
-                db.session.commit()
-                db.session.refresh(new_user)
 
-                create_new_session(new_user.id, sso_token)
+                (login_session, is_new) = create_new_session(new_user, sso_token)
+                if not is_new:
+                    msg = "existing valid session"
+                else:
+                    msg = "new session"
                 response = jsonify({
-                    "userid": new_user.id,
-                    "person": PersonSchema().dump(new_person),
+                    "userid": login_session.user_id,
+                    "person": PersonSchema().dump(login_session.user.person),
                     "can_admin": False,
                     "is_admin": False,
-                    "message": "login successful. created new person and user entity"
+                    "message": "login successful: %s" % (msg,)
                 })
-            response.headers.add('Access-Control-Allow-Origin', '*')
-            response.status_code = 200
-            return response
+                LOG.debug("login successful: new user: %s (%r)", msg, login_session)
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.status_code = 200
+                return response
         else:
-            existing_user = db.session.query(User).filter(User.id == login_session.user_id).first()
-            existing_person = db.session.query(Person).filter(Person.id == existing_user.person_id).first()
+            LOG.debug("login successful: existing session (%r)",login_session)
+            existing_user = login_session.user
+            existing_person = existing_user.person
             response = jsonify({
                 "userid": login_session.user_id,
                 "person": PersonSchema().dump(existing_person),
                 "can_admin": existing_user.can_admin,
                 "is_admin": login_session.is_admin,
-                "message": "login successful with valid session"
+                "message": "login successful: valid session"
             })
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
-        return response
+            return response

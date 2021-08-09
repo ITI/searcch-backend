@@ -481,7 +481,7 @@ class ArtifactFavorites(db.Model):
 class Sessions(db.Model):
     __tablename__ = "sessions"
     __table_args__ = (
-        db.UniqueConstraint("user_id", "sso_token"),
+        db.UniqueConstraint("sso_token",),
     )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -492,8 +492,8 @@ class Sessions(db.Model):
     user = db.relationship("User", uselist=False)
 
     def __repr__(self):
-        return "<Session(id=%r, user_id=%r, sso_token=%r, is_admin=%r)>" \
-            % (self.id, self.user_id, self.sso_token, self.is_admin)
+        return "<Session(id=%r, user_id=%r, user_can_admin=%r, sso_token=%r, is_admin=%r)>" \
+            % (self.id, self.user_id, self.user.can_admin, self.sso_token, self.is_admin)
 
 
 class Artifact(db.Model):
