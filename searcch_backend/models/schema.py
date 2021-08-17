@@ -251,7 +251,7 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
         # exclude = ('license_id', 'owner_id', 'importer_id',
         #            'parent_id', 'exporter_id', 'document_with_idx')
         exclude = ('license_id', 'owner_id', 'importer_id',
-                   'parent_id', 'exporter_id')
+                   'parent_id', 'exporter_id', 'curations')
         include_fk = True
         include_relationships = True
 
