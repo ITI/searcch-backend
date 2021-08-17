@@ -306,9 +306,9 @@ class ArtifactAPI(Resource):
           first()
         if not artifact:
             abort(404, description="no such artifact")
-        if artifact.owner_id != login_session.user_id:
+        if not (login_session.is_admin or artifact.owner_id == login_session.user_id):
             abort(401, description="insufficient permission to delete artifact")
-        if artifact.publication:
+        if artifact.publication and not login_session.is_admin:
             abort(403, description="artifact already published; cannot delete")
 
         # If currently importing, delete that first, and commit:
@@ -420,7 +420,7 @@ class ArtifactRelationshipResourceRoot(Resource):
             abort(400, description='invalid artifact ID')
 
         # check for valid artifact ownership
-        if artifact.owner_id != login_session.user_id:
+        if artifact.owner_id != login_session.user_id and not login_session.is_admin:
             abort(400, description='insufficient permission: must own source artifact')
             
         # Check if we are updating an existing relationship
@@ -484,7 +484,7 @@ class ArtifactRelationshipResource(Resource):
         # check for valid artifact_relationship ownership (via artifact)
         artifact_relationship_ownership = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).\
-            filter(Artifact.owner_id == login_session.user_id).\
+            filter(True if login_session.is_admin else Artifact.owner_id == login_session.user_id).\
             first()
         if not artifact_relationship_ownership:
             abort(400, description='insufficient permission: must own source artifact')
@@ -511,7 +511,7 @@ class ArtifactRelationshipResource(Resource):
         # check for valid artifact ownership
         artifact_ownership = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).\
-            filter(Artifact.owner_id == login_session.user_id).\
+            filter(True if login_session.is_admin else Artifact.owner_id == login_session.user_id).\
             first()
         if not artifact_ownership:
             abort(400, description='insufficient permission: must own source artifact')
