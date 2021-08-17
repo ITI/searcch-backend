@@ -141,7 +141,7 @@ class ArtifactIndexAPI(Resource):
         if "artifact" in data:
             data = data["artifact"]
         artifact = object_from_json(db.session, Artifact, data, skip_primary_keys=True,
-                                    error_on_primary_key=True)
+                                    error_on_primary_key=True, allow_fk=True)
         if not artifact.ctime:
             artifact.ctime = datetime.datetime.now()
         if login_session:
@@ -240,44 +240,52 @@ class ArtifactAPI(Resource):
             artifact_data = data["artifact"]
         if "artifact" in data or len(data) > 1:
             mod_artifact = None
-            try:
-                # Beware -- in order to use this diff-style comparison,
-                # mod_artifact must be a fully-valid object.  For instance, if
-                # we do not manually set mod_artifact.owner, and try to display
-                # via repr when DEBUG, sqlalchemy will whine that it cannot
-                # refresh the object if a refresh is attempted.  This is a bit
-                # odd, given that mod_artifact is not in the session, but it is
-                # how things work.
-                #
-                mod_artifact = object_from_json(
-                    db.session, Artifact, artifact_data, skip_primary_keys=False,
-                    error_on_primary_key=False, should_query=True, allow_fk=True)
-                mod_artifact.owner = artifact.owner
-            except:
-                LOG.exception(sys.exc_info()[1])
-                abort(400, description="cannot parse updated artifact: %s" % (
-                    repr(sys.exc_info()[1])))
-            if not mod_artifact:
-                abort(400, description="cannot parse updated artifact")
+            with db.session.no_autoflush:
+                try:
+                    # Beware -- in order to use this diff-style comparison,
+                    # mod_artifact must be a fully-valid object.  For instance, if
+                    # we do not manually set mod_artifact.owner, and try to display
+                    # via repr when DEBUG, sqlalchemy will whine that it cannot
+                    # refresh the object if a refresh is attempted.  This is a bit
+                    # odd, given that mod_artifact is not in the session, but it is
+                    # how things work.
+                    #
+                    mod_artifact = object_from_json(
+                        db.session, Artifact, artifact_data, skip_primary_keys=False,
+                        error_on_primary_key=False, should_query=True, allow_fk=True)
+                    mod_artifact.owner = artifact.owner
+                except:
+                    LOG.exception(sys.exc_info()[1])
+                    abort(400, description="cannot parse updated artifact: %s" % (
+                        repr(sys.exc_info()[1])))
+                if not mod_artifact:
+                    abort(400, description="cannot parse updated artifact")
 
-            curations = None
-            try:
-                curations = artifact_diff(db.session, artifact, artifact, mod_artifact)
-                if curations:
-                    db.session.add_all(curations)
-                    db.session.add(artifact)
-            except (TypeError, ValueError):
-                ex = sys.exc_info()[1]
-                LOG.exception(ex)
-                db.session.rollback()
-                if ex.args:
-                    abort(500, description="%r" % (ex.args))
-                else:
-                    abort(500, description="%r" % (ex))
-            except:
-                ex = sys.exc_info()[1]
-                LOG.exception(ex)
-                abort(500, description="unexpected internal error")
+                curations = None
+                try:
+                    curator = login_session.user if login_session else artifact.owner
+                    curations = artifact_diff(db.session, curator, artifact, artifact, mod_artifact)
+                    if curations:
+                        artifact.mtime = datetime.datetime.now()
+                        db.session.add_all(curations)
+                        db.session.add(artifact)
+                except sqlalchemy.exc.IntegrityError:
+                    ex = sys.exc_info()[1]
+                    LOG.exception(ex)
+                    abort(400, description="malformed input: %r" % (ex.args,))
+                except (TypeError, ValueError):
+                    ex = sys.exc_info()[1]
+                    LOG.exception(ex)
+                    db.session.rollback()
+                    if ex.args:
+                        abort(500, description="%r" % (ex.args))
+                    else:
+                        abort(500, description="%r" % (ex))
+                except:
+                    ex = sys.exc_info()[1]
+                    LOG.exception(ex)
+                    db.session.rollback()
+                    abort(500, description="unexpected internal error")
 
         if "publication" in data and data["publication"] is not None:
             notes = None
