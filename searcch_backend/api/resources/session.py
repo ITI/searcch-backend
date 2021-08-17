@@ -105,3 +105,30 @@ class SessionResourceRoot(Resource):
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
+
+
+class SessionResource(Resource):
+
+    def __init__(self):
+        super(SessionResource, self).__init__()
+
+    def delete(self, session_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        session = db.session.query(Sessions).\
+          filter(Sessions.id == session_id).\
+          first()
+        if not session:
+            abort(404, description="session not found")
+        if not session.id == session_id \
+          and not login_session.is_admin:
+            abort(401, description="unauthorized")
+
+        db.session.delete(session)
+        db.session.commit()
+
+        response = jsonify({ "message": "session %r deleted" % (session_id,) })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response

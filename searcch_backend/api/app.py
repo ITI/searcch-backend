@@ -81,7 +81,8 @@ from searcch_backend.api.resources.artifact import (
 from searcch_backend.api.resources.artifact_search import ArtifactSearchIndexAPI
 from searcch_backend.api.resources.organization import OrganizationAPI, OrganizationListAPI
 from searcch_backend.api.resources.login import LoginAPI
-from searcch_backend.api.resources.session import SessionResourceRoot
+from searcch_backend.api.resources.session import (
+    SessionResourceRoot, SessionResource)
 from searcch_backend.api.resources.rating import RatingAPI, UserRatingAPI
 from searcch_backend.api.resources.review import ReviewAPI, ReviewListAPI
 from searcch_backend.api.resources.favorite import FavoriteAPI, FavoritesListAPI
@@ -104,6 +105,7 @@ approot = app.config['APPLICATION_ROOT']
 api.add_resource(LoginAPI, approot + '/login', endpoint='api.login')
 
 api.add_resource(SessionResourceRoot, approot + '/sessions', endpoint='api.sessions')
+api.add_resource(SessionResource, approot + '/session/<int:session_id>', endpoint='api.session')
 
 api.add_resource(ArtifactIndexAPI, approot + '/artifacts', endpoint='api.artifacts')
 api.add_resource(ArtifactAPI, approot + '/artifact/<int:artifact_id>', endpoint='api.artifact')
