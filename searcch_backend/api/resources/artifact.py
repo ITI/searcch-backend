@@ -291,10 +291,18 @@ class ArtifactAPI(Resource):
             notes = None
             if "notes" in data["publication"]:
                 notes = data["publication"]
+            now = datetime.datetime.now()
             artifact.publication = ArtifactPublication(
                 artifact_id=artifact.id,
                 publisher_id=artifact.owner_id,
-                time=datetime.datetime.now(),notes=notes)
+                time=now,notes=notes)
+            # Automatically archive the artifact.
+            artifact_import = db.session.query(ArtifactImport).\
+              filter(ArtifactImport.artifact_id == artifact.id).\
+              first()
+            if artifact_import:
+                artifact_import.archived = True
+            artifact.mtime = now
         db.session.commit()
         db.session.refresh(artifact)
 
