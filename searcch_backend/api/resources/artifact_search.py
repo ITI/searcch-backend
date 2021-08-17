@@ -83,7 +83,8 @@ def search_artifacts( keywords, artifact_types, page_num):
                 "description": artifact.description,
                 "avg_rating": float(avg_rating) if avg_rating else None,
                 "num_ratings": num_ratings if num_ratings else 0,
-                "num_reviews": num_reviews if num_reviews else 0
+                "num_reviews": num_reviews if num_reviews else 0,
+                "owner": { "id": artifact.owner.id }
             }
             artifacts.append(abstract)
     return artifacts
