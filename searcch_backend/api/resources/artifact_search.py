@@ -38,7 +38,7 @@ def search_artifacts( keywords, artifact_types, page_num):
                                     'num_ratings', 'avg_rating', 'num_reviews'
                                     ).order_by(
                                     db.case([
-                                        (Artifact.type == 'code', 1),
+                                        (Artifact.type == 'software', 1),
                                         (Artifact.type == 'dataset', 2),
                                         (Artifact.type ==
                                         'publication', 3),

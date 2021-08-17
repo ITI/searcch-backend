@@ -9,9 +9,8 @@ Base = declarative_base(metadata=metadata)
 
 
 ARTIFACT_TYPES = (
-    "dataset", "executable", "methodology", "metrics",
-    "priorwork", "publication", "hypothesis", "code", "domain",
-    "supportinginfo"
+    "publication", "presentation", "dataset", "software",
+    "other"
 )
 ARTIFACT_IMPORT_TYPES = (
     "unknown", *ARTIFACT_TYPES
