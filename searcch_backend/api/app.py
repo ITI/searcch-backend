@@ -24,6 +24,11 @@ migrate = Migrate(app, db, directory="searcch_backend/migrations")
 ma = Marshmallow(app)
 api = Api(app)
 
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    db.session.expire_all()
+    db.session.remove()
+
 #
 # If gunicorn, propagate its logging config to flask.
 #
