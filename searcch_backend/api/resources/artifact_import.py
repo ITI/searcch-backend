@@ -92,7 +92,7 @@ class ArtifactImportResourceRoot(Resource):
             owner_cond = "%" + args["owner"] + "%"
             artifact_imports = artifact_imports.\
               join(User, ArtifactImport.owner_id == User.id).\
-              join(Person, User.id == Person.id)
+              join(Person, User.person_id == Person.id)
             artifact_imports = artifact_imports.\
               filter(or_(Person.name.ilike(owner_cond),
                          Person.email.ilike(owner_cond)))

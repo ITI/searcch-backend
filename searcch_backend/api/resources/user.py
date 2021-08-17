@@ -57,7 +57,7 @@ class UsersIndexAPI(Resource):
           filter(True if login_session.is_admin and args["allusers"] \
                       else User.id == login_session.user_id)
         users = users.\
-          join(Person, User.id == Person.id)
+          join(Person, User.person_id == Person.id)
         if args["owner"]:
             owner_cond = "%" + args["owner"] + "%"
             users = users.\

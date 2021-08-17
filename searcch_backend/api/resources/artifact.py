@@ -81,7 +81,7 @@ class ArtifactIndexAPI(Resource):
             owner_cond = "%" + args["owner"] + "%"
             artifacts = artifacts.\
               join(User, Artifact.owner_id == User.id).\
-              join(Person, User.id == Person.id)
+              join(Person, User.person_id == Person.id)
             artifacts = artifacts.\
               filter(or_(Person.name.ilike(owner_cond),
                          Person.email.ilike(owner_cond)))

@@ -64,7 +64,7 @@ class SessionResourceRoot(Resource):
               filter(Sessions.is_admin == bool(args["is_admin"]))
         sessions = sessions.\
           join(User, Sessions.user_id == User.id).\
-          join(Person, User.id == Person.id)
+          join(Person, User.person_id == Person.id)
         if args["owner"]:
             owner_cond = "%" + args["owner"] + "%"
             sessions = sessions.\
