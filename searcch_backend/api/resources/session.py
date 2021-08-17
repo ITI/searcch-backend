@@ -92,8 +92,18 @@ class SessionResourceRoot(Resource):
         else:
             sessions = sessions.all()
 
+        # Handle can_admin securely.
+        # XXX: there has to be a way for marshmallow to include excluded fields
+        # based on context, but I just don't have time right now.
+        tmplist = []
+        for s in sessions:
+            ts = SessionsSchema().dump(s)
+            if login_session.is_admin or login_session.user_id == s.user.id:
+                ts["user"]["can_admin"] = s.user.can_admin
+            tmplist.append(ts)
+
         response_dict = {
-            "sessions": SessionsSchema(many=True).dump(sessions)
+            "sessions": tmplist
         }
         if pagination:
             response_dict["page"] = pagination.page

@@ -85,8 +85,18 @@ class UsersIndexAPI(Resource):
         else:
             users = users.all()
 
+        # Handle can_admin securely.
+        # XXX: there has to be a way for marshmallow to include excluded fields
+        # based on context, but I just don't have time right now.
+        tmpusers = []
+        for u in users:
+            tu = UserSchema().dump(u)
+            if login_session.is_admin or login_session.user_id == u.id:
+                tu["can_admin"] = u.can_admin
+            tmpusers.append(tu)
+
         response_dict = {
-            "users": UserSchema(many=True).dump(users)
+            "users": tmpusers
         }
         if pagination:
             response_dict["page"] = pagination.page
@@ -152,14 +162,15 @@ class UserProfileAPI(Resource):
                         "website": user.person.website,
                         "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
                     },
-                    "can_admin": user.can_admin,
-                    "is_admin": login_session.is_admin,
                     "affiliations": AffiliationSchema(many=True).dump(affiliations)
                 }
             }
 
-        if is_logged_in_user:
+        if is_logged_in_user or login_session.is_admin:
             response["user"]["person"]["email"] = user.person.email
+            response["user"]["can_admin"] = user.can_admin
+        if is_logged_in_user:
+            response["user"]["is_admin"] = login_session.is_admin
 
         response = jsonify(response)
         response.headers.add('Access-Control-Allow-Origin', '*')

@@ -111,7 +111,7 @@ class UserAuthorizationSchema(SQLAlchemyAutoSchema):
 class UserSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = User
-        exclude = ('person_id',)
+        exclude = ('person_id', 'can_admin')
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
