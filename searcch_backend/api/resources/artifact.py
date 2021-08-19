@@ -221,7 +221,7 @@ class ArtifactAPI(Resource):
         if has_token(request):
             login_session = verify_token(request)
 
-        # We can only change unpublished artifacts.
+        # We can only change unpublished artifacts unless admin.
         artifact = db.session.query(Artifact).\
           filter(Artifact.id == artifact_id)\
           .first()
@@ -229,7 +229,7 @@ class ArtifactAPI(Resource):
             abort(404, description="no such artifact")
         if login_session and not login_session.is_admin and artifact.owner_id != login_session.user_id:
             abort(401, description="insufficient permission to modify artifact")
-        if artifact.publication:
+        if artifact.publication and not login_session.is_admin:
             abort(403, description="artifact already published; cannot modify")
         if not request.is_json:
             abort(400, description="request body must be a JSON representation of an artifact")
@@ -287,7 +287,8 @@ class ArtifactAPI(Resource):
                     db.session.rollback()
                     abort(500, description="unexpected internal error")
 
-        if "publication" in data and data["publication"] is not None:
+        if "publication" in data and data["publication"] is not None \
+          and not artifact.publication:
             notes = None
             if "notes" in data["publication"]:
                 notes = data["publication"]
