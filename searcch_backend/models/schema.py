@@ -189,6 +189,18 @@ class AffiliationSchema(SQLAlchemyAutoSchema):
     org = Nested(OrganizationSchema)
 
 
+class UserAffiliationSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = UserAffiliation
+        exclude = ('user_id', 'org_id')
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    #user = Nested(UserSchema)
+    org = Nested(OrganizationSchema)
+
+
 class ArtifactAffiliationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactAffiliation

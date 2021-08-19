@@ -362,6 +362,26 @@ class Affiliation(db.Model):
             self.person, self.org)
 
 
+class UserAffiliation(db.Model):
+    __tablename__ = "user_affiliations"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey(
+        "users.id"), nullable=False)
+    org_id = db.Column(db.Integer, db.ForeignKey(
+        "organizations.id"))
+
+    user = db.relationship("User", uselist=False)
+    org = db.relationship("Organization", uselist=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "org_id"),)
+
+    def __repr__(self):
+        return "<UserAffiliation(user=%r,org=%r)>" % (
+            self.user, self.org)
+
+
 class PersonMetadata(db.Model):
     __tablename__ = "person_metadata"
 
