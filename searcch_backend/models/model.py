@@ -533,8 +533,12 @@ class Artifact(db.Model):
     publication = db.relationship("ArtifactPublication", uselist=False)
     releases = db.relationship("ArtifactRelease", uselist=True)
     affiliations = db.relationship("ArtifactAffiliation")
-    relationships = db.relationship("ArtifactRelationship",uselist=True,
-                                    foreign_keys=[ArtifactRelationship.artifact_id])
+    relationships = db.relationship(
+        "ArtifactRelationship",uselist=True,
+        foreign_keys=[ArtifactRelationship.artifact_id])
+    reverse_relationships = db.relationship(
+        "ArtifactRelationship",uselist=True,
+        foreign_keys=[ArtifactRelationship.related_artifact_id])
     badges = db.relationship("ArtifactBadge", uselist=True)
 
     # NB: all foreign keys are read-only, so not included here.

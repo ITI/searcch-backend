@@ -267,6 +267,7 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     releases = Nested(ArtifactReleaseSchema, many=True)
     affiliations = Nested(ArtifactAffiliationSchema, many=True)
     relationships = Nested(ArtifactRelationshipSchema, many=True)
+    reverse_relationships = Nested(ArtifactRelationshipSchema, many=True)
     badges = Nested(ArtifactBadgeSchema, many=True)
 
 class ArtifactSearchMaterializedViewSchema(SQLAlchemyAutoSchema):
