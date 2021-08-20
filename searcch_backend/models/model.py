@@ -16,8 +16,8 @@ ARTIFACT_IMPORT_TYPES = (
     "unknown", *ARTIFACT_TYPES
 )
 RELATION_TYPES = (
-    "cites", "supplements", "continues", "references", "documents",
-    "compiles","publishes"
+    "cites", "supplements", "extends", "uses", "describes",
+    "requires", "processes", "produces"
 )
 
 class ArtifactFile(db.Model):
