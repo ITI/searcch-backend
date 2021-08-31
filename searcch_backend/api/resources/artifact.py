@@ -141,7 +141,7 @@ class ArtifactIndexAPI(Resource):
         if "artifact" in data:
             data = data["artifact"]
         artifact = object_from_json(db.session, Artifact, data, skip_primary_keys=True,
-                                    error_on_primary_key=True, allow_fk=True)
+                                    error_on_primary_key=False, allow_fk=True)
         if not artifact.ctime:
             artifact.ctime = datetime.datetime.now()
         if login_session:
