@@ -351,11 +351,16 @@ class ArtifactAPI(Resource):
             db.session.delete(af)
         artifact.files = []
         many = [ "meta", "tags", "curations", "affiliations", "relationships", "releases",
-                 "badges", "ratings", "reviews", "favorites" ]
+                 "badges" ]
         for field in many:
             for x in getattr(artifact, field, []):
                 db.session.delete(x)
             setattr(artifact, field, [])
+        classes = [ ArtifactReviews, ArtifactRatings, ArtifactFavorites ]
+        for c in classes:
+            res = db.session.query(c).filter(c.artifact_id == artifact_id).all() or []
+            for x in res:
+                db.session.delete(x)
         single = [ "publication" ]
         for field in single:
             x = getattr(artifact, field, None)
