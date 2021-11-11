@@ -1,17 +1,11 @@
 # logic for /artifacts
 
-from searcch_backend.api.app import db, config_name
-from searcch_backend.api.common.sql import (object_from_json, artifact_diff)
-from searcch_backend.api.common.auth import (verify_api_key, has_api_key, has_token, verify_token)
+from searcch_backend.api.app import db
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
-from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
-from flask_restful import reqparse, Resource, fields, marshal
-import sqlalchemy
-from sqlalchemy import func, desc, sql, and_, or_
-import datetime
-import json
-import sys
+from flask import abort, jsonify, url_for
+from flask_restful import reqparse, Resource
+from sqlalchemy import func, desc, sql, or_
 import logging
 
 LOG = logging.getLogger(__name__)
@@ -19,8 +13,8 @@ LOG = logging.getLogger(__name__)
 def generate_artifact_uri(artifact_id):
     return url_for('api.artifact', artifact_id=artifact_id)
 
-def search_artifacts( keywords, artifact_types, page_num):
-    """ search for artifacts based on keywords """
+def search_artifacts(keywords, artifact_types, artifact_owners, page_num):
+    """ search for artifacts based on keywords, with optional filters by owner and affiliation """
     sqratings = db.session.query(
         ArtifactRatings.artifact_id,
         func.count(ArtifactRatings.id).label('num_ratings'),
@@ -31,6 +25,10 @@ def search_artifacts( keywords, artifact_types, page_num):
         func.count(ArtifactReviews.id).label('num_reviews')
     ).group_by("artifact_id").subquery()
 
+    if artifact_owners:
+            owner_query = db.session.query(Person.id, func.ts_rank_cd(Person.person_tsv, func.websearch_to_tsquery("english", keywords)).label(
+            "rank")).filter(Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", keywords))).order_by(desc("rank")).subquery()
+    
     # create base query object
     if not keywords:
         query = db.session.query(Artifact,
@@ -43,7 +41,7 @@ def search_artifacts( keywords, artifact_types, page_num):
                                         (Artifact.type ==
                                         'publication', 3),
                                     ], else_=4)
-                                )      
+                                )
         query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
                         ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
                         ).order_by(sqratings.c.avg_rating.desc().nullslast(),sqreviews.c.num_reviews.desc())
@@ -60,6 +58,9 @@ def search_artifacts( keywords, artifact_types, page_num):
                         ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
                         ).order_by(desc(search_query.c.rank))
 
+    if artifact_owners:
+        query = query.join(owner_query, Artifact.owner_id == owner_query.c.id, isouter=False)
+    
     # add filters based on provided parameters
     if artifact_types:
         if len(artifact_types) > 1:
@@ -72,7 +73,7 @@ def search_artifacts( keywords, artifact_types, page_num):
 
     artifacts = []
     for row in result:
-        artifact, relevance_score, num_ratings, avg_rating, num_reviews = row
+        artifact, _, num_ratings, avg_rating, num_reviews = row
         if artifact.publication:  # return only published artifacts
             abstract = {
                 "id": artifact.id,
@@ -113,6 +114,11 @@ class ArtifactSearchIndexAPI(Resource):
                                    required=False,
                                    action='append',
                                    help='missing type to filter results')
+        self.reqparse.add_argument(name='owner',
+                                   type=str,
+                                   required=False,
+                                   action='append',
+                                   help='missing owner to filter results')
         self.reqparse.add_argument(name='entity',
                                    type=str,
                                    required=False,
@@ -134,7 +140,7 @@ class ArtifactSearchIndexAPI(Resource):
 
         users = []
         for row in result:
-            user, relevance_score = row
+            user, _ = row
             abstract = {
                 "user": PersonSchema().dump(user)
             }
@@ -150,7 +156,7 @@ class ArtifactSearchIndexAPI(Resource):
 
         orgs = []
         for row in result:
-            org, relevance_score = row
+            org, _ = row
             abstract = {
                 "org": OrganizationSchema().dump(org)
             }
@@ -161,10 +167,12 @@ class ArtifactSearchIndexAPI(Resource):
     def get(self):
         args = self.reqparse.parse_args()
         keywords = args['keywords']
-        artifact_types = args['type']
         entities = args['entity']
         page_num = args['page']
 
+        # artifact search filters
+        artifact_types = args['type']
+        artifact_owners = args['owner']
         artifacts, users, organizations = [], [], []
 
         # sanity checks
@@ -177,7 +185,7 @@ class ArtifactSearchIndexAPI(Resource):
                 if entity not in ['artifact', 'user', 'organization']:
                     abort(400, description='invalid entity passed')
             if 'artifact' in entities:
-                artifacts = search_artifacts(keywords, artifact_types, page_num)
+                artifacts = search_artifacts(keywords, artifact_types, artifact_owners, page_num)
             if 'user' in entities:
                 users = self.search_users(keywords, page_num)
             if 'organization' in entities:
