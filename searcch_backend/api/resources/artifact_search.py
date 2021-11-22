@@ -26,8 +26,10 @@ def search_artifacts(keywords, artifact_types, artifact_owners, page_num):
     ).group_by("artifact_id").subquery()
 
     if artifact_owners:
-        owner_query = db.session.query(Person.id, func.ts_rank_cd(Person.person_tsv, func.websearch_to_tsquery("english", keywords)).label(
-            "rank")).filter(Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", ' '.join(artifact_owners)))).order_by(desc("rank")).subquery()
+        owner_query = db.session.query(
+            User.id, func.ts_rank_cd(Person.person_tsv, func.websearch_to_tsquery("english", keywords)).label("rank")
+        ).join(Person, User.person_id == Person.id
+        ).filter(Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", ' '.join(artifact_owners)))).order_by(desc("rank")).subquery()
     
     # create base query object
     if not keywords:
