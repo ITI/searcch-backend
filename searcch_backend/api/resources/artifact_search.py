@@ -13,7 +13,7 @@ LOG = logging.getLogger(__name__)
 def generate_artifact_uri(artifact_id):
     return url_for('api.artifact', artifact_id=artifact_id)
 
-def search_artifacts(keywords, artifact_types, artifact_owners, page_num):
+def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, page_num):
     """ search for artifacts based on keywords, with optional filters by owner and affiliation """
     sqratings = db.session.query(
         ArtifactRatings.artifact_id,
@@ -25,12 +25,6 @@ def search_artifacts(keywords, artifact_types, artifact_owners, page_num):
         func.count(ArtifactReviews.id).label('num_reviews')
     ).group_by("artifact_id").subquery()
 
-    if artifact_owners:
-        owner_query = db.session.query(
-            User.id, func.ts_rank_cd(Person.person_tsv, func.websearch_to_tsquery("english", keywords)).label("rank")
-        ).join(Person, User.person_id == Person.id
-        ).filter(Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", ' '.join(artifact_owners)))).order_by(desc("rank")).subquery()
-    
     # create base query object
     if not keywords:
         query = db.session.query(Artifact,
@@ -60,7 +54,39 @@ def search_artifacts(keywords, artifact_types, artifact_owners, page_num):
                         ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
                         ).order_by(desc(search_query.c.rank))
 
-    if artifact_owners:
+    if author_keywords or organization:
+        rank_list = []
+        if author_keywords:
+            author_keywords = ' '.join(author_keywords)
+            rank_list.append(
+                func.ts_rank_cd(Person.person_tsv, func.websearch_to_tsquery("english", author_keywords)).label("arank"))
+        if organization:
+            rank_list.append(
+                func.ts_rank_cd(Organization.org_tsv, func.websearch_to_tsquery("english", organization)).label("orank"))
+        author_org_query = db.session.query(
+            Artifact.id, *rank_list
+        ).join(ArtifactAffiliation, ArtifactAffiliation.artifact_id == Artifact.id
+        ).join(Affiliation, Affiliation.id == ArtifactAffiliation.affiliation_id
+        )
+        if author_keywords:
+            author_org_query = author_org_query.join(Person, Person.id == Affiliation.person_id)
+        if organization:
+            author_org_query = author_org_query.join(Organization, Organization.id == Affiliation.org_id)
+        if author_keywords:
+            author_org_query = author_org_query.filter(
+                Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", author_keywords))).order_by(desc("arank"))
+        if organization:
+            author_org_query = author_org_query.filter(
+                Organization.org_tsv.op('@@')(func.websearch_to_tsquery("english", organization))).order_by(desc("orank"))
+        author_org_query = author_org_query.subquery()
+        query = query.join(author_org_query, Artifact.id == author_org_query.c.id, isouter=False)
+
+    if owner_keywords:
+        owner_keywords = ' '.join(owner_keywords)
+        owner_query = db.session.query(
+            User.id, func.ts_rank_cd(Person.person_tsv, func.websearch_to_tsquery("english", owner_keywords)).label("rank")
+        ).join(Person, User.person_id == Person.id
+        ).filter(Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", owner_keywords))).order_by(desc("rank")).subquery()
         query = query.join(owner_query, Artifact.owner_id == owner_query.c.id, isouter=False)
     
     # add filters based on provided parameters
@@ -116,6 +142,16 @@ class ArtifactSearchIndexAPI(Resource):
                                    required=False,
                                    action='append',
                                    help='missing type to filter results')
+        self.reqparse.add_argument(name='author',
+                                   type=str,
+                                   required=False,
+                                   action='append',
+                                   help='missing author to filter results')
+        self.reqparse.add_argument(name='organization',
+                                   type=str,
+                                   required=False,
+                                   default='',
+                                   help='missing organization to filter results')
         self.reqparse.add_argument(name='owner',
                                    type=str,
                                    required=False,
@@ -174,7 +210,9 @@ class ArtifactSearchIndexAPI(Resource):
 
         # artifact search filters
         artifact_types = args['type']
-        artifact_owners = args['owner']
+        author_keywords = args['author']
+        organization = args['organization']
+        owner_keywords = args['owner']
         artifacts, users, organizations = [], [], []
 
         # sanity checks
@@ -187,7 +225,7 @@ class ArtifactSearchIndexAPI(Resource):
                 if entity not in ['artifact', 'user', 'organization']:
                     abort(400, description='invalid entity passed')
             if 'artifact' in entities:
-                artifacts = search_artifacts(keywords, artifact_types, artifact_owners, page_num)
+                artifacts = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, page_num)
             if 'user' in entities:
                 users = self.search_users(keywords, page_num)
             if 'organization' in entities:
