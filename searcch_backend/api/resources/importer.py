@@ -209,7 +209,8 @@ class ImporterResource(Resource):
         db.session.commit()
 
         # Invoke the scheduler in case we changed state.
-        if admin_status_changed or status_changed:
+        if importer_instance.admin_status == "enabled" \
+          and importer_instance.status == "up":
             threading.Thread(target=schedule_import,name="schedule_import").start()
 
         return Response(status=200)
