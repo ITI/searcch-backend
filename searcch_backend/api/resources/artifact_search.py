@@ -6,6 +6,7 @@ from searcch_backend.models.schema import *
 from flask import abort, jsonify, url_for
 from flask_restful import reqparse, Resource
 from sqlalchemy import func, desc, sql, or_
+import math
 import logging
 
 LOG = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ LOG = logging.getLogger(__name__)
 def generate_artifact_uri(artifact_id):
     return url_for('api.artifact', artifact_id=artifact_id)
 
-def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, page_num):
+def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, page_num, items_per_page):
     """ search for artifacts based on keywords, with optional filters by owner and affiliation """
     sqratings = db.session.query(
         ArtifactRatings.artifact_id,
@@ -39,6 +40,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
                                     ], else_=4)
                                 )
         query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                        ).join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id
                         ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
                         ).order_by(sqratings.c.avg_rating.desc().nullslast(),sqreviews.c.num_reviews.desc())
     else:
@@ -48,6 +50,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
                                     ).subquery()
         query = db.session.query(Artifact, 
                                     search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews'
+                                    ).join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id
                                     ).join(search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
         
         query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
@@ -90,6 +93,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
         query = query.join(owner_query, Artifact.owner_id == owner_query.c.id, isouter=False)
     
     # add filters based on provided parameters
+    query = query.filter(ArtifactPublication.id != None)
     if artifact_types:
         if len(artifact_types) > 1:
             query = query.filter(or_(Artifact.type == a_type for a_type in artifact_types))
@@ -97,26 +101,30 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             query = query.filter(Artifact.type == artifact_types[0])
 
     
-    result = query.paginate(page=page_num, error_out=False, max_per_page=20).items
+    pagination = query.paginate(page=page_num, error_out=False, max_per_page=items_per_page)
+    result = pagination.items
 
     artifacts = []
     for row in result:
         artifact, _, num_ratings, avg_rating, num_reviews = row
-        if artifact.publication:  # return only published artifacts
-            abstract = {
-                "id": artifact.id,
-                "uri": generate_artifact_uri(artifact.id),
-                "doi": artifact.url,
-                "type": artifact.type,
-                "title": artifact.title,
-                "description": artifact.description,
-                "avg_rating": float(avg_rating) if avg_rating else None,
-                "num_ratings": num_ratings if num_ratings else 0,
-                "num_reviews": num_reviews if num_reviews else 0,
-                "owner": { "id": artifact.owner.id }
-            }
-            artifacts.append(abstract)
-    return artifacts
+        abstract = {
+            "id": artifact.id,
+            "uri": generate_artifact_uri(artifact.id),
+            "doi": artifact.url,
+            "type": artifact.type,
+            "title": artifact.title,
+            "description": artifact.description,
+            "avg_rating": float(avg_rating) if avg_rating else None,
+            "num_ratings": num_ratings if num_ratings else 0,
+            "num_reviews": num_reviews if num_reviews else 0,
+            "owner": { "id": artifact.owner.id }
+        }
+        artifacts.append(abstract)
+
+    return dict(
+        page=pagination.page,total=pagination.total,
+        pages=int(math.ceil(pagination.total / items_per_page)),
+        artifacts=artifacts)
 
 class ArtifactSearchIndexAPI(Resource):
     def __init__(self):
@@ -133,7 +141,7 @@ class ArtifactSearchIndexAPI(Resource):
         self.reqparse.add_argument(name='items_per_page',
                                    type=int,
                                    required=False,
-                                   default=20,
+                                   default=10,
                                    help='items per page for paginated results')
         
         # filters
@@ -170,72 +178,26 @@ class ArtifactSearchIndexAPI(Resource):
     def is_artifact_type_valid(artifact_type):
         return artifact_type in ARTIFACT_TYPES
 
-    def search_users(self, keywords, page_num):
-        """ search for users based on keywords """
-        user_query = db.session.query(Person, func.ts_rank_cd(Person.person_tsv, func.websearch_to_tsquery("english", keywords)).label(
-            "rank")).filter(Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", keywords))).order_by(desc("rank"))
-        result = user_query.paginate(page=page_num, error_out=False, max_per_page=20).items
-
-        users = []
-        for row in result:
-            user, _ = row
-            abstract = {
-                "user": PersonSchema().dump(user)
-            }
-            users.append(abstract)
-        
-        return users
-    
-    def search_organizations(self, keywords, page_num):
-        """ search for organizations based on keywords """
-        org_query = db.session.query(Organization, func.ts_rank_cd(Organization.org_tsv, func.websearch_to_tsquery("english", keywords)).label(
-            "rank")).filter(Organization.org_tsv.op('@@')(func.websearch_to_tsquery("english", keywords))).order_by(desc("rank"))
-        result = org_query.paginate(page=page_num, error_out=False, max_per_page=20).items
-
-        orgs = []
-        for row in result:
-            org, _ = row
-            abstract = {
-                "org": OrganizationSchema().dump(org)
-            }
-            orgs.append(abstract)
-        
-        return orgs
-
     def get(self):
         args = self.reqparse.parse_args()
         keywords = args['keywords']
-        entities = args['entity']
         page_num = args['page']
+        items_per_page = args['items_per_page']
 
         # artifact search filters
         artifact_types = args['type']
         author_keywords = args['author']
         organization = args['organization']
         owner_keywords = args['owner']
-        artifacts, users, organizations = [], [], []
 
         # sanity checks
         if artifact_types:
             for a_type in artifact_types:
                 if not ArtifactSearchIndexAPI.is_artifact_type_valid(a_type):
                     abort(400, description='invalid artifact type passed')
-        if entities:
-            for entity in entities:
-                if entity not in ['artifact', 'user', 'organization']:
-                    abort(400, description='invalid entity passed')
-            if 'artifact' in entities:
-                artifacts = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, page_num)
-            if 'user' in entities:
-                users = self.search_users(keywords, page_num)
-            if 'organization' in entities:
-                organizations = self.search_organizations(keywords, page_num)
 
-        response = jsonify({
-            "artifacts": artifacts, 
-            "users": users, 
-            "organizations": organizations
-            })
+        result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, page_num, items_per_page)
+        response = jsonify(result)
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
