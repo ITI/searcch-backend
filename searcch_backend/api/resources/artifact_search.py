@@ -14,7 +14,7 @@ LOG = logging.getLogger(__name__)
 def generate_artifact_uri(artifact_id):
     return url_for('api.artifact', artifact_id=artifact_id)
 
-def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, page_num, items_per_page):
+def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page):
     """ search for artifacts based on keywords, with optional filters by owner and affiliation """
     sqratings = db.session.query(
         ArtifactRatings.artifact_id,
@@ -91,6 +91,12 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
         ).join(Person, User.person_id == Person.id
         ).filter(Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", owner_keywords))).order_by(desc("rank")).subquery()
         query = query.join(owner_query, Artifact.owner_id == owner_query.c.id, isouter=False)
+    if badge_id_list:
+        badge_query = db.session.query(ArtifactBadge.artifact_id
+            ).join(Badge, Badge.id == ArtifactBadge.badge_id
+            ).filter(Badge.id.in_(badge_id_list)
+            ).subquery()
+        query = query.join(badge_query, Artifact.id == badge_query.c.artifact_id, isouter=False)
     
     # add filters based on provided parameters
     query = query.filter(ArtifactPublication.id != None)
@@ -165,11 +171,11 @@ class ArtifactSearchIndexAPI(Resource):
                                    required=False,
                                    action='append',
                                    help='missing owner to filter results')
-        self.reqparse.add_argument(name='entity',
-                                   type=str,
+        self.reqparse.add_argument(name='badge_id',
+                                   type=int,
                                    required=False,
                                    action='append',
-                                   help='missing entities to search for')
+                                   help='badge IDs to search for')
 
         super(ArtifactSearchIndexAPI, self).__init__()
 
@@ -189,6 +195,7 @@ class ArtifactSearchIndexAPI(Resource):
         author_keywords = args['author']
         organization = args['organization']
         owner_keywords = args['owner']
+        badge_id_list = args['badge_id']
 
         # sanity checks
         if artifact_types:
@@ -196,7 +203,7 @@ class ArtifactSearchIndexAPI(Resource):
                 if not ArtifactSearchIndexAPI.is_artifact_type_valid(a_type):
                     abort(400, description='invalid artifact type passed')
 
-        result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, page_num, items_per_page)
+        result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page)
         response = jsonify(result)
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
