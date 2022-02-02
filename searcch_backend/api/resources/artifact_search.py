@@ -3,11 +3,13 @@
 from searcch_backend.api.app import db
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
-from flask import abort, jsonify, url_for
+from flask import abort, jsonify, url_for, request
 from flask_restful import reqparse, Resource
-from sqlalchemy import func, desc, sql, or_
+from sqlalchemy import func, desc, sql, or_, and_
+from searcch_backend.api.common.auth import (verify_api_key, has_api_key, has_token, verify_token)
 import math
 import logging
+import json
 
 LOG = logging.getLogger(__name__)
 
@@ -205,6 +207,55 @@ class ArtifactSearchIndexAPI(Resource):
 
         result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page)
         response = jsonify(result)
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+class ArtifactRecommendationAPI(Resource):
+    def __init__(self):
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument(name='page',
+                                   type=int,
+                                   required=False,
+                                   default=1,
+                                   help='page number for paginated results')
+        
+
+        super(ArtifactRecommendationAPI, self).__init__()
+    
+    def get(self, artifact_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+        args = self.reqparse.parse_args()
+        page_num = args['page']
+
+        # check for valid artifact id
+        artifact = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).first()
+        if not artifact:
+            abort(400, description='invalid artifact ID')
+
+        authors_res = db.session.query(ArtifactAffiliation, Person.name).filter(ArtifactAffiliation.artifact_id == artifact_id).join(Affiliation,Affiliation.id == ArtifactAffiliation.affiliation_id).join(Person, Affiliation.person_id == Person.id).all()
+
+        #Authors of artifact for later
+        authors = [res.name for res in authors_res]
+
+    
+        top_keywords = db.session.query(ArtifactTag.tag).filter(
+            ArtifactTag.artifact_id == artifact_id, ArtifactTag.source.like('%keywords%')).all()
+        if not top_keywords:
+            response = jsonify(
+                {"message": "The artifact doesnt have any top rated keywords"})
+        else:
+            keywords = [result.tag for result in top_keywords]
+            artifacts = search_artifacts(keywords=" or ".join(keywords), artifact_types = ARTIFACT_TYPES, page_num = page_num, items_per_page= 10, author_keywords = None,  organization = None, owner_keywords = None, badge_id_list = None)
+            res = db.session.query(func.count(ArtifactRatings.id).label('num_ratings'), func.avg(ArtifactRatings.rating).label('avg_rating')).filter(ArtifactRatings.artifact_id == artifact_id).first()
+            num_ratings = res.num_ratings if res.num_ratings else 0
+            avg_rating = round(res.avg_rating,2) if res.avg_rating else 0
+            response = jsonify({"artifacts": artifacts, "avg_rating": str(num_ratings), "num_ratings": str(avg_rating), "authors": authors})
+
+
+
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
