@@ -81,9 +81,9 @@ if "DB_AUTO_MIGRATE" in app.config and app.config["DB_AUTO_MIGRATE"]:
         db.session.commit()
 
 from searcch_backend.api.resources.artifact import (
-    ArtifactAPI, ArtifactIndexAPI, ArtifactRecommendationAPI,
+    ArtifactAPI, ArtifactIndexAPI,
     ArtifactRelationshipResourceRoot, ArtifactRelationshipResource)
-from searcch_backend.api.resources.artifact_search import ArtifactSearchIndexAPI
+from searcch_backend.api.resources.artifact_search import ArtifactSearchIndexAPI, ArtifactRecommendationAPI
 from searcch_backend.api.resources.organization import OrganizationAPI, OrganizationListAPI
 from searcch_backend.api.resources.login import LoginAPI
 from searcch_backend.api.resources.session import (
