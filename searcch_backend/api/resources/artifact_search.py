@@ -62,10 +62,13 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
     if author_keywords or organization:
         rank_list = []
         if author_keywords:
-            author_keywords = ' '.join(author_keywords)
+            if type(author_keywords) is list:
+                author_keywords = ' or '.join(author_keywords)
             rank_list.append(
                 func.ts_rank_cd(Person.person_tsv, func.websearch_to_tsquery("english", author_keywords)).label("arank"))
         if organization:
+            if type(organization) is list:
+                organization = ' or '.join(organization)
             rank_list.append(
                 func.ts_rank_cd(Organization.org_tsv, func.websearch_to_tsquery("english", organization)).label("orank"))
         author_org_query = db.session.query(
@@ -87,7 +90,8 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
         query = query.join(author_org_query, Artifact.id == author_org_query.c.id, isouter=False)
 
     if owner_keywords:
-        owner_keywords = ' '.join(owner_keywords)
+        if type(owner_keywords) is list:
+            owner_keywords = ' or '.join(owner_keywords)
         owner_query = db.session.query(
             User.id, func.ts_rank_cd(Person.person_tsv, func.websearch_to_tsquery("english", owner_keywords)).label("rank")
         ).join(Person, User.person_id == Person.id
@@ -167,6 +171,7 @@ class ArtifactSearchIndexAPI(Resource):
                                    type=str,
                                    required=False,
                                    default='',
+                                   action='append',
                                    help='missing organization to filter results')
         self.reqparse.add_argument(name='owner',
                                    type=str,
