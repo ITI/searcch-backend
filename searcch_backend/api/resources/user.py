@@ -57,7 +57,7 @@ class UsersIndexAPI(Resource):
           filter(True if login_session.is_admin and args["allusers"] \
                       else User.id == login_session.user_id)
         users = users.\
-          join(Person, User.id == Person.id)
+          join(Person, User.person_id == Person.id)
         if args["owner"]:
             owner_cond = "%" + args["owner"] + "%"
             users = users.\
@@ -85,8 +85,18 @@ class UsersIndexAPI(Resource):
         else:
             users = users.all()
 
+        # Handle can_admin securely.
+        # XXX: there has to be a way for marshmallow to include excluded fields
+        # based on context, but I just don't have time right now.
+        tmpusers = []
+        for u in users:
+            tu = UserSchema().dump(u)
+            if login_session.is_admin or login_session.user_id == u.id:
+                tu["can_admin"] = u.can_admin
+            tmpusers.append(tu)
+
         response_dict = {
-            "users": UserSchema(many=True).dump(users)
+            "users": tmpusers
         }
         if pagination:
             response_dict["page"] = pagination.page
@@ -138,8 +148,8 @@ class UserProfileAPI(Resource):
             if not user:
                 abort(400, description='User does not exist')
 
-        affiliations = db.session.query(Affiliation).\
-          filter(Affiliation.person_id == user.person.id).\
+        affiliations = db.session.query(UserAffiliation).\
+          filter(UserAffiliation.user_id == user.id).\
           all()
 
         response = {
@@ -152,14 +162,15 @@ class UserProfileAPI(Resource):
                         "website": user.person.website,
                         "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
                     },
-                    "can_admin": user.can_admin,
-                    "is_admin": login_session.is_admin,
-                    "affiliations": AffiliationSchema(many=True).dump(affiliations)
+                    "affiliations": UserAffiliationSchema(many=True).dump(affiliations)
                 }
             }
 
-        if is_logged_in_user:
+        if is_logged_in_user or login_session.is_admin:
             response["user"]["person"]["email"] = user.person.email
+            response["user"]["can_admin"] = user.can_admin
+        if is_logged_in_user:
+            response["user"]["is_admin"] = login_session.is_admin
 
         response = jsonify(response)
         response.headers.add('Access-Control-Allow-Origin', '*')
@@ -235,11 +246,11 @@ class UserAffiliationResourceRoot(Resource):
         login_session = verify_token(request)
 
         user = login_session.user
-        affiliations = db.session.query(Affiliation).\
-          filter(Affiliation.person_id == user.person.id).\
+        affiliations = db.session.query(UserAffiliation).\
+          filter(UserAffiliation.user_id == user.id).\
           all()
 
-        response = jsonify({"affiliations": AffiliationSchema(many=True).dump(affiliations)})
+        response = jsonify({"affiliations": UserAffiliationSchema(many=True).dump(affiliations)})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
@@ -254,28 +265,28 @@ class UserAffiliationResourceRoot(Resource):
         j = request.json
         if "affiliation" in j:
             j = j["affiliation"]
-        if "person" in j:
-            abort(400, description="cannot specify person in affiliation; it will be populated from the session user's person")
-        if "person_id" in j:
-            if j["person_id"] != login_session.user.person.id:
-                abort(400, description="person_id must match user person_id if provided")
+        if "user" in j:
+            abort(400, description="cannot specify user in affiliation; it will be populated from the session")
+        if "user_id" in j:
+            if j["user_id"] != login_session.user.id:
+                abort(400, description="user_id must match user id if provided")
         else:
-            j["person_id"] = login_session.user.person.id
+            j["user_id"] = login_session.user.id
 
         # Brutal hack for frontend ease: allow POST to just return what's there.
-        if "person_id" in j and "org_id" in j:
-            affiliation = db.session.query(Affiliation).\
-              filter(Affiliation.person_id == j["person_id"]).\
-              filter(Affiliation.org_id == j["org_id"]).\
+        if "user_id" in j and "org_id" in j:
+            affiliation = db.session.query(UserAffiliation).\
+              filter(UserAffiliation.user_id == j["user_id"]).\
+              filter(UserAffiliation.org_id == j["org_id"]).\
               first()
             if affiliation:
-                response = jsonify({"affiliation": AffiliationSchema(many=False).dump(affiliation)})
+                response = jsonify({"affiliation": UserAffiliationSchema(many=False).dump(affiliation)})
                 response.headers.add('Access-Control-Allow-Origin', '*')
                 response.status_code = 200
                 return response
 
         affiliation = object_from_json(
-            db.session, Affiliation, request.json, skip_primary_keys=False,
+            db.session, UserAffiliation, request.json, skip_primary_keys=False,
             error_on_primary_key=False, allow_fk=True)
         db.session.add(affiliation)
         try:
@@ -288,7 +299,7 @@ class UserAffiliationResourceRoot(Resource):
             LOG.exception(sys.exc_info()[1])
             abort(500)
         db.session.expire_all()
-        response = jsonify({"affiliation": AffiliationSchema(many=False).dump(affiliation)})
+        response = jsonify({"affiliation": UserAffiliationSchema(many=False).dump(affiliation)})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
@@ -305,29 +316,34 @@ class UserAffiliationResource(Resource):
         login_session = verify_token(request)
 
         user = login_session.user
-        affiliation = db.session.query(Affiliation).\
-          filter(Affiliation.id == affiliation_id).\
+        affiliation = db.session.query(UserAffiliation).\
+          filter(UserAffiliation.id == affiliation_id).\
           first()
         if not affiliation:
-            abort(404, description="affiliation does not exist")
+            abort(404, description="user affiliation does not exist")
 
+        user = affiliation.user
         response_dict = {
             "affiliation": {
                 "id": affiliation.id,
-                "person_id": affiliation.person_id,
+                "user_id": affiliation.user_id,
                 "org_id": affiliation.org_id,
-                "person": {
-                    "id": user.person.id,
-                    "name": user.person.name,
-                    "research_interests": user.person.research_interests,
-                    "website": user.person.website,
-                    "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
+                "user": {
+                    "id": user.id,
+                    "person_id": user.person.id,
+                    "person": {
+                        "id": user.person.id,
+                        "name": user.person.name,
+                        "research_interests": user.person.research_interests,
+                        "website": user.person.website,
+                        "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
+                    },
                 },
                 "org": OrganizationSchema(many=False).dump(affilation.org) if affiliation.org is not None else None
             }
         }
-        if affiliation.person_id == user.person_id:
-            response_dict["affiliation"]["person"]["email"] = user.person.email
+        if affiliation.user_id == user.id:
+            response_dict["affiliation"]["user"]["person"]["email"] = user.person.email
 
         response = jsonify(response_dict)
         response.headers.add('Access-Control-Allow-Origin', '*')
@@ -338,18 +354,18 @@ class UserAffiliationResource(Resource):
         verify_api_key(request)
         login_session = verify_token(request)
 
-        affiliation = db.session.query(Affiliation).\
-          filter(Affiliation.id == affiliation_id).\
+        affiliation = db.session.query(UserAffiliation).\
+          filter(UserAffiliation.id == affiliation_id).\
           first()
         if not affiliation:
-            abort(404, description="affiliation does not exist")
-        if affiliation.person_id != login_session.user.person_id:
-            abort(400, description="insufficient permission to delete affiliation; not affiliated person")
+            abort(404, description="user affiliation does not exist")
+        if affiliation.user_id != login_session.user.id:
+            abort(400, description="insufficient permission to delete user affiliation; not affiliated user")
 
         db.session.delete(affiliation)
         db.session.commit()
 
-        response = jsonify({"message": "delete affiliation"})
+        response = jsonify({"message": "deleted user affiliation"})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response

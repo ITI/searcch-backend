@@ -64,7 +64,7 @@ class SessionResourceRoot(Resource):
               filter(Sessions.is_admin == bool(args["is_admin"]))
         sessions = sessions.\
           join(User, Sessions.user_id == User.id).\
-          join(Person, User.id == Person.id)
+          join(Person, User.person_id == Person.id)
         if args["owner"]:
             owner_cond = "%" + args["owner"] + "%"
             sessions = sessions.\
@@ -92,8 +92,18 @@ class SessionResourceRoot(Resource):
         else:
             sessions = sessions.all()
 
+        # Handle can_admin securely.
+        # XXX: there has to be a way for marshmallow to include excluded fields
+        # based on context, but I just don't have time right now.
+        tmplist = []
+        for s in sessions:
+            ts = SessionsSchema().dump(s)
+            if login_session.is_admin or login_session.user_id == s.user.id:
+                ts["user"]["can_admin"] = s.user.can_admin
+            tmplist.append(ts)
+
         response_dict = {
-            "sessions": SessionsSchema(many=True).dump(sessions)
+            "sessions": tmplist
         }
         if pagination:
             response_dict["page"] = pagination.page
@@ -102,6 +112,33 @@ class SessionResourceRoot(Resource):
             
         response = jsonify(response_dict)
 
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+
+class SessionResource(Resource):
+
+    def __init__(self):
+        super(SessionResource, self).__init__()
+
+    def delete(self, session_id):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        session = db.session.query(Sessions).\
+          filter(Sessions.id == session_id).\
+          first()
+        if not session:
+            abort(404, description="session not found")
+        if not session.id == session_id \
+          and not login_session.is_admin:
+            abort(401, description="unauthorized")
+
+        db.session.delete(session)
+        db.session.commit()
+
+        response = jsonify({ "message": "session %r deleted" % (session_id,) })
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response

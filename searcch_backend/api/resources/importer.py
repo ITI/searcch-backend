@@ -21,34 +21,49 @@ LOG = logging.getLogger(__name__)
 
 class ImporterCheckThread(threading.Thread):
 
-    def __init__(self,importer_instance_id):
+    def __init__(self,importer_instance_id,is_new):
         super(ImporterCheckThread,self).__init__()
         self._importer_instance_id = importer_instance_id
         self.importer_instance = db.session.query(ImporterInstance)\
           .filter(ImporterInstance.id == importer_instance_id).first()
+        self.is_new = is_new
 
     def run(self,*args,**kwargs):
         url = self.importer_instance.url + "/status"
         LOG.debug("checking importer %s (key %s)" %
             (url,self.importer_instance.key))
+        old_status = self.importer_instance.status
+        old_admin_status = self.importer_instance.admin_status
         try:
             r = requests.Session().get(url,headers={"X-Api-Key":self.importer_instance.key},
                              timeout=4)
             if r.status_code != requests.codes.ok:
                 LOG.error("%s/status check failed (%d)" % (
                     self.importer_instance.url,r.status_code))
-                return
-            LOG.debug("importer %s ok" % (url,))
-            self.importer_instance.admin_status = "enabled"
-            self.importer_instance.admin_status_time = datetime.datetime.now()
-            db.session.add(self.importer_instance)
-            db.session.commit()
-            LOG.debug("%r ok" % (self.importer_instance),)
+                self.importer_instance.status = "down"
+                self.importer_instance.status_time = datetime.datetime.now()
+                db.session.commit()
+            else:
+                LOG.debug("importer %s ok" % (url,))
+                self.importer_instance.status = "up"
+                self.importer_instance.status_time = datetime.datetime.now()
+                if self.is_new:
+                    self.importer_instance.admin_status = "enabled"
+                    self.importer_instance.admin_status_time = datetime.datetime.now()
+                db.session.add(self.importer_instance)
+                db.session.commit()
         except:
             LOG.exception(sys.exc_info()[1])
+            LOG.debug("importer %s not ok" % (url,))
+            self.importer_instance.status = "down"
+            self.importer_instance.status_time = datetime.datetime.now()
+            db.session.commit()
             return
+
         # Invoke the scheduler in case we changed state.
-        threading.Thread(target=schedule_import,name="schedule_import").start()
+        if self.importer_instance.status != old_status \
+          or self.importer_instance.admin_status != old_admin_status:
+            threading.Thread(target=schedule_import,name="schedule_import").start()
 
 class ImporterResourceRoot(Resource):
 
@@ -84,7 +99,11 @@ class ImporterResourceRoot(Resource):
             LOG.info("importer instance %r re-registering" % (args["url"],))
             response = jsonify(ImporterInstanceSchema().dump(importer_instance))
             response.status_code = 200
-            ImporterCheckThread(importer_instance.id).start()
+            # Not a new importer, so don't allow it to move admin_status to
+            # enabled; admin will have to do that.  Slight chance for a buggy
+            # first registration to leave an importer in disabled state, but,
+            # alas.
+            ImporterCheckThread(importer_instance.id, False).start()
             return response
         importer_instance = db.session.query(ImporterInstance)\
           .filter(ImporterInstance.url == args["url"]).first()
@@ -102,7 +121,9 @@ class ImporterResourceRoot(Resource):
         db.session.refresh(importer_instance)
         response = jsonify(ImporterInstanceSchema().dump(importer_instance))
         response.status_code = 200
-        ImporterCheckThread(importer_instance.id).start()
+        # This is a new registration, so give it a chance to move admin_status
+        # to enabled.
+        ImporterCheckThread(importer_instance.id, True).start()
         return response
 
     def get(self):
@@ -146,28 +167,50 @@ class ImporterResource(Resource):
 
     def put(self, importer_instance_id):
         """
-        Allows the importer to push its status to us.
+        Allows the importer to push its status to us, or for admins to set admin_status.
         """
         verify_api_key(request)
-        
+        login_session = None
+        if has_token(request):
+            login_session = verify_token(request)
+
+        if login_session and not login_session.is_admin:
+            abort(401, description="unauthorized")
+
         importer_instance = db.session.query(ImporterInstance).filter(
             ImporterInstance.id == importer_instance_id).first()
         if not importer_instance:
             abort(404, description="invalid importer instance ID")
 
         j = request.json
-        if not "status" in j or j["status"] not in ("up","down"):
-            abort(401, description="invalid status")
+        if "status" in j:
+            if login_session:
+                abort(401, description="only importer allowed to change status")
+            if j["status"] not in ("up", "down"):
+                abort(400, description="invalid status")
+        if "admin_status" in j:
+            if not login_session:
+                abort(401, description="only admins allowed to change admin_status")
+            if j["admin_status"] not in ("enabled", "disabled"):
+                abort(400, description="invalid admin_status")
 
-        importer_instance.status = j["status"]
-        importer_instance.status_time = datetime.datetime.now()
-        db.session.add(importer_instance)
+        status_changed = False
+        if "status" in j:
+            if importer_instance.status != j["status"]:
+                status_changed = True
+            importer_instance.status = j["status"]
+            importer_instance.status_time = datetime.datetime.now()
+        admin_status_changed = False
+        if "admin_status" in j:
+            if importer_instance.admin_status != j["admin_status"]:
+                admin_status_changed = True
+            importer_instance.admin_status = j["admin_status"]
+            importer_instance.admin_status_time = datetime.datetime.now()
         db.session.commit()
 
-        if importer_instance.admin_status == "disabled":
-            ImporterCheckThread(importer_instance.id).start()
-        else:
-            # Invoke the scheduler in case we changed state.
+        # Invoke the scheduler in case we changed state.
+        if importer_instance.admin_status == "enabled" \
+          and importer_instance.status == "up":
             threading.Thread(target=schedule_import,name="schedule_import").start()
 
         return Response(status=200)
@@ -180,13 +223,31 @@ class ImporterResource(Resource):
         # admins and the instance itself should be allowed to delete, and then
         # only if not currently running.
         verify_api_key(request)
+        login_session = None
+        if has_token(request):
+            login_session = verify_token(request)
         
         importer_instance = db.session.query(ImporterInstance).filter(
             ImporterInstance.id == importer_instance_id).first()
         if not importer_instance:
             abort(404, description="invalid importer instance ID")
 
-        
+        # To do this instantly, we have to reset the ArtifactImport's status
+        # and deschedule.
+        # XXX: need to handle this more nicely so that the importer actually
+        # aborts instead of just getting odd errors when it updates an
+        # existing job.
+        if importer_instance.scheduled:
+            for sched in importer_instance.scheduled:
+                sched.artifact_import.status = "pending"
+                sched.artifact_import.message = None
+                sched.artifact_import.progress = 0.0
+                sched.artifact_import.bytes_retrieved = 0
+                sched.artifact_import.bytes_extracted = 0
+                sched.artifact_import.log = None
+                db.session.delete(sched)
+                pass
+            importer_instance.scheduled = []
 
         db.session.delete(importer_instance)
         db.session.commit()

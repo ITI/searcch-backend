@@ -3,6 +3,7 @@ import sqlalchemy
 import datetime
 import logging
 import json
+import sys
 
 LOG = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ def get_primary_key_for_class(model_class):
             return k
     return None
 
-def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
+def artifact_diff(session, curator, artifact, obj1, obj2, update=True, path=""):
     if not isinstance(artifact,model.Artifact):
         raise TypeError("artifact is not an Artifact")
     if type(obj1) != type(obj2):
@@ -46,7 +47,11 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
     # `session.refresh` is triggered, sqlalchemy will fail to load the object.
     # This is a useful canary-in-the-coal-mine for now.
     #
-    LOG.debug("updating %r and %r" % (repr(obj1),repr(obj2)))
+    try:
+        LOG.debug("diffing class %r and class %r" % (obj1.__class__.__name__,obj2.__class__.__name__))
+    except:
+        pass
+    LOG.debug("diffing %r and %r" % (repr(obj1),repr(obj2)))
 
     # Diff the non-primary and non-foreign-key fields.
     user_ro_fields = getattr(obj_class,"__user_ro_fields__",{})
@@ -75,7 +80,7 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
                       "obj": obj_class.__name__,
                       "op": "set",
                       "data": { "field": k, "value": obj2_val } }),
-                curator_id=artifact.owner_id)
+                curator_id=curator.id)
             curations.append(curation)
             if update:
                 setattr(obj1,k,obj2_val)
@@ -153,22 +158,42 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
         # Setup modified map; journal additions.
         for i in range(0,len(obj2_rval)):
             x = obj2_rval[i]
+            val = None
+            #if x in session:
+            #try:
+            try:
+                LOG.debug("foo: %r",x.person)
+            except:
+                pass
+            LOG.debug("trying to read %s.%s",x.__class__.__name__,foreign_primary_key)
             val = getattr(x,foreign_primary_key,None)
+            #except:
+            #    LOG.debug("would have been an exception (%r/%r)",path,k)
+            #    LOG.exception(sys.exc_info()[1])
             if val is not None:
                 if val not in obj1_rval_pk_map:
                     if not getattr(foreign_class,"__object_from_json_allow_pk__",False):
                         raise ValueError("cannot set primary key to value not present in original object")
-                    LOG.debug("added relation %r item: %r" % (k,x))
+                    LOG.debug("adding relation %r",k)
+                    #session.add(x)
+                    #LOG.debug("added relation %r item: %r" % (k,x))
                     adds.append(x)
                 obj2_rval_pk_map[val] = (i,x)
             else:
-                LOG.debug("added relation %r item: %r" % (k,x))
+                LOG.debug("adding relation %r",k)
+                #session.add(x)
+                #LOG.debug("added relation %r item: %r" % (k,x))
                 adds.append(x)
         # Look for deletions.
         for (o1k,o1v) in obj1_rval_pk_map.items():
             if not o1k in obj2_rval_pk_map:
                 LOG.debug("deleted relation %r item: %r" % (o1k,o1v,))
                 deletes.append(o1v)
+
+        LOG.debug("%r/%r orig (%r) new (%r)",path,k,
+                  list(obj1_rval_pk_map.keys()),
+                  list(obj2_rval_pk_map.keys()))
+
         # Trawl for possible modifications.
         for (o1k,(o1i,o1v)) in obj1_rval_pk_map.items():
             if not o1k in obj2_rval_pk_map:
@@ -177,10 +202,11 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
                 continue
             # Finally, recurse:
             (o2i,o2v) = obj2_rval_pk_map[o1k]
-            rcurations = artifact_diff(session,artifact,o1v,o2v,update=update,path=path+"."+k)
+            rcurations = artifact_diff(session,curator,artifact,o1v,o2v,update=update,path=path+"."+k)
             if rcurations:
                 curations.extend(rcurations)
 
+        # Make the add/deletes live.
         deletes.reverse()
         if deletes and delete_referenced_objects:
             LOG.debug("will delete referenced objects of relation %s.%s",obj_class.__name__,k)
@@ -192,7 +218,7 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
                 separators=(',',':'))
             ac = model.ArtifactCuration(
                 artifact_id=artifact.id,time=datetime.datetime.now(),
-                opdata=acj,curator_id=artifact.owner_id)
+                opdata=acj,curator_id=curator.id)
             curations.append(ac)
             if delete_referenced_objects:
                 LOG.debug("deleting referenced object %r",x)
@@ -204,32 +230,39 @@ def artifact_diff(session,artifact, obj1, obj2, update=True, path=""):
         for x in adds:
             acj = json.dumps(
                 { "obj": foreign_class.__name__,"op": "add",
-                "data":{ "field":k,"value": object_to_json(x) } },
+                  "data":{ "field":k,"value": object_to_json(x) } },
                 separators=(',',':'))
             ac = model.ArtifactCuration(
                 artifact_id=artifact.id,time=datetime.datetime.now(),
-                opdata=acj,curator_id=artifact.owner_id)
+                opdata=acj,curator_id=curator.id)
             curations.append(ac)
             if not relprop.uselist:
                 setattr(obj1,k,x)
             else:
                 getattr(obj1,k).append(x)
+            LOG.debug("added relation %r item: %r" % (k,x))
 
     return curations
 
 def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary_key=False,
-                     allow_fk=False,
-                     should_query=True,obj_cache=[],obj_cache_dicts=[]):
+                     allow_fk=False,enable_cache=True,
+                     should_query=True,obj_cache=None,obj_cache_dicts=None):
     """
     This function provides hierarchical construction of sqlalchemy objects from JSON.  It handles regular fields and handles recursion ("hierarchy") through relationships.  We use the term hierarchy in the sense that an Artifact may have one or more curations associated with it; so perhaps, less a hierarchy than a tree; but we represent the relationships as children in JSON.  If such "children" have an existing match in the DB, we link those objects directly in (NB: this needs to change to handle permissions or places where we don't want to create a link to existing objects, because the owner needs to ack, or whatever).
     """
     obj_kwargs = dict()
 
-    LOG.debug("object_from_json: %r -> %r" % (obj_class,j))
+    if enable_cache:
+        if obj_cache is None:
+            obj_cache = []
+        if obj_cache_dicts is None:
+            obj_cache_dicts = []
 
     if j == None:
-        LOG.debug("null json value: %r %r" % (obj_class,j))
+        LOG.debug("object_from_json: null: %r <- %r" % (obj_class,j))
         return
+    else:
+        LOG.debug("object_from_json: %r <- %r" % (obj_class,j))
 
     for k in obj_class.__mapper__.column_attrs.keys():
         colprop = getattr(obj_class,k).property.columns[0]
@@ -331,6 +364,7 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
                     try:
                         cached = obj_cache_dicts.index(j[k])
                         obj_kwargs[k] = obj_cache[cached]
+                        LOG.debug("object_from_json(cache-hit,%r)",j[k])
                         continue
                     except:
                         pass
@@ -338,10 +372,12 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
                 next_obj = object_from_json(
                     session,foreign_class,j[k],skip_primary_keys=skip_primary_keys,
                     error_on_primary_key=error_on_primary_key,should_query=True,
-                    allow_fk=allow_fk,obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
+                    allow_fk=allow_fk,enable_cache=enable_cache,
+                    obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
                 obj_kwargs[k] = next_obj
-                obj_cache.append(next_obj)
-                obj_cache_dicts.append(j[k])
+                if obj_cache:
+                    obj_cache.append(next_obj)
+                    obj_cache_dicts.append(j[k])
                 continue
         else:
             # This is a relationship into another table via a key in our
@@ -355,13 +391,15 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
                 next_obj = object_from_json(
                     session,relprop.argument(),x,skip_primary_keys=skip_primary_keys,
                     error_on_primary_key=error_on_primary_key,should_query=False,
-                    allow_fk=allow_fk,obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
+                    allow_fk=allow_fk,enable_cache=enable_cache,
+                    obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
                 obj_kwargs[k].append(next_obj)
         else:
             next_obj = object_from_json(
                 session,relprop.argument(),j[k],skip_primary_keys=skip_primary_keys,
                 error_on_primary_key=error_on_primary_key,should_query=False,
-                allow_fk=allow_fk,obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
+                allow_fk=allow_fk,enable_cache=enable_cache,
+                obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
             obj_kwargs[k] = next_obj
 
     # Query the DB iff all top-level obj_kwargs are basic types or persistent
@@ -388,11 +426,22 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
                 q = q.filter(getattr(obj_class,kwa).__eq__(obj_kwargs[kwa]))
             qres = q.all()
             if qres:
-                obj_cache.append(qres[0])
-                obj_cache_dicts.append(j)
+                if obj_cache:
+                    obj_cache.append(qres[0])
+                    obj_cache_dicts.append(j)
+                if qres[0] in session:
+                    LOG.debug("object_from_json(in=True,query): %r",qres[0])
+                else:
+                    LOG.debug("object_from_json(in=False,query): %r",qres[0].__class__.__name__)
                 return qres[0]
 
-    return obj_class(**obj_kwargs)
+    ret = obj_class(**obj_kwargs)
+    if ret in session:
+        LOG.debug("object_from_json(in=True): %r",ret)
+    else:
+        LOG.debug("object_from_json(in=False): %r",ret.__class__.__name__)
+    return ret
+
 
 jsontypes = (dict,list,tuple,str,int,float,bool,type(None))
 

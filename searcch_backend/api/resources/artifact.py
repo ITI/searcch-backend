@@ -81,7 +81,7 @@ class ArtifactIndexAPI(Resource):
             owner_cond = "%" + args["owner"] + "%"
             artifacts = artifacts.\
               join(User, Artifact.owner_id == User.id).\
-              join(Person, User.id == Person.id)
+              join(Person, User.person_id == Person.id)
             artifacts = artifacts.\
               filter(or_(Person.name.ilike(owner_cond),
                          Person.email.ilike(owner_cond)))
@@ -141,7 +141,7 @@ class ArtifactIndexAPI(Resource):
         if "artifact" in data:
             data = data["artifact"]
         artifact = object_from_json(db.session, Artifact, data, skip_primary_keys=True,
-                                    error_on_primary_key=True)
+                                    error_on_primary_key=False, allow_fk=True)
         if not artifact.ctime:
             artifact.ctime = datetime.datetime.now()
         if login_session:
@@ -221,7 +221,7 @@ class ArtifactAPI(Resource):
         if has_token(request):
             login_session = verify_token(request)
 
-        # We can only change unpublished artifacts.
+        # We can only change unpublished artifacts unless admin.
         artifact = db.session.query(Artifact).\
           filter(Artifact.id == artifact_id)\
           .first()
@@ -229,7 +229,7 @@ class ArtifactAPI(Resource):
             abort(404, description="no such artifact")
         if login_session and not login_session.is_admin and artifact.owner_id != login_session.user_id:
             abort(401, description="insufficient permission to modify artifact")
-        if artifact.publication:
+        if artifact.publication and not login_session.is_admin:
             abort(403, description="artifact already published; cannot modify")
         if not request.is_json:
             abort(400, description="request body must be a JSON representation of an artifact")
@@ -240,53 +240,70 @@ class ArtifactAPI(Resource):
             artifact_data = data["artifact"]
         if "artifact" in data or len(data) > 1:
             mod_artifact = None
-            try:
-                # Beware -- in order to use this diff-style comparison,
-                # mod_artifact must be a fully-valid object.  For instance, if
-                # we do not manually set mod_artifact.owner, and try to display
-                # via repr when DEBUG, sqlalchemy will whine that it cannot
-                # refresh the object if a refresh is attempted.  This is a bit
-                # odd, given that mod_artifact is not in the session, but it is
-                # how things work.
-                #
-                mod_artifact = object_from_json(
-                    db.session, Artifact, artifact_data, skip_primary_keys=False,
-                    error_on_primary_key=False, should_query=True, allow_fk=True)
-                mod_artifact.owner = artifact.owner
-            except:
-                LOG.exception(sys.exc_info()[1])
-                abort(400, description="cannot parse updated artifact: %s" % (
-                    repr(sys.exc_info()[1])))
-            if not mod_artifact:
-                abort(400, description="cannot parse updated artifact")
+            with db.session.no_autoflush:
+                try:
+                    # Beware -- in order to use this diff-style comparison,
+                    # mod_artifact must be a fully-valid object.  For instance, if
+                    # we do not manually set mod_artifact.owner, and try to display
+                    # via repr when DEBUG, sqlalchemy will whine that it cannot
+                    # refresh the object if a refresh is attempted.  This is a bit
+                    # odd, given that mod_artifact is not in the session, but it is
+                    # how things work.
+                    #
+                    mod_artifact = object_from_json(
+                        db.session, Artifact, artifact_data, skip_primary_keys=False,
+                        error_on_primary_key=False, should_query=True, allow_fk=True)
+                    mod_artifact.owner = artifact.owner
+                except:
+                    LOG.exception(sys.exc_info()[1])
+                    abort(400, description="cannot parse updated artifact: %s" % (
+                        repr(sys.exc_info()[1])))
+                if not mod_artifact:
+                    abort(400, description="cannot parse updated artifact")
 
-            curations = None
-            try:
-                curations = artifact_diff(db.session, artifact, artifact, mod_artifact)
-                if curations:
-                    db.session.add_all(curations)
-                    db.session.add(artifact)
-            except (TypeError, ValueError):
-                ex = sys.exc_info()[1]
-                LOG.exception(ex)
-                db.session.rollback()
-                if ex.args:
-                    abort(500, description="%r" % (ex.args))
-                else:
-                    abort(500, description="%r" % (ex))
-            except:
-                ex = sys.exc_info()[1]
-                LOG.exception(ex)
-                abort(500, description="unexpected internal error")
+                curations = None
+                try:
+                    curator = login_session.user if login_session else artifact.owner
+                    curations = artifact_diff(db.session, curator, artifact, artifact, mod_artifact)
+                    if curations:
+                        artifact.mtime = datetime.datetime.now()
+                        db.session.add_all(curations)
+                        db.session.add(artifact)
+                except sqlalchemy.exc.IntegrityError:
+                    ex = sys.exc_info()[1]
+                    LOG.exception(ex)
+                    abort(400, description="malformed input: %r" % (ex.args,))
+                except (TypeError, ValueError):
+                    ex = sys.exc_info()[1]
+                    LOG.exception(ex)
+                    db.session.rollback()
+                    if ex.args:
+                        abort(500, description="%r" % (ex.args))
+                    else:
+                        abort(500, description="%r" % (ex))
+                except:
+                    ex = sys.exc_info()[1]
+                    LOG.exception(ex)
+                    db.session.rollback()
+                    abort(500, description="unexpected internal error")
 
-        if "publication" in data and data["publication"] is not None:
+        if "publication" in data and data["publication"] is not None \
+          and not artifact.publication:
             notes = None
             if "notes" in data["publication"]:
                 notes = data["publication"]
+            now = datetime.datetime.now()
             artifact.publication = ArtifactPublication(
                 artifact_id=artifact.id,
                 publisher_id=artifact.owner_id,
-                time=datetime.datetime.now(),notes=notes)
+                time=now,notes=notes)
+            # Automatically archive the artifact.
+            artifact_import = db.session.query(ArtifactImport).\
+              filter(ArtifactImport.artifact_id == artifact.id).\
+              first()
+            if artifact_import:
+                artifact_import.archived = True
+            artifact.mtime = now
         db.session.commit()
         db.session.refresh(artifact)
 
@@ -306,9 +323,9 @@ class ArtifactAPI(Resource):
           first()
         if not artifact:
             abort(404, description="no such artifact")
-        if artifact.owner_id != login_session.user_id:
+        if not (login_session.is_admin or artifact.owner_id == login_session.user_id):
             abort(401, description="insufficient permission to delete artifact")
-        if artifact.publication:
+        if artifact.publication and not login_session.is_admin:
             abort(403, description="artifact already published; cannot delete")
 
         # If currently importing, delete that first, and commit:
@@ -334,11 +351,16 @@ class ArtifactAPI(Resource):
             db.session.delete(af)
         artifact.files = []
         many = [ "meta", "tags", "curations", "affiliations", "relationships", "releases",
-                 "badges", "ratings", "reviews", "favorites" ]
+                 "badges" ]
         for field in many:
             for x in getattr(artifact, field, []):
                 db.session.delete(x)
             setattr(artifact, field, [])
+        classes = [ ArtifactReviews, ArtifactRatings, ArtifactFavorites ]
+        for c in classes:
+            res = db.session.query(c).filter(c.artifact_id == artifact_id).all() or []
+            for x in res:
+                db.session.delete(x)
         single = [ "publication" ]
         for field in single:
             x = getattr(artifact, field, None)
@@ -420,7 +442,7 @@ class ArtifactRelationshipResourceRoot(Resource):
             abort(400, description='invalid artifact ID')
 
         # check for valid artifact ownership
-        if artifact.owner_id != login_session.user_id:
+        if artifact.owner_id != login_session.user_id and not login_session.is_admin:
             abort(400, description='insufficient permission: must own source artifact')
             
         # Check if we are updating an existing relationship
@@ -484,7 +506,7 @@ class ArtifactRelationshipResource(Resource):
         # check for valid artifact_relationship ownership (via artifact)
         artifact_relationship_ownership = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).\
-            filter(Artifact.owner_id == login_session.user_id).\
+            filter(True if login_session.is_admin else Artifact.owner_id == login_session.user_id).\
             first()
         if not artifact_relationship_ownership:
             abort(400, description='insufficient permission: must own source artifact')
@@ -511,7 +533,7 @@ class ArtifactRelationshipResource(Resource):
         # check for valid artifact ownership
         artifact_ownership = db.session.query(Artifact).filter(
             Artifact.id == artifact_id).\
-            filter(Artifact.owner_id == login_session.user_id).\
+            filter(True if login_session.is_admin else Artifact.owner_id == login_session.user_id).\
             first()
         if not artifact_ownership:
             abort(400, description='insufficient permission: must own source artifact')
@@ -524,45 +546,3 @@ class ArtifactRelationshipResource(Resource):
         return response
 
 
-class ArtifactRecommendationAPI(Resource):
-    def __init__(self):
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument(name='page',
-                                   type=int,
-                                   required=False,
-                                   default=1,
-                                   help='page number for paginated results')
-        
-
-        super(ArtifactRecommendationAPI, self).__init__()
-    
-    def get(self, artifact_id):
-        verify_api_key(request)
-        login_session = verify_token(request)
-        args = self.reqparse.parse_args()
-        page_num = args['page']
-
-        # check for valid artifact id
-        artifact = db.session.query(Artifact).filter(
-            Artifact.id == artifact_id).first()
-        if not artifact:
-            abort(400, description='invalid artifact ID')
-
-        top_keywords = db.session.query(ArtifactMetadata.value).filter(
-            ArtifactMetadata.artifact_id == artifact_id, ArtifactMetadata.name == "top_ngram_keywords").first()
-        if not top_keywords:
-            response = jsonify(
-                {"message": "The artifact doesnt have any top rated keywords"})
-        else:
-            top_keywords_list = json.loads(top_keywords[0])
-            keywords = []
-            for keyword in top_keywords_list:
-                keywords.append(keyword[0])
-            artifacts = search_artifacts(" or ".join(keywords), ARTIFACT_TYPES, page_num)
-            response = jsonify({"artifacts": artifacts})
-
-
-
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        response.status_code = 200
-        return response

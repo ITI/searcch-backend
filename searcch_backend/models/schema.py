@@ -111,7 +111,7 @@ class UserAuthorizationSchema(SQLAlchemyAutoSchema):
 class UserSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = User
-        exclude = ('person_id',)
+        exclude = ('person_id', 'can_admin')
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
@@ -189,6 +189,18 @@ class AffiliationSchema(SQLAlchemyAutoSchema):
     org = Nested(OrganizationSchema)
 
 
+class UserAffiliationSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = UserAffiliation
+        exclude = ('user_id', 'org_id')
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    #user = Nested(UserSchema)
+    org = Nested(OrganizationSchema)
+
+
 class ArtifactAffiliationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactAffiliation
@@ -251,7 +263,7 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
         # exclude = ('license_id', 'owner_id', 'importer_id',
         #            'parent_id', 'exporter_id', 'document_with_idx')
         exclude = ('license_id', 'owner_id', 'importer_id',
-                   'parent_id', 'exporter_id')
+                   'parent_id', 'exporter_id', 'curations')
         include_fk = True
         include_relationships = True
 
@@ -267,6 +279,7 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     releases = Nested(ArtifactReleaseSchema, many=True)
     affiliations = Nested(ArtifactAffiliationSchema, many=True)
     relationships = Nested(ArtifactRelationshipSchema, many=True)
+    reverse_relationships = Nested(ArtifactRelationshipSchema, many=True)
     badges = Nested(ArtifactBadgeSchema, many=True)
 
 class ArtifactSearchMaterializedViewSchema(SQLAlchemyAutoSchema):

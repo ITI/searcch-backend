@@ -19,7 +19,6 @@ RUN \
   pip3 install --no-cache-dir -r requirements.txt \
   && mkdir -p logs
 
-COPY instance/ ./instance
 COPY searcch_backend ./searcch_backend
 COPY setup.cfg setup.py run.py ./
 

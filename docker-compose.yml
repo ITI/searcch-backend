@@ -20,11 +20,13 @@ services:
   searcch-backend-prod:
     image: searcch-backend-prod
     container_name: searcch-backend-prod
+    hostname: searcch-backend-prod
     restart: unless-stopped
     build: "https://${TOKEN:-token-here}:@github.com/ITI/searcch-backend.git"
     volumes:
       - /data/searcch-backend-prod/gunicorn_conf.py:/app/gunicorn_conf.py
-      - /data/searcch-backend-prod/backend_config_production.py:/app/config-production.py
+      - /data/searcch-backend-prod/config-production.py:/app/config-production.py
+      - /data/searcch-backend-prod/logs:/app/logs
     env_file:
       - env/searcch-backend-prod.env
     networks:

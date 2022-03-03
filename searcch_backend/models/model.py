@@ -9,16 +9,15 @@ Base = declarative_base(metadata=metadata)
 
 
 ARTIFACT_TYPES = (
-    "dataset", "executable", "methodology", "metrics",
-    "priorwork", "publication", "hypothesis", "code", "domain",
-    "supportinginfo"
+    "publication", "presentation", "dataset", "software",
+    "other"
 )
 ARTIFACT_IMPORT_TYPES = (
     "unknown", *ARTIFACT_TYPES
 )
 RELATION_TYPES = (
-    "cites", "supplements", "continues", "references", "documents",
-    "compiles","publishes"
+    "cites", "supplements", "extends", "uses", "describes",
+    "requires", "processes", "produces"
 )
 
 class ArtifactFile(db.Model):
@@ -363,6 +362,26 @@ class Affiliation(db.Model):
             self.person, self.org)
 
 
+class UserAffiliation(db.Model):
+    __tablename__ = "user_affiliations"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey(
+        "users.id"), nullable=False)
+    org_id = db.Column(db.Integer, db.ForeignKey(
+        "organizations.id"))
+
+    user = db.relationship("User", uselist=False)
+    org = db.relationship("Organization", uselist=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "org_id"),)
+
+    def __repr__(self):
+        return "<UserAffiliation(user=%r,org=%r)>" % (
+            self.user, self.org)
+
+
 class PersonMetadata(db.Model):
     __tablename__ = "person_metadata"
 
@@ -534,8 +553,12 @@ class Artifact(db.Model):
     publication = db.relationship("ArtifactPublication", uselist=False)
     releases = db.relationship("ArtifactRelease", uselist=True)
     affiliations = db.relationship("ArtifactAffiliation")
-    relationships = db.relationship("ArtifactRelationship",uselist=True,
-                                    foreign_keys=[ArtifactRelationship.artifact_id])
+    relationships = db.relationship(
+        "ArtifactRelationship",uselist=True,
+        foreign_keys=[ArtifactRelationship.artifact_id])
+    reverse_relationships = db.relationship(
+        "ArtifactRelationship",uselist=True,
+        foreign_keys=[ArtifactRelationship.related_artifact_id])
     badges = db.relationship("ArtifactBadge", uselist=True)
 
     # NB: all foreign keys are read-only, so not included here.
