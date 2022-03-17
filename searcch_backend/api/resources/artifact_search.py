@@ -254,10 +254,14 @@ class ArtifactRecommendationAPI(Resource):
         else:
             keywords = [result.tag for result in top_keywords]
             artifacts = search_artifacts(keywords=" or ".join(keywords), artifact_types = ARTIFACT_TYPES, page_num = page_num, items_per_page= 10, author_keywords = None,  organization = None, owner_keywords = None, badge_id_list = None)
-            res = db.session.query(func.count(ArtifactRatings.id).label('num_ratings'), func.avg(ArtifactRatings.rating).label('avg_rating')).filter(ArtifactRatings.artifact_id == artifact_id).first()
-            num_ratings = res.num_ratings if res.num_ratings else 0
-            avg_rating = round(res.avg_rating,2) if res.avg_rating else 0
-            response = jsonify({"artifacts": artifacts, "avg_rating": str(num_ratings), "num_ratings": str(avg_rating), "authors": authors})
+            res =  db.session.query(ArtifactRatings.artifact_id, func.count(ArtifactRatings.id).label('num_ratings'), func.avg(ArtifactRatings.rating).label('avg_rating')).group_by("artifact_id").filter(ArtifactRatings.artifact_id == artifact_id).first()
+            if res:
+                num_ratings = res.num_ratings if res.num_ratings else 0
+                avg_rating = round(res.avg_rating,2) if res.avg_rating else None
+            else:
+                num_ratings = 0
+                avg_rating = None
+            response = jsonify({"artifacts": artifacts, "avg_rating": float(avg_rating) if avg_rating else None, "num_ratings": num_ratings, "authors": authors})
 
 
 
