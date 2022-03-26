@@ -94,6 +94,7 @@ from searcch_backend.api.resources.favorite import FavoriteAPI, FavoritesListAPI
 from searcch_backend.api.resources.user import (
     UserProfileAPI, UserArtifactsAPI, UserAffiliationResourceRoot,
     UserAffiliationResource, UsersIndexAPI)
+from searcch_backend.api.resources.ownership_requests import OwnershipRequestsAPI, OwnershipRequestAPI
 from searcch_backend.api.resources.dashboard import UserDashboardAPI, ArtifactStatsAPI
 from searcch_backend.api.resources.interests import InterestsListAPI
 from searcch_backend.api.resources.artifact_import import (
@@ -123,6 +124,11 @@ api.add_resource(OrganizationListAPI, approot + '/organizations', endpoint='api.
 api.add_resource(OrganizationAPI, approot + '/organization/<int:org_id>', endpoint='api.organization')
 
 api.add_resource(InterestsListAPI, approot + '/interests', endpoint='api.interests')
+
+
+api.add_resource(OwnershipRequestsAPI, approot + '/requests/ownership', endpoint='api.ownership_requests')
+api.add_resource(OwnershipRequestAPI, approot + '/requests/ownership/<int:ownership_request_id>', endpoint='api.ownership_request')
+
 
 api.add_resource(RatingAPI, approot + '/rating/<int:artifact_id>', endpoint='api.rating')
 api.add_resource(UserRatingAPI, approot + '/rating/user/<int:user_id>/artifact/<int:artifact_id>', endpoint='api.userrating')

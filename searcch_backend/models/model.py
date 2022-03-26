@@ -700,3 +700,25 @@ class ImporterSchedule(db.Model):
     def __repr__(self):
         return "<ImporterSchedule(id=%r,artifact_import=%r,importer_instance=%r,schedule_time=%r" % (
             self.id, self.artifact_import, self.importer_instance, self.schedule_time)
+
+class RequestArtifactOwnership(db.Model):
+    __tablename__ = "request_artifact_ownership"
+    __table_args__ = (
+        db.UniqueConstraint("artifact_id", "user_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    artifact_id = db.Column(db.Integer, db.ForeignKey(
+        "artifacts.id"), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    ctime = db.Column(db.DateTime, nullable=False)
+    pending = db.Column(db.Boolean, nullable=False, default=True)
+    approved = db.Column(db.Boolean, nullable=False, default=False)
+    approving_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    approval_message = db.Column(db.Text, nullable=True)
+    approval_time = db.Column(db.DateTime, nullable=True)
+
+    def __repr__(self):
+        return "<RequestArtifactOwnership(id=%r,user_id=%r,artifact_id=%r,pending=%r)>" % (
+            self.id, self.user_id, self.artifact_id, self.pending)

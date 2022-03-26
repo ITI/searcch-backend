@@ -323,3 +323,11 @@ class ImporterInstanceSchema(SQLAlchemyAutoSchema):
         include_relationships = True
 
     scheduled = Nested(ImporterScheduleSchema, many=True)
+
+class RequestArtifactOwnershipSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = RequestArtifactOwnership
+        model_converter = ModelConverter
+        exclude = ()
+        include_fk = True
+        include_relationships = True
