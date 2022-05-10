@@ -3,6 +3,7 @@ from sqlalchemy.dialects.postgresql import TSVECTOR, BYTEA
 from sqlalchemy import Table, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
+from sqlalchemy import event
 
 metadata = MetaData()
 Base = declarative_base(metadata=metadata)
@@ -20,6 +21,47 @@ RELATION_TYPES = (
     "requires", "processes", "produces"
 )
 
+class FileContent(db.Model):
+    __tablename__ = "file_content"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    content = db.Column(db.LargeBinary(), nullable=False)
+    hash = db.Column(db.Binary(32), nullable=False)
+    size = db.Column(db.BigInteger, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("hash"),
+    )
+
+    __user_ro_fields__ = (
+        "hash",
+    )
+
+    def __repr__(self):
+        return "<FileContent(id=%r,hash=%r,size=%r)>" % (
+            self.id, self.hash, self.size )
+
+#
+# Both our primary key and hash are UNIQUE.  The migration that added this
+# table IGNOREs conflicts on updates.  But that means that to make inserts of
+# "new" content seamless, we have to update any objects without their primary
+# keys set, if there is an existing hash match.  We also calculate the hash and
+# size fields if they are missing.
+#
+@event.listens_for(FileContent, 'before_insert')
+def file_content_fixups(mapper, connection, target):
+    if not target.hash:
+        target.hash = FileContent.make_hash(target.content)
+    if target.size is None:
+        target.size = len(target.content)
+    if target.id is None:
+        res = connection.execute("select id from file_content where hash=:hashval",
+                                 { "hashval": target.hash })
+        row = res.first()
+        if row:
+            target.id = row["id"]
+
+
 class ArtifactFile(db.Model):
     __tablename__ = "artifact_files"
 
@@ -28,18 +70,19 @@ class ArtifactFile(db.Model):
     url = db.Column(db.String(512), nullable=False)
     name = db.Column(db.String(512))
     filetype = db.Column(db.String(128), nullable=False)
-    content = db.Column(db.LargeBinary())
+    file_content_id = db.Column(db.Integer, db.ForeignKey("file_content.id"))
     size = db.Column(db.BigInteger)
     mtime = db.Column(db.DateTime)
     
+    file_content = db.relationship("FileContent", uselist=False)
     members = db.relationship("ArtifactFileMember", uselist=True)
 
     __table_args__ = (
         db.UniqueConstraint("artifact_id", "url"),)
 
     def __repr__(self):
-        return "<ArtifactFile(id=%r,artifact_id=%r,url=%r,name=%r,size=%r,mtime=%r)>" % (
-            self.id, self.artifact_id, self.url, self.name, self.size,
+        return "<ArtifactFile(id=%r,artifact_id=%r,file_content_id=%r,url=%r,name=%r,mtime=%r)>" % (
+            self.id, self.artifact_id, self.file_content_id, self.url, self.name,
             self.mtime.isoformat() if self.mtime else "")
 
 
@@ -53,9 +96,11 @@ class ArtifactFileMember(db.Model):
     download_url = db.Column(db.String(512))
     name = db.Column(db.String(512))
     filetype = db.Column(db.String(128), nullable=False)
-    content = db.Column(db.LargeBinary())
+    file_content_id = db.Column(db.Integer, db.ForeignKey("file_content.id"))
     size = db.Column(db.Integer)
     mtime = db.Column(db.DateTime)
+
+    file_content = db.relationship("FileContent",uselist=False)
 
     __table_args__ = (
         db.UniqueConstraint("parent_file_id", "pathname"),)
@@ -107,6 +152,9 @@ class ArtifactPublication(db.Model):
     notes = db.Column(db.Text)
     publisher_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=False)
+    version = db.Column(db.Integer, nullable=False)
+
+    artifact = db.relationship("Artifact", uselist=False)
     publisher = db.relationship("User", uselist=False)
 
     def __repr__(self):
@@ -193,19 +241,21 @@ class ArtifactRelationship(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
     relation = db.Column(db.Enum(
         *RELATION_TYPES,
         name="artifact_relationship_enum"))
     related_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
-    # related_artifact = db.relationship("Artifact", uselist=False, foreign_keys=[related_artifact_id], backref="related_artifacts")
-    related_artifact = db.relationship(
-        "Artifact", uselist=False, foreign_keys=[related_artifact_id], viewonly=True)
+    related_artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
+
+    related_artifact_group = db.relationship(
+        "ArtifactGroup", uselist=False, foreign_keys=[related_artifact_group_id], viewonly=True)
 
     __table_args__ = (
-        db.UniqueConstraint("artifact_id", "relation", "related_artifact_id"),)
+        db.UniqueConstraint("artifact_group_id", "relation", "related_artifact_group_id"),)
 
     __user_ro_relationships__ = (
-        "related_artifact",
+        "related_artifact_group",
     )
 
 
@@ -450,18 +500,20 @@ class ArtifactRatings(db.Model):
             'rating >= 0', name='artifact_ratings_valid_rating_lower_bound'),
         db.CheckConstraint(
             'rating <= 5', name='artifact_ratings_valid_rating_upper_bound'),
-        db.UniqueConstraint("artifact_id", "user_id"),
+        db.UniqueConstraint("artifact_group_id", "user_id"),
     )
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=False)
+        "artifacts.id"), nullable=True)
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey(
+        "artifact_groups.id"), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
 
     def __repr__(self):
-        return "<ArtifactRatings(id=%r, user_id=%r,artifact_id=%r,rating='%d')>" % (
-            self.id, self.user_id, self.artifact_id, self.rating)
+        return "<ArtifactRatings(id=%r, user_id=%r,artifact_group_id=%r,rating='%d')>" % (
+            self.id, self.user_id, self.artifact_group_id, self.rating)
 
 
 class ArtifactReviews(db.Model):
@@ -470,31 +522,35 @@ class ArtifactReviews(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=False)
+        "artifacts.id"), nullable=True)
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey(
+        "artifact_groups.id"), nullable=False)
     review = db.Column(db.Text, nullable=False)
     review_time = db.Column(db.DateTime, nullable=False)
 
     reviewer = db.relationship("User")
 
     def __repr__(self):
-        return "<ArtifactReviews(id=%r, user_id=%r,artifact_id=%r,review='%s')>" % (
-            self.id, self.user_id, self.artifact_id, self.review)
+        return "<ArtifactReviews(id=%r, user_id=%r,artifact_group_id=%r,review='%s')>" % (
+            self.id, self.user_id, self.artifact_group_id, self.review)
 
 
 class ArtifactFavorites(db.Model):
     __tablename__ = "artifact_favorites"
     __table_args__ = (
-        db.UniqueConstraint("artifact_id", "user_id"),
+        db.UniqueConstraint("artifact_group_id", "user_id"),
     )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=False)
+        "artifacts.id"), nullable=True)
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey(
+        "artifact_groups.id"), nullable=False)
 
     def __repr__(self):
-        return "<ArtifactFavorites(id=%r, user_id=%r,artifact_id=%r)>" % (
-            self.id, self.user_id, self.artifact_id)
+        return "<ArtifactFavorites(id=%r, user_id=%r,artifact_group_id=%r)>" % (
+            self.id, self.user_id, self.artifact_group_id)
 
 
 class Sessions(db.Model):
@@ -515,6 +571,42 @@ class Sessions(db.Model):
             % (self.id, self.user_id, self.user.can_admin, self.sso_token, self.is_admin)
 
 
+class ArtifactGroup(db.Model):
+    __tablename__ = "artifact_groups"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    publication_id = db.Column(db.Integer, db.ForeignKey("artifact_publications.id"))
+    next_version = db.Column(db.Integer, nullable=False)
+
+    owner = db.relationship("User", uselist=False)
+    publication = db.relationship("ArtifactPublication", uselist=False)
+    relationships = db.relationship(
+        "ArtifactRelationship",uselist=True,
+        foreign_keys=[ArtifactRelationship.artifact_group_id])
+    reverse_relationships = db.relationship(
+        "ArtifactRelationship",uselist=True,
+        foreign_keys=[ArtifactRelationship.related_artifact_group_id])
+    publications = db.relationship(
+        "ArtifactPublication", uselist=True, viewonly=True,
+        #secondary="join(Artifact, ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id)",
+        #secondaryjoin="Artifact.artifact_group_id == ArtifactGroup.id",
+        secondary="join(Artifact, ArtifactPublication, Artifact.id == ArtifactPublication.artifact_id)",
+        secondaryjoin="Artifact.id == ArtifactPublication.artifact_id",
+        primaryjoin="ArtifactGroup.id == Artifact.artifact_group_id")
+
+    __user_ro_fields__ = (
+        "owner_id",
+    )
+    __user_ro_relationships__ = (
+        "owner", "relationships", "reverse_relationships"
+    )
+
+    def __repr__(self):
+        return "<ArtifactGroup(id=%r, owner=%r)>" \
+            % (self.id, self.owner_id)
+
+
 class Artifact(db.Model):
     # The Artifact class provides an internal model of a SEARCCH artifact.
     # An artifact is an entity that may be added to or edited within the SEARCCH Hub.
@@ -522,8 +614,9 @@ class Artifact(db.Model):
     __tablename__ = "artifacts"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    artifact_group_id = db.Column(
+        db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
     type = db.Column(db.Enum(*ARTIFACT_TYPES,name="artifact_enum"))
-    version = db.Column(db.Integer, nullable=False, default=0)
     url = db.Column(db.String(1024), nullable=False)
     ext_id = db.Column(db.String(512))
     title = db.Column(db.Text, nullable=False)
@@ -541,35 +634,37 @@ class Artifact(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey(
         "artifacts.id"), nullable=True)
 
+    artifact_group = db.relationship("ArtifactGroup", uselist=False)
     exporter = db.relationship("Exporter", uselist=False)
+    # Needs to map to ArtifactLicense(id,license_id)
     license = db.relationship("License", uselist=False)
     meta = db.relationship("ArtifactMetadata")
     tags = db.relationship("ArtifactTag")
     files = db.relationship("ArtifactFile")
+    # This is "root" -- we need a permissions/role table?
     owner = db.relationship("User", uselist=False)
+    # Per-version; only null when user manually created this version
     importer = db.relationship("Importer", uselist=False)
-    parent = db.relationship("Artifact", uselist=False)
     curations = db.relationship("ArtifactCuration")
     publication = db.relationship("ArtifactPublication", uselist=False)
     releases = db.relationship("ArtifactRelease", uselist=True)
     affiliations = db.relationship("ArtifactAffiliation")
-    relationships = db.relationship(
-        "ArtifactRelationship",uselist=True,
-        foreign_keys=[ArtifactRelationship.artifact_id])
-    reverse_relationships = db.relationship(
-        "ArtifactRelationship",uselist=True,
-        foreign_keys=[ArtifactRelationship.related_artifact_id])
     badges = db.relationship("ArtifactBadge", uselist=True)
 
     # NB: all foreign keys are read-only, so not included here.
     __user_ro_fields__ = (
-        "version","ctime","mtime","ext_id" )
+        "artifact_group_id","parent_id","version","ctime","mtime","ext_id","owner_id" )
     __user_ro_relationships__ = (
-        "exporter","owner","importer","parent","curations","publication",
-        "relationships"
+        "exporter","owner","importer","curations","publication","artifact_group"
     )
     __user_skip_relationships__ = (
         "curations",
+    )
+    __clone_skip_relationships__ = (
+        'curations', 'publication', 'owner', 'importer', 'exporter',
+    )
+    __clone_skip_fields__ = (
+        'importer_id', 'exporter_id', 'parent_id', 'owner_id', 'ctime', 'mtime',
     )
 
     def __repr__(self):
@@ -608,8 +703,6 @@ class ArtifactImport(db.Model):
         *ARTIFACT_IMPORT_TYPES,name="artifact_imports_type_enum"),
         nullable=False)
     url = db.Column(db.String(1024), nullable=False)
-    #parent_id = db.Column(db.Integer, db.ForeignKey(
-    #    "artifacts.id"), nullable=True)
     importer_module_name = db.Column(db.String(256), nullable=True)
     owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     ctime = db.Column(db.DateTime, nullable=False)
@@ -627,22 +720,30 @@ class ArtifactImport(db.Model):
     bytes_retrieved = db.Column(db.Integer, default=0, nullable=False)
     bytes_extracted = db.Column(db.Integer, default=0, nullable=False)
     log = db.Column(db.Text, nullable=True)
-    # Only set once status=complete and phase=done
+    #
+    # If we are reimporting to create a new version, we can immediately set
+    # artifact_group_id and parent_artifact_id.  Otherwise we wait to create a
+    # new artifact_group_id and artifact_id until the import succeeds (once
+    # status=complete and phase=done).
+    #
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=True)
+    parent_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"), nullable=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"), nullable=True)
     archived = db.Column(db.Boolean, nullable=False, default=False)
 
     owner = db.relationship("User", uselist=False)
-    #parent = db.relationship("Artifact", uselist=False)
-    artifact = db.relationship("Artifact", uselist=False)
+    artifact_group = db.relationship("ArtifactGroup", uselist=False)
+    artifact = db.relationship("Artifact", uselist=False,
+        foreign_keys=[artifact_id])
 
     __table_args__ = (
-        db.UniqueConstraint("owner_id","url","artifact_id"),
+        db.UniqueConstraint("owner_id","url","artifact_group_id","artifact_id"),
     )
 
     def __repr__(self):
-        return "<ArtifactImport(id=%r,type=%r,url=%r,importer_module_name=%r,owner=%r,status=%r,artifact=%r)>" % (
+        return "<ArtifactImport(id=%r,type=%r,url=%r,importer_module_name=%r,owner=%r,status=%r,artifact_group=%r,artifact=%r)>" % (
             self.id, self.type, self.url, self.importer_module_name,
-            self.owner, self.status, self.artifact)
+            self.owner, self.status, self.artifact_group, self.artifact)
 
 
 class ImporterInstance(db.Model):

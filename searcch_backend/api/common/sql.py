@@ -4,6 +4,7 @@ import datetime
 import logging
 import json
 import sys
+import base64
 
 LOG = logging.getLogger(__name__)
 
@@ -17,11 +18,19 @@ conv_type_map = {
         "typeinfo": "isoformat str"
     },
     bytes: {
-        "parse": lambda x: bytes(x,"utf-8"),
+        "parse": lambda x: base64.b64decode(x),
+        "serialize": lambda x: base64.b64encode(x).decode("utf-8"),
         "valid": str,
         "typeinfo": str
     }
 }
+
+class CustomJSONEncoder(json.JSONEncoder):
+
+    def default(self, o):
+        if isinstance(o, bytes):
+            return base64.b64encode(o).decode("utf-8")
+        return json.JSONEncoder.default(self, o)
 
 def get_primary_key_for_class(model_class):
     for k in model_class.__mapper__.column_attrs.keys():
@@ -31,7 +40,8 @@ def get_primary_key_for_class(model_class):
             return k
     return None
 
-def artifact_diff(session, curator, artifact, obj1, obj2, update=True, path=""):
+def artifact_diff(session, curator, artifact, obj1, obj2, update=True, path="",
+                  skip_tsv=True):
     if not isinstance(artifact,model.Artifact):
         raise TypeError("artifact is not an Artifact")
     if type(obj1) != type(obj2):
@@ -41,6 +51,7 @@ def artifact_diff(session, curator, artifact, obj1, obj2, update=True, path=""):
 
     curations = []
     obj_class = obj1.__class__
+    curator_id = curator.id if curator else None
 
     #
     # Be warned -- if `obj2` has any unset nullable=False fields, and if a
@@ -56,6 +67,9 @@ def artifact_diff(session, curator, artifact, obj1, obj2, update=True, path=""):
     # Diff the non-primary and non-foreign-key fields.
     user_ro_fields = getattr(obj_class,"__user_ro_fields__",{})
     for k in obj_class.__mapper__.column_attrs.keys():
+        if skip_tsv and k.endswith("_tsv"):
+            continue
+
         obj1_val = getattr(obj1,k,None)
         obj2_val = getattr(obj2,k,None)
 
@@ -73,14 +87,14 @@ def artifact_diff(session, curator, artifact, obj1, obj2, update=True, path=""):
             if k in user_ro_fields:
                 raise ValueError("not allowed to modify field %s" % (k,))
             LOG.debug("field %s diff: '%r' != '%r'" % (k,repr(obj1_val),repr(obj2_val)))
+            opdata = { "obj": obj_class.__name__,
+                       "op": "set",
+                       "data": { "field": k, "value": obj2_val } }
+            if path:
+                opdata["path"] = path
             curation = model.ArtifactCuration(
                 artifact_id=artifact.id,time=datetime.datetime.now(),
-                opdata=json.dumps(
-                    { "path": path,
-                      "obj": obj_class.__name__,
-                      "op": "set",
-                      "data": { "field": k, "value": obj2_val } }),
-                curator_id=curator.id)
+                opdata=json.dumps(opdata, cls=CustomJSONEncoder),curator_id=curator_id)
             curations.append(curation)
             if update:
                 setattr(obj1,k,obj2_val)
@@ -159,12 +173,6 @@ def artifact_diff(session, curator, artifact, obj1, obj2, update=True, path=""):
         for i in range(0,len(obj2_rval)):
             x = obj2_rval[i]
             val = None
-            #if x in session:
-            #try:
-            try:
-                LOG.debug("foo: %r",x.person)
-            except:
-                pass
             LOG.debug("trying to read %s.%s",x.__class__.__name__,foreign_primary_key)
             val = getattr(x,foreign_primary_key,None)
             #except:
@@ -173,7 +181,7 @@ def artifact_diff(session, curator, artifact, obj1, obj2, update=True, path=""):
             if val is not None:
                 if val not in obj1_rval_pk_map:
                     if not getattr(foreign_class,"__object_from_json_allow_pk__",False):
-                        raise ValueError("cannot set primary key to value not present in original object")
+                        raise ValueError("cannot set primary key to value %r not present in original object" % (val,))
                     LOG.debug("adding relation %r",k)
                     #session.add(x)
                     #LOG.debug("added relation %r item: %r" % (k,x))
@@ -218,15 +226,18 @@ def artifact_diff(session, curator, artifact, obj1, obj2, update=True, path=""):
                 separators=(',',':'))
             ac = model.ArtifactCuration(
                 artifact_id=artifact.id,time=datetime.datetime.now(),
-                opdata=acj,curator_id=curator.id)
+                opdata=acj,curator_id=curator_id)
             curations.append(ac)
             if delete_referenced_objects:
                 LOG.debug("deleting referenced object %r",x)
-                session.delete(x)
+                if update:
+                    session.delete(x)
             if not relprop.uselist:
-                setattr(obj1,k,None)
+                if update:
+                    setattr(obj1,k,None)
             else:
-                del getattr(obj1,k)[i]
+                if update:
+                    del getattr(obj1,k)[i]
         for x in adds:
             acj = json.dumps(
                 { "obj": foreign_class.__name__,"op": "add",
@@ -234,19 +245,490 @@ def artifact_diff(session, curator, artifact, obj1, obj2, update=True, path=""):
                 separators=(',',':'))
             ac = model.ArtifactCuration(
                 artifact_id=artifact.id,time=datetime.datetime.now(),
-                opdata=acj,curator_id=curator.id)
+                opdata=acj,curator_id=curator_id)
             curations.append(ac)
             if not relprop.uselist:
-                setattr(obj1,k,x)
+                if update:
+                    setattr(obj1,k,x)
             else:
-                getattr(obj1,k).append(x)
+                if update:
+                    getattr(obj1,k).append(x)
             LOG.debug("added relation %r item: %r" % (k,x))
 
     return curations
 
-def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary_key=False,
-                     allow_fk=False,enable_cache=True,
-                     should_query=True,obj_cache=None,obj_cache_dicts=None):
+def artifact_diff_by_value(session, curator, artifact, obj1, obj2, update=True,
+                           path="", skip_ids=True, skip_tsv=True):
+    if not isinstance(artifact,model.Artifact):
+        raise TypeError("artifact is not an Artifact")
+    if type(obj1) != type(obj2):
+        raise TypeError("object type mismatch (%r,%r)" % (type(obj1),type(obj2)))
+    if not isinstance(obj1,db.Model):
+        raise TypeError("object not part of the model")
+
+    curations = []
+    obj_class = obj1.__class__
+    curator_id = curator.id if curator else None
+    curation_time = datetime.datetime.now() if curator else None
+
+    #
+    # Be warned -- if `obj2` has any unset nullable=False fields, and if a
+    # `session.refresh` is triggered, sqlalchemy will fail to load the object.
+    # This is a useful canary-in-the-coal-mine for now.
+    #
+    try:
+        LOG.debug("diff_by_value: class %r and class %r",
+                  obj1.__class__.__name__,obj2.__class__.__name__)
+    except:
+        pass
+    LOG.debug("diff_by_value: %r and %r", obj1, obj2)
+
+    # Diff the non-primary and non-foreign-key fields.
+    user_ro_fields = getattr(obj_class,"__user_ro_fields__",{})
+    for k in obj_class.__mapper__.column_attrs.keys():
+        if skip_tsv and k.endswith("_tsv"):
+            continue
+
+        obj1_val = getattr(obj1,k,None)
+        obj2_val = getattr(obj2,k,None)
+
+        # Primary keys and foreign keys are not allowed to change.
+        colprop = getattr(obj_class,k).property.columns[0]
+        if colprop.primary_key or colprop.foreign_keys:
+            if skip_ids:
+                continue
+            if obj2_val is not None and obj1_val != obj2_val:
+                raise ValueError("not allowed to modify primary/foreign key %r" % (k,))
+            continue
+
+        # If obj1 and obj2 both came from the DB or from object_from_json, we
+        # can assume their types and value constraints are correct.  So we just
+        # have to test equivalence.
+        if obj2_val != obj1_val:
+            if k in user_ro_fields:
+                continue
+            LOG.debug("diff_by_value: field %r: %r != %r", k, obj1_val, obj2_val)
+            opdata = { "obj": obj_class.__name__,
+                       "op": "set",
+                       "data": { "field": k, "old_value": obj1_val, "value": obj2_val } }
+            if path:
+                opdata["path"] = path
+            curation = model.ArtifactCuration(
+                artifact_id=artifact.id,time=curation_time,
+                opdata=json.dumps(opdata, cls=CustomJSONEncoder),curator_id=curator_id)
+            curations.append(curation)
+            if update:
+                setattr(obj1,k,obj2_val)
+
+    # Diff relationships.  This is o(n**2), since we don't look at pk/fks, so
+    # we must compare every object on every relation list.
+    user_ro_relationships = getattr(obj_class,"__user_ro_relationships__",{})
+    user_skip_relationships = getattr(obj_class,"__user_skip_relationships__",{})
+    for k in obj_class.__mapper__.relationships.keys():
+        # We don't care if user does or does not supply these.
+        if k in user_skip_relationships or k in user_ro_relationships:
+            continue
+
+        relprop = getattr(obj_class,k).property
+        if len(relprop.local_columns) > 1:
+            raise TypeError("cannot handle relationship with multiple foreign keys")
+
+        (lcc,) = relprop.local_columns
+
+        if False and lcc.foreign_keys:
+            # This is a relationship through a foreign key we store in this
+            # table, into another table.  We don't allow editing of these keys,
+            # so skip it.
+            continue
+
+        # We must delete referenced objects if we cannot nullify their foreign
+        # keys into this object.
+        delete_referenced_objects = False
+        for rsk in relprop.remote_side:
+            for fk in rsk.foreign_keys:
+                # If the foreign key is not nullable, AND
+                # If it points into obj_class's table
+                if not rsk.nullable and obj_class.__mapper__.local_table.name == fk.column.table.fullname:
+                    LOG.debug("diff_by_value: dro: %r %r %r" % (rsk,obj_class.__mapper__.local_table.name,fk.column.table.fullname))
+                    delete_referenced_objects = True
+                    break
+
+        # Otherwise, this is a relationship into another table via a key in our
+        # table, probably our primary key.  We check via recursive value compare
+        # if any have been removed, added, or modified.
+        deletes = []
+        adds = []
+        obj1_rval = getattr(obj1,k)
+        obj2_rval = getattr(obj2,k)
+
+        # Handle both one-to-one and one-to-many relations in the same code
+        # below.
+        if not relprop.uselist:
+            if obj1_rval:
+                obj1_rval = [ obj1_rval ]
+            else:
+                obj1_rval = []
+            if obj2_rval:
+                obj2_rval = [ obj2_rval ]
+            else:
+                obj2_rval = []
+
+        foreign_class = relprop.argument()
+        foreign_primary_key = get_primary_key_for_class(foreign_class)
+        obj1_rval_pk_map = {}
+        obj2_rval_pk_map = {}
+
+        # All we can note is add and del; we cannot detect set without pk/fk
+        # awareness.  We *could* try to do more fine-grained patching (e.g.
+        # push diffs further down), but not sure there's any point yet.
+        i = 0
+        for obj1_item in obj1_rval:
+            found = False
+            for obj2_item in obj2_rval:
+                rcurations = artifact_diff_by_value(
+                    session, curator, artifact, obj1_item, obj2_item, update=update,
+                           path=path + "." + k, skip_ids=skip_ids, skip_tsv=skip_tsv)
+                if not rcurations:
+                    found = True
+                    break
+            if not found:
+                LOG.debug("diff_by_value: field %r: delete item %r", k, obj1_item)
+                deletes.append((i,obj1_item))
+            i += 1
+        for obj2_item in obj2_rval:
+            found = False
+            for obj1_item in obj1_rval:
+                rcurations = artifact_diff_by_value(
+                    session, curator, artifact, obj1_item, obj2_item, update=update,
+                           path=path + "." + k, skip_ids=skip_ids, skip_tsv=skip_tsv)
+                if not rcurations:
+                    found = True
+                    break
+            if not found:
+                LOG.debug("diff_by_value: field %r: add item %r", k, obj2_item)
+                adds.append(obj2_item)
+
+        #if rcurations:
+        #    curations.extend(rcurations)
+
+        # Make the add/deletes live.
+        deletes.reverse()
+        if deletes and delete_referenced_objects:
+            LOG.debug("diff_by_value: will delete referenced objects of relation %s.%s", obj_class.__name__, k)
+
+        for (i,x) in deletes:
+            acj = json.dumps(
+                { "obj": foreign_class.__name__,"op": "del",
+                "data":{ "field":k,"value": object_to_json(x) } },
+                separators=(',',':'))
+            ac = model.ArtifactCuration(
+                artifact_id=artifact.id,time=curation_time,
+                opdata=acj,curator_id=curator_id)
+            curations.append(ac)
+            if delete_referenced_objects:
+                LOG.debug("diff_by_value: deleting referenced object %r", x)
+                if update:
+                    session.delete(x)
+            if not relprop.uselist:
+                if update:
+                    setattr(obj1,k,None)
+            else:
+                if update:
+                    del getattr(obj1,k)[i]
+        for x in adds:
+            acj = json.dumps(
+                { "obj": foreign_class.__name__,"op": "add",
+                  "data":{ "field":k,"value": object_to_json(x) } },
+                separators=(',',':'))
+            ac = model.ArtifactCuration(
+                artifact_id=artifact.id,time=curation_time,
+                opdata=acj,curator_id=curator_id)
+            curations.append(ac)
+            if not relprop.uselist:
+                if update:
+                    setattr(obj1,k,x)
+            else:
+                if update:
+                    getattr(obj1,k).append(x)
+            LOG.debug("added relation %r item: %r" % (k,x))
+
+    return curations
+
+def artifact_apply_curation(session, artifact, curation, update=True, skip_ids=True, skip_tsv=True):
+    if not isinstance(artifact,model.Artifact):
+        raise TypeError("artifact is not an Artifact")
+
+    LOG.debug("curation: applying curation.id %r to artifact.id %r", curation.id, artifact.id)
+
+    j = {}
+    op = None
+    (status,msg) = (None,None)
+
+    # Load
+    try:
+        j = json.loads(curation.opdata)
+    except:
+        LOG.error("failed to load opdata in %r",curation)
+        return (False,"invalid json in opdata")
+
+    # Apply
+    try:
+        obj_with_field = artifact
+        obj_class = None
+        if "obj" in j and j["obj"]:
+            obj_class = getattr(model,j["obj"])
+        op = j["op"]
+        field = j.get("data",{}).get("field",None)
+        value = j.get("data",{}).get("value",None)
+        path = j.get("path","")
+        if path and path.startswith("."):
+            path = path[1:]
+        if path:
+            path = path.split(".")
+            for subpath in path:
+                obj_with_field = getattr(obj_with_field, subpath)
+
+        if op == "set":
+            if obj_class and not obj_class.__name__ == obj_with_field.__class__.__name__:
+                value = object_from_json(
+                    session,obj_class,value,skip_primary_keys=True,skip_tsv=True,
+                    error_on_primary_key=False,allow_fk=False,enable_cache=True,
+                    should_query=False,never_query=True,obj_cache=None,obj_cache_dicts=None)
+                current = getattr(obj_with_field,field)
+                res = artifact_diff(
+                    session, None, artifact, current, value, update=False, path=path,
+                    skip_ids=True, skip_tsv=True)
+                if not res:
+                    msg = "unchanged"
+                elif update:
+                    msg = "applied"
+                    #session.add(value)
+                    setattr(obj_with_field,field,value)
+                status = True
+            else:
+                current = getattr(obj_with_field,field)
+                if current == value:
+                    msg = "unchanged"
+                elif update:
+                    msg = "applied"
+                    setattr(obj_with_field,field,value)
+                status = True
+        elif op == "add" or op == "del":
+            relprop = getattr(obj_with_field.__class__, field).property
+            value = object_from_json(
+                session,obj_class,value,skip_primary_keys=True,skip_tsv=True,
+                error_on_primary_key=False,allow_fk=False,enable_cache=True,
+                should_query=False,never_query=False,obj_cache=None,obj_cache_dicts=None)
+
+            #deletes = []
+            if op == "add":
+                # check to see if object is already on the list; if not, add
+                if relprop.uselist: #isinstance(getattr(obj_with_field,field),list):
+                    found = False
+                    for x in getattr(obj_with_field,field,[]):
+                        res = artifact_diff_by_value(
+                            session, None, artifact, x, value, update=False, path=path)
+                        if not res:
+                            found = True
+                            break
+                    if found:
+                        msg = "unchanged"
+                    elif update:
+                        msg = "applied"
+                        #session.add(value)
+                        getattr(obj_with_field,field).append(value)
+                    status = True
+                else:
+                    current = getattr(obj_with_field,field)
+                    res = artifact_diff_by_value(
+                        session, None, artifact, current, value, update=False, path=path)
+                    if not res:
+                        msg = "unchanged"
+                    elif update:
+                        msg = "applied"
+                        #session.add(value)
+                        setattr(obj_with_field,field,value)
+                    status = True
+            else:
+                # check for the first match and delete it
+                # XXX: this means if we are deleting multiple identical objects
+                # we will falsely return that the second curation deletes
+                # even if there is only one, but that's ok for now.
+                if relprop.uselist: #isinstance(getattr(obj_with_field,field),list):
+                    found = False
+                    (i,x) = (None,None)
+                    for i in range(0,len(getattr(obj_with_field,field))):
+                        x = getattr(obj_with_field,field)[i]
+                        res = artifact_diff_by_value(
+                            session, None, artifact, x, value, update=False, path=path)
+                        if not res:
+                            found = True
+                            break
+                    if not found:
+                        msg = "unchanged"
+                    elif update:
+                        msg = "deleted"
+                        del getattr(obj_with_field,field)[i]
+                        # NB: if this object was previously added and is now
+                        # being deleted, it will not have been committed to the
+                        # DB yet, so we cannot mark it deleted via delete;
+                        # instead we must expunge it from the session, lest it
+                        # be committed without some required pk/fk.  e.g. in
+                        # the case of adding/deleting the same ArtifactBadge
+                        # pair, simply calling delete() and removing from the
+                        # badges list will result in the insertion of an
+                        # ArtifactBadge that simply doesn't have artifact_id
+                        # set, and this triggers a null-constraint violation.
+                        if sqlalchemy.inspect(x).persistent:
+                            session.delete(x)
+                        else:
+                            session.expunge(x)
+                        #deletes.append(x)
+                    status = True
+                else:
+                    current = getattr(obj_with_field,field)
+                    res = artifact_diff_by_value(
+                        session, None, artifact, current, value, update=False, path=path)
+                    found = False
+                    if not res:
+                        found = True
+                    if not found:
+                        msg = "unchanged"
+                    elif update:
+                        msg = "deleted"
+                        setattr(obj_with_field,field,None)
+                        if sqlalchemy.inspect(current).persistent:
+                            session.delete(current)
+                        else:
+                            session.expunge(current)
+                        #deletes.append(current)
+                    # Do we ever return False except error?
+                    status = True
+            #if deletes and update:
+            #    #deletes.reverse()
+            #    for x in deletes:
+            #        LOG.debug("deleting %r",x)
+            #        if sqlalchemy.inspect(x).persistent:
+            #            session.delete(x)
+            #        else:
+            #            session.expunge(x)
+        else:
+            msg = "unsupported curation op %r" % (op,)
+            LOG.error(msg)
+            return (False, msg)
+    except:
+        LOG.exception("error applying curation")
+        return (False, "error applying curation %d: %r" % (curation.id,sys.exc_info()[1]))
+
+    return (status,msg)
+
+def artifact_apply_curations(session, artifact, curations, update=True, skip_ids=True, skip_tsv=True):
+    if not isinstance(artifact,model.Artifact):
+        raise TypeError("artifact is not an Artifact")
+
+    results = []
+
+    for curation in curations:
+        (status, message) = artifact_apply_curation(session, artifact, curation, update=update, skip_ids=skip_ids, skip_tsv=skip_tsv)
+        result.append(dict(curation=curation,status=status,message=message))
+
+    return results
+
+def clone(obj):
+    # Create a new artifact_id by cloning the prior, and return it.  Pretty
+    # much, anything record with an artifact_id fk has to be cloned to a
+    # new pk, and nothing else does.
+    #
+    # Principle: if we NULL out a PK, if there is a relationship to another
+    # table from the table we just nulled, we have to clone that
+    # relationship, recursively til it stops.
+    #
+    #  * this works for Artifact.ArtifactFile.ArtifactFileMember: we NULL
+    #    artifact.id, which means we have to go through all Artifact
+    #    relationships X and NULL out X.artifact_id and X.id.  Then, if X has
+    #    relationships via X.id, we have to recurse on those relationships
+    #    and clone them too.  So, concretely, we NULL out ArtifactFile.id and
+    #    ArtifactFile.artifact_id, recurse on ArtifactFileMember, and NULL
+    #    out its parent_file_id and id, and re-insert all these things into
+    #    the relationship list.
+    #
+    #  * does it work for ArtifactAffiliation.affiliation?  Yes, because
+    #    ArtifactAffiliation.id is not the fk into Affiliation.  Said another
+    #    way, this is a "forwards" relationship, not a "backwards" one.
+    #
+    #  * we could run into problems where we have indirect cycles via an
+    #    intermediate table, but let's not worry about that for now.
+    #
+    # Still have to have __clone_skip_relationships__ =
+    # ('curations','publication') for the relationships we do not want to
+    # pull forward; and __clone_skip_fields__ =
+    # ('importer_id','exporter_id','parent_id') ... well, for parent_id we
+    # need a custom initializer, ugh, no way around that.
+
+    if not isinstance(obj,db.Model):
+        raise TypeError("object not part of the model")
+
+    LOG.debug("clone: cloning %r", obj)
+
+    obj_class = obj.__class__
+    pk = get_primary_key_for_class(obj_class)
+    clone_skip_fields = getattr(obj_class,"__clone_skip_fields__",())
+    clone_skip_relationships = getattr(obj_class,"__clone_skip_relationships__",())
+
+    clone_kwargs = {}
+    for k in obj_class.__mapper__.column_attrs.keys():
+        if k == pk or k in clone_skip_fields:
+            continue
+        clone_kwargs[k] = getattr(obj,k,None)
+
+    LOG.debug("clone: fields=%r",clone_kwargs)
+
+    for k in obj_class.__mapper__.relationships.keys():
+        if k in clone_skip_relationships:
+            continue
+
+        relprop = getattr(obj_class,k).property
+        if len(relprop.local_columns) > 1:
+            raise TypeError("cannot handle relationship with multiple foreign keys")
+
+        recurse = False
+        for rsk in relprop.remote_side:
+            for fk in rsk.foreign_keys:
+                # If the foreign key points into obj_class's table, clone
+                # recursively.
+                # XXX should check to see if it points via this class's PK, but
+                # that is likely to be true.
+                if obj_class.__mapper__.local_table.name == fk.column.table.fullname:
+                    recurse = True
+                    break
+
+        if recurse:
+            # XXX: do we need to explicitly unset the FK field in the foreign obj?
+            # or will it simply be overwritten by adding to the parent's relationship?
+            cval = None
+            if relprop.uselist:
+                cval = []
+                for rv in getattr(obj,k,[]):
+                    cval.append(clone(rv))
+            else:
+                cval = clone(getattr(obj,k,None))
+            clone_kwargs[k] = cval
+
+    cloned_obj = obj_class(**clone_kwargs)
+
+    LOG.debug("clone: returning %r", cloned_obj)
+
+    return cloned_obj
+
+def artifact_clone(artifact):
+    if not isinstance(artifact,model.Artifact):
+        raise TypeError("artifact is not an Artifact")
+
+    return clone(artifact)
+
+def object_from_json(session,obj_class,j,skip_primary_keys=True,skip_tsv=True,
+                     error_on_primary_key=False,allow_fk=False,enable_cache=True,
+                     should_query=True,never_query=False,obj_cache=None,obj_cache_dicts=None):
     """
     This function provides hierarchical construction of sqlalchemy objects from JSON.  It handles regular fields and handles recursion ("hierarchy") through relationships.  We use the term hierarchy in the sense that an Artifact may have one or more curations associated with it; so perhaps, less a hierarchy than a tree; but we represent the relationships as children in JSON.  If such "children" have an existing match in the DB, we link those objects directly in (NB: this needs to change to handle permissions or places where we don't want to create a link to existing objects, because the owner needs to ack, or whatever).
     """
@@ -299,6 +781,9 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
                     # we are modifying.
                     obj_kwargs[k] = j[k]
                     continue
+
+        if skip_tsv and k.endswith("_tsv"):
+            continue
 
         if k not in j:
             continue
@@ -372,7 +857,7 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
                 next_obj = object_from_json(
                     session,foreign_class,j[k],skip_primary_keys=skip_primary_keys,
                     error_on_primary_key=error_on_primary_key,should_query=True,
-                    allow_fk=allow_fk,enable_cache=enable_cache,
+                    never_query=never_query,allow_fk=allow_fk,enable_cache=enable_cache,
                     obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
                 obj_kwargs[k] = next_obj
                 if obj_cache:
@@ -391,20 +876,20 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
                 next_obj = object_from_json(
                     session,relprop.argument(),x,skip_primary_keys=skip_primary_keys,
                     error_on_primary_key=error_on_primary_key,should_query=False,
-                    allow_fk=allow_fk,enable_cache=enable_cache,
+                    never_query=never_query,allow_fk=allow_fk,enable_cache=enable_cache,
                     obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
                 obj_kwargs[k].append(next_obj)
         else:
             next_obj = object_from_json(
                 session,relprop.argument(),j[k],skip_primary_keys=skip_primary_keys,
                 error_on_primary_key=error_on_primary_key,should_query=False,
-                allow_fk=allow_fk,enable_cache=enable_cache,
+                never_query=never_query,allow_fk=allow_fk,enable_cache=enable_cache,
                 obj_cache=obj_cache,obj_cache_dicts=obj_cache_dicts)
             obj_kwargs[k] = next_obj
 
     # Query the DB iff all top-level obj_kwargs are basic types or persistent
     # objects, and if our parent told us we should query.
-    if should_query:
+    if not never_query and should_query:
         can_query = True
         for kwa in list(obj_kwargs):
             if isinstance(obj_kwargs[kwa],list):
@@ -445,7 +930,7 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,error_on_primary
 
 jsontypes = (dict,list,tuple,str,int,float,bool,type(None))
 
-def object_to_json(o,recurse=True,skip_ids=True):
+def object_to_json(o,recurse=True,skip_ids=True,skip_tsv=True):
     if not isinstance(o,db.Model):
         raise ValueError("object %r not an instance of our model.Base" % (o))
 
@@ -455,11 +940,13 @@ def object_to_json(o,recurse=True,skip_ids=True):
         colprop = getattr(o.__class__,k).property.columns[0]
         if skip_ids and (colprop.primary_key or colprop.foreign_keys):
             continue
+        if skip_tsv and k.endswith("_tsv"):
+            continue
         v = getattr(o,k,"")
         if v is None:
             continue
         elif isinstance(v,bytes):
-            v = v.decode('utf-8')
+            v = base64.b64encode(v).decode('utf-8')
         elif not isinstance(v,jsontypes):
             v = str(v)
         j[k] = v
@@ -492,7 +979,11 @@ def object_to_json(o,recurse=True,skip_ids=True):
     return j
 
 python_jsonschema_type_map = {
-    str: "string",bytes: "string",float: "float",int: "int",datetime.datetime: "string"
+    str: "string",
+    bytes: "string",
+    float: "float",
+    int: "int",
+    datetime.datetime: "string"
 }
 def conv_python_type_to_jsonschema(t):
     if t in python_jsonschema_type_map:
@@ -500,9 +991,11 @@ def conv_python_type_to_jsonschema(t):
     return "string"
 
 def class_to_jsonschema(kls,skip_pk=True,skip_fk=True,skip_relations=False,
-                        defs={},root=True):
+                        defs=None,root=True):
     #if not isinstance(o,db.Model):
     #    raise ValueError("object %r not an instance of our model.Base" % (o))
+    if not defs:
+        defs = {}
     name = kls.__name__
     if name in defs:
         return
@@ -532,6 +1025,9 @@ def class_to_jsonschema(kls,skip_pk=True,skip_fk=True,skip_relations=False,
             except:
                 continue
             typedef["properties"][k] = dict(type=conv_python_type_to_jsonschema(pt))
+            if pt == "bytes":
+                typedef["properties"][k]["format"] = "byte"
+
             if not colprop.nullable:
                 typedef["required"].append(k)
 

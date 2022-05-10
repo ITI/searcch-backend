@@ -13,7 +13,7 @@ from flask_restful import reqparse, Resource, fields, marshal
 
 from searcch_backend.models.model import (
     ArtifactImport, ImporterSchedule, ImporterInstance,
-    Artifact, User, Person,
+    ArtifactGroup, Artifact, User, Person,
     ARTIFACT_IMPORT_TYPES,
     ARTIFACT_IMPORT_STATUSES, ARTIFACT_IMPORT_PHASES )
 from searcch_backend.models.schema import (
@@ -311,12 +311,23 @@ class ArtifactImportResource(Resource):
                     db.session.commit()
                     abort(500, description=msg)
 
+                if artifact_import.artifact_group_id is None:
+                    artifact_group = ArtifactGroup(owner_id=artifact_import.owner_id,
+                                                   next_version=0)
+                    artifact.artifact_group = artifact_group
+                    db.session.add(artifact_group)
+                else:
+                    artifact.artifact_group_id = artifact_import.artifact_group_id
+
                 artifact.owner_id = artifact_import.owner_id
+                if artifact_import.parent_artifact_id:
+                    artifact.parent_id = artifact_import.parent_artifact_id
                 db.session.add(artifact)
                 try:
                     db.session.commit()
                     db.session.refresh(artifact)
                     artifact_import.artifact = artifact
+                    artifact_import.artifact_group_id = artifact.artifact_group_id
                     db.session.commit()
                     response = jsonify(dict(id=artifact.id))
                     response.status_code = 200

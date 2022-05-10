@@ -13,20 +13,21 @@ import json
 
 LOG = logging.getLogger(__name__)
 
-def generate_artifact_uri(artifact_id):
-    return url_for('api.artifact', artifact_id=artifact_id)
+def generate_artifact_uri(artifact_group_id, artifact_id=None):
+    return url_for('api.artifact', artifact_group_id=artifact_group_id,
+                   artifact_id=artifact_id)
 
 def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page):
     """ search for artifacts based on keywords, with optional filters by owner and affiliation """
     sqratings = db.session.query(
-        ArtifactRatings.artifact_id,
+        ArtifactRatings.artifact_group_id,
         func.count(ArtifactRatings.id).label('num_ratings'),
         func.avg(ArtifactRatings.rating).label('avg_rating')
-    ).group_by("artifact_id").subquery()
+    ).group_by("artifact_group_id").subquery()
     sqreviews = db.session.query(
-        ArtifactReviews.artifact_id,
+        ArtifactReviews.artifact_group_id,
         func.count(ArtifactReviews.id).label('num_reviews')
-    ).group_by("artifact_id").subquery()
+    ).group_by("artifact_group_id").subquery()
 
     # create base query object
     if not keywords:
@@ -41,9 +42,10 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
                                         'publication', 3),
                                     ], else_=4)
                                 )
-        query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
-                        ).join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id
-                        ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+        query = query.join(ArtifactGroup, ArtifactGroup.id == Artifact.artifact_group_id
+                        ).join(sqratings, ArtifactGroup.id == sqratings.c.artifact_group_id, isouter=True
+                        ).join(ArtifactPublication, ArtifactPublication.id == ArtifactGroup.publication_id
+                        ).join(sqreviews, ArtifactGroup.id == sqreviews.c.artifact_group_id, isouter=True
                         ).order_by(sqratings.c.avg_rating.desc().nullslast(),sqreviews.c.num_reviews.desc())
     else:
         search_query = db.session.query(ArtifactSearchMaterializedView.artifact_id, 
@@ -55,8 +57,8 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
                                     ).join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id
                                     ).join(search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
         
-        query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
-                        ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+        query = query.join(sqratings, Artifact.artifact_group_id == sqratings.c.artifact_group_id, isouter=True
+                        ).join(sqreviews, Artifact.artifact_group_id == sqreviews.c.artifact_group_id, isouter=True
                         ).order_by(desc(search_query.c.rank))
 
     if author_keywords or organization:
@@ -121,7 +123,8 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
         artifact, _, num_ratings, avg_rating, num_reviews = row
         abstract = {
             "id": artifact.id,
-            "uri": generate_artifact_uri(artifact.id),
+            "artifact_group_id": artifact.artifact_group_id,
+            "uri": generate_artifact_uri(artifact.artifact_group_id, artifact_id=artifact.id),
             "doi": artifact.url,
             "type": artifact.type,
             "title": artifact.title,
@@ -228,7 +231,7 @@ class ArtifactRecommendationAPI(Resource):
 
         super(ArtifactRecommendationAPI, self).__init__()
     
-    def get(self, artifact_id):
+    def get(self, artifact_group_id, artifact_id):
         verify_api_key(request)
         login_session = verify_token(request)
         args = self.reqparse.parse_args()
@@ -236,7 +239,8 @@ class ArtifactRecommendationAPI(Resource):
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
-            Artifact.id == artifact_id).first()
+            Artifact.id == artifact_id).filter(
+            Artifact.artifact_group_id == artifact_group_id).first()
         if not artifact:
             abort(400, description='invalid artifact ID')
 

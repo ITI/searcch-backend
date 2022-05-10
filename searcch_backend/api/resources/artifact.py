@@ -1,19 +1,23 @@
 # logic for /artifacts
 
 from searcch_backend.api.app import db, config_name
-from searcch_backend.api.common.sql import (object_from_json, artifact_diff)
+from searcch_backend.api.common.sql import (
+    object_from_json, artifact_diff, artifact_clone,
+    artifact_apply_curation)
 from searcch_backend.api.common.auth import (verify_api_key, has_api_key, has_token, verify_token)
+from searcch_backend.api.common.importer import schedule_import
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
 from flask_restful import reqparse, Resource, fields, marshal
 import sqlalchemy
-from sqlalchemy import func, desc, asc, sql, and_, or_
+from sqlalchemy import func, desc, asc, sql, and_, or_, not_, distinct
 import datetime
 import json
 import sys
 import logging
 import math
+import threading
 
 LOG = logging.getLogger(__name__)
 
@@ -31,8 +35,14 @@ class ArtifactIndexAPI(Resource):
             name="allusers", type=int, required=False, default=0, location="args",
             help="if set 1, and if caller is authorized, show all user artifacts")
         self.getparse.add_argument(
+            name="allversions", type=int, required=False, default=0, location="args",
+            help="if set 1, and if caller is authorized, show all artifact versions")
+        self.getparse.add_argument(
             name="owner", type=str, required=False, location="args",
             help="if set, filter by user email and name")
+        self.getparse.add_argument(
+            name="artifact_group_id", type=int, required=False, default=None, location="args",
+            help="if set, filter by artifact group id")
         self.getparse.add_argument(
             name="short_view_include", type=str, required=False,
             help="Return only fields, unless relations are specified in this field (valid: %s)" % (
@@ -44,7 +54,7 @@ class ArtifactIndexAPI(Resource):
             name="items_per_page", type=int, required=False, default=20,
             help="results per page if paginated")
         self.getparse.add_argument(
-            name="sort", type=str, required=False, default="id",
+            name="sort", type=str, required=False, default=None,
             choices=("id", "type", "title", "url", "ctime", "mtime" ),
             help="bad sort field: {error_msg}")
         self.getparse.add_argument(
@@ -68,6 +78,20 @@ class ArtifactIndexAPI(Resource):
         artifacts = db.session.query(Artifact).\
           filter(True if login_session.is_admin and args["allusers"] \
                       else Artifact.owner_id == login_session.user_id)
+        if not args.allversions:
+            artifacts = artifacts.distinct(Artifact.artifact_group_id)
+        if args.artifact_group_id is not None:
+            artifacts = artifacts.\
+              filter(Artifact.artifact_group_id == args.artifact_group_id)
+        if not args.allversions:
+            artifacts = artifacts.\
+              join(ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id)
+            # If an artifact group has a current publication, only return that.
+            if args.published == 1:
+                artifacts = artifacts.\
+                  join(ArtifactPublication, ArtifactGroup.publication_id == ArtifactPublication.id)
+                artifacts = artifacts.\
+                  filter(ArtifactPublication.artifact_id == Artifact.id)
         if artifact_types:
             artifacts = artifacts.\
               filter(Artifact.type.in_(artifact_types))
@@ -85,14 +109,24 @@ class ArtifactIndexAPI(Resource):
             artifacts = artifacts.\
               filter(or_(Person.name.ilike(owner_cond),
                          Person.email.ilike(owner_cond)))
-        if not args["sort"]:
-            args["sort"] = "id"
-        if args["sort_desc"]:
-            artifacts = artifacts.\
-              order_by(desc(getattr(Artifact,args["sort"])))
-        else:
-            artifacts = artifacts.\
-              order_by(asc(getattr(Artifact,args["sort"])))
+        # We need a default sort order that has artifact_group_id as the
+        # primary column, so that the possible above distinct() clause works in
+        # postgres -- it requires that the distinct on column be the
+        # first-ordered column.  So, if we have custom sort, we turn this into
+        # a subquery and re-sort the subquery.
+        artifacts = artifacts.\
+          order_by(desc(Artifact.artifact_group_id),
+                   desc(Artifact.id))
+
+        if args.sort:
+            artifacts = db.session.query(Artifact).\
+              select_entity_from(artifacts.subquery())
+            if args.sort_desc:
+                artifacts = artifacts.\
+                  order_by(desc(args.sort))
+            else:
+                artifacts = artifacts.\
+                  order_by(asc(args.sort))
 
         pagination = None
         if "page" in args and args["page"]:
@@ -183,23 +217,86 @@ class ArtifactIndexAPI(Resource):
 
 
 class ArtifactAPI(Resource):
-    def get(self, artifact_id):
+
+    def __init__(self):
+        self.postparse = reqparse.RequestParser()
+        self.postparse.add_argument(
+            name="reimport", type=bool, required=False, default=False,
+            help="set reimport `true` to reimport into a new version")
+
+        super(ArtifactAPI, self).__init__()
+
+    def get(self, artifact_group_id, artifact_id=None):
         if has_api_key(request):
             verify_api_key(request)
 
-        artifact = db.session.query(Artifact).filter(
-            Artifact.id == artifact_id).first()
-        if not artifact:
-            abort(404, description='invalid ID for artifact')
+        # Verify the group exists
+        artifact_group = db.session.query(ArtifactGroup).filter(
+            ArtifactGroup.id == artifact_group_id).first()
+        if not artifact_group:
+            abort(404, description="nonexistent artifact group")
+
+        #
+        # Determine which artifact record to return.
+        #
+        # If the artifact_id is not specified, there must be a publication
+        # record for the group, unless: 1) caller is owner and has a draft; 2)
+        # caller is admin and gets the most recent draft.  I do not like this
+        # because it might be confusing, but we have to do it because a user
+        # can add a relationship to an unpublished artifact (and
+        # favorite/review/rate it), and we don't want to break the frontend for
+        # the user or admins.
+        #
+        # If the artifact_id is specified, and if it is published, anyone can
+        # retrieve it.  If not published, only the owner of the group or of the
+        # artifact, or an admin, may retrieve it.
+        #
+        artifact = None
+        if not artifact_id:
+            if not artifact_group.publication:
+                login_session = None
+                if has_token(request):
+                    login_session = verify_token(request)
+                if not (login_session
+                        and (login_session.user_id == artifact_group.owner_id
+                             or login_session.is_admin)):
+                    abort(400, description="insufficient permission to access unpublished artifact")
+                # Find the most recent owner draft
+                artifact = db.session.query(Artifact)\
+                  .filter(Artifact.artifact_group_id == artifact_group_id)\
+                  .filter(Artifact.owner_id == artifact_group.owner_id)\
+                  .order_by(desc(Artifact.ctime))\
+                  .first()
+            else:
+                artifact = artifact_group.publication.artifact
+        else:
+            res = db.session.query(Artifact, ArtifactPublication)\
+              .join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id, isouter=True)\
+              .filter(and_(Artifact.id == artifact_id,Artifact.artifact_group_id == artifact_group_id))\
+              .first()
+            if not res:
+                abort(404, description="no such artifact")
+            (artifact, publication) = res
+            if not artifact:
+                abort(404, description="no such artifact")
+            if not publication:
+                login_session = None
+                if has_token(request):
+                    login_session = verify_token(request)
+                if not (login_session
+                        and (login_session.user_id == artifact_group.owner_id
+                             or login_session.user_id == artifact.owner_id
+                             or login_session.is_admin)):
+                    abort(400, description="insufficient permission to access artifact")
 
         # get average rating for the artifact, number of ratings
-        rating_aggregates = db.session.query(ArtifactRatings.artifact_id, func.count(ArtifactRatings.id).label('num_ratings'), func.avg(
-            ArtifactRatings.rating).label('avg_rating')).filter(ArtifactRatings.artifact_id == artifact_id).group_by("artifact_id").all()
+        rating_aggregates = db.session.query(ArtifactRatings.artifact_group_id, func.count(ArtifactRatings.id).label('num_ratings'), func.avg(
+            ArtifactRatings.rating).label('avg_rating')).filter(ArtifactRatings.artifact_group_id == artifact_group.id).group_by("artifact_group_id").all()
 
         ratings = db.session.query(ArtifactRatings, ArtifactReviews).join(ArtifactReviews, and_(
             ArtifactRatings.user_id == ArtifactReviews.user_id,
-            ArtifactRatings.artifact_id == ArtifactReviews.artifact_id
-        )).filter(ArtifactRatings.artifact_id == artifact_id).all()
+            ArtifactRatings.artifact_group_id == ArtifactReviews.artifact_group_id
+        )).filter(ArtifactRatings.artifact_group_id == artifact_group.id).all()
 
         response = jsonify({
             "artifact": ArtifactSchema().dump(artifact),
@@ -208,22 +305,31 @@ class ArtifactAPI(Resource):
             "num_reviews": len(ratings) if ratings else 0,
             "rating_review": [{
                 "rating": ArtifactRatingsSchema(only=("rating",)).dump(rating), 
-                "review": ArtifactReviewsSchema(exclude=("artifact_id", "user_id")).dump(review)
+                "review": ArtifactReviewsSchema(exclude=("artifact_group_id", "user_id")).dump(review)
                 } for rating, review in ratings]
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
 
-    def put(self, artifact_id):
+    def put(self, artifact_group_id, artifact_id=None):
         verify_api_key(request)
         login_session = None
         if has_token(request):
             login_session = verify_token(request)
 
+        artifact_group = db.session.query(ArtifactGroup).filter(
+            ArtifactGroup.id == artifact_group_id).first()
+        if not artifact_group:
+            abort(404, description="nonexistent artifact group")
+        # We can only modify specific versions.
+        if not artifact_id:
+            abort(400, description="can only modify specific artifacts; must supply artifact_id")
+
         # We can only change unpublished artifacts unless admin.
-        artifact = db.session.query(Artifact).\
-          filter(Artifact.id == artifact_id)\
+        artifact = db.session.query(Artifact)\
+          .filter(Artifact.id == artifact_id)\
+          .filter(Artifact.artifact_group_id == artifact_group_id)\
           .first()
         if not artifact:
             abort(404, description="no such artifact")
@@ -235,6 +341,42 @@ class ArtifactAPI(Resource):
             abort(400, description="request body must be a JSON representation of an artifact")
 
         data = request.json
+
+        replay_results = None
+        if "replay_curations" in data and data["replay_curations"]:
+            if artifact.curations:
+                abort(400, description="cannot replay past curations once you have edited an artifact")
+
+            # Take a backwards-slice of curations using artifact.parent_id
+            curations = []
+            parent_id = artifact.parent_id
+            while parent_id:
+                res = db.session.query(ArtifactCuration).filter(ArtifactCuration.artifact_id == parent_id).all()
+                if res:
+                    tmp = res
+                    tmp.extend(curations)
+                    curations = tmp
+                parent_id = db.session.query(Artifact.parent_id).filter(Artifact.id == parent_id).first()
+
+            LOG.debug("curation: replaying %r",curations)
+
+            # Apply the curations
+            replay_results = []
+            with db.session.no_autoflush:
+                for curation in curations:
+                    (status,message) = artifact_apply_curation(db.session, artifact, curation)
+                    replay_results.append(
+                        dict(status=status,message=message,curation=ArtifactCurationSchema().dump(curation)))
+
+                try:
+                    db.session.commit()
+                    db.session.refresh(artifact)
+                except:
+                    ex = sys.exc_info()[1]
+                    LOG.exception(ex)
+                    db.session.rollback()
+                    abort(500, description="unexpected internal error during curation replay: %r" % (ex,))
+
         artifact_data = data
         if "artifact" in data:
             artifact_data = data["artifact"]
@@ -290,13 +432,19 @@ class ArtifactAPI(Resource):
         if "publication" in data and data["publication"] is not None \
           and not artifact.publication:
             notes = None
-            if "notes" in data["publication"]:
-                notes = data["publication"]
+            if data["publication"].get("notes",None):
+                notes = data["publication"]["notes"]
             now = datetime.datetime.now()
-            artifact.publication = ArtifactPublication(
-                artifact_id=artifact.id,
-                publisher_id=artifact.owner_id,
+            publication = ArtifactPublication(
+                artifact_id=artifact.id, publisher_id=artifact.owner_id,
+                version=artifact.artifact_group.next_version,
                 time=now,notes=notes)
+            db.session.add(publication)
+            db.session.commit()
+            db.session.refresh(publication)
+            artifact_group.publication = publication
+            artifact.publication = publication
+            artifact.artifact_group.next_version += 1
             # Automatically archive the artifact.
             artifact_import = db.session.query(ArtifactImport).\
               filter(ArtifactImport.artifact_id == artifact.id).\
@@ -307,26 +455,23 @@ class ArtifactAPI(Resource):
         db.session.commit()
         db.session.refresh(artifact)
 
-        response = jsonify(dict(artifact=ArtifactSchema().dump(artifact)))
+        ret = dict(artifact=ArtifactSchema().dump(artifact))
+        if replay_results is not None:
+            ret["replay_results"] = replay_results
+        response = jsonify(ret)
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
 
         return response
 
-    def delete(self, artifact_id):
-        verify_api_key(request)
-        login_session = verify_token(request)
+    def _delete_artifact(self, artifact_group_id, artifact_id):
+        artifact_group = db.session.query(ArtifactGroup).\
+          filter(ArtifactGroup.id == artifact_group_id).\
+          first()
 
-        # We can only delete unpublished artifacts.
         artifact = db.session.query(Artifact).\
           filter(Artifact.id == artifact_id).\
           first()
-        if not artifact:
-            abort(404, description="no such artifact")
-        if not (login_session.is_admin or artifact.owner_id == login_session.user_id):
-            abort(401, description="insufficient permission to delete artifact")
-        if artifact.publication and not login_session.is_admin:
-            abort(403, description="artifact already published; cannot delete")
 
         # If currently importing, delete that first, and commit:
         artifact_import = db.session.query(ArtifactImport).\
@@ -339,55 +484,225 @@ class ArtifactAPI(Resource):
             if schedule:
                 db.session.delete(schedule)
             db.session.delete(artifact_import)
-            db.session.commit()
 
-        db.session.refresh(artifact)
-        db.session.refresh(login_session)
+        #db.session.refresh(artifact)
 
+        # If artifact is referenced by an ArtifactPublication, and if that
+        # publication is the current one referenced by the ArtifactGroup,
+        # remove all that.
+        if artifact.publication:
+            if artifact.publication.id == artifact_group.publication_id:
+                artifact_group.publication_id = None
+            db.session.delete(artifact.publication)
+
+        # Update Artifact "member" tables that are primarily related to the
+        # group, but index the related artifact version specifically.
+        indexing = [ ArtifactRatings, ArtifactReviews, ArtifactFavorites ]
+        for table in indexing:
+            records = db.session.query(table).\
+              filter(getattr(table, "artifact_id") == artifact_id).\
+              all()
+            for record in records:
+                record.artifact_id = None
+        # Handle ArtifactRelationship specially, since it has pointers to both
+        # artifact_id and related_artifact_id.
+        records = db.session.query(ArtifactRelationship).\
+          filter(or_(ArtifactRelationship.artifact_id == artifact_id,\
+                     ArtifactRelationship.artifact_id == artifact_id)).\
+          all()
+        for record in records:
+          if record.artifact_id == artifact_id:
+            record.artifact_id = None
+          if record.related_artifact_id == artifact_id:
+            record.related_artifact_id = None
+
+        # Delete all the Artifact "member" table records.
         for af in getattr(artifact, "files", []):
             for afm in getattr(af, "members", []):
                 db.session.delete(afm)
             af.members = []
             db.session.delete(af)
         artifact.files = []
-        many = [ "meta", "tags", "curations", "affiliations", "relationships", "releases",
-                 "badges" ]
+        many = [ "meta", "tags", "curations", "affiliations", "releases",
+                 "badges", "funding", "releases" ]
         for field in many:
             for x in getattr(artifact, field, []):
                 db.session.delete(x)
             setattr(artifact, field, [])
-        classes = [ ArtifactReviews, ArtifactRatings, ArtifactFavorites ]
-        for c in classes:
-            res = db.session.query(c).filter(c.artifact_id == artifact_id).all() or []
-            for x in res:
-                db.session.delete(x)
-        single = [ "publication" ]
-        for field in single:
-            x = getattr(artifact, field, None)
-            if x:
-                db.session.delete(x)
-                setattr(artifact, field, None)
+
+        # If anyone's parent_id is us, unlink that.
+        records = db.session.query(Artifact).\
+          filter(Artifact.parent_id == artifact_id).\
+          all()
+        for record in records:
+            record.parent_id = None
 
         db.session.delete(artifact)
+        db.session.commit()
+
+    def _maybe_delete_artifact_group(self, artifact_group_id):
+        artifact_group = db.session.query(ArtifactGroup).filter(
+            ArtifactGroup.id == artifact_group_id).first()
+        artifacts = db.session.query(Artifact).\
+          filter(Artifact.artifact_group_id == artifact_group_id).\
+          all()
+        if artifacts:
+            # Still artifact versions; don't delete the group.
+            return
+
+        # Update Artifact "member" tables that are primarily related to the
+        # group, but index the related artifact version specifically.
+        tables = [ ArtifactRatings, ArtifactReviews, ArtifactFavorites ]
+        for table in tables:
+            records = db.session.query(table).\
+              filter(getattr(table, "artifact_group_id") == artifact_group_id).\
+              all()
+            for record in records:
+                db.session.delete(record)
+        # Handle ArtifactRelationship specially, since it has pointers to both
+        # artifact_group_id and related_artifact_group_id.
+        records = db.session.query(ArtifactRelationship).\
+          filter(or_(ArtifactRelationship.artifact_group_id == artifact_group_id,\
+                     ArtifactRelationship.artifact_group_id == artifact_group_id)).\
+          all()
+        for record in records:
+            if record.artifact_group_id == artifact_group_id:
+                db.session.delete(record)
+            if record.related_artifact_group_id == artifact_group_id:
+                db.session.delete(record)
+
+        # Finally delete the group object.
+        db.session.delete(artifact_group)
+        db.session.commit()
+
+    def delete(self, artifact_group_id, artifact_id=None):
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        # We can only delete unpublished artifacts.
+        artifact_group = db.session.query(ArtifactGroup).filter(
+            ArtifactGroup.id == artifact_group_id).first()
+        if not artifact_group:
+            abort(404, description="nonexistent artifact group")
+        # We can only delete specific versions unless admin.
+        if not artifact_id and not login_session.is_admin:
+            abort(400, description="can only delete specific artifacts; must supply artifact_id")
+
+        artifacts = []
+        if artifact_id:
+            artifact = db.session.query(Artifact).\
+              filter(Artifact.id == artifact_id).\
+              first()
+            if not artifact:
+                abort(404, description="no such artifact")
+            if not (login_session.is_admin or artifact.owner_id == login_session.user_id):
+                abort(401, description="insufficient permission to delete artifact")
+            if artifact.publication and not login_session.is_admin:
+                abort(403, description="artifact already published; cannot delete")
+            artifacts.append(artifact)
+        else:
+            artifacts = db.session.query(Artifact).\
+              filter(Artifact.artifact_group_id == artifact_group_id).\
+              all()
+
+        for artifact in artifacts:
+            try:
+                self._delete_artifact(artifact.artifact_group_id, artifact.id)
+            except:
+                LOG.error("failed to delete artifact %r", artifact.id)
+                LOG.exception(sys.exc_info()[1])
+                abort(500, description="failed to delete artifact %r" % (artifact.id,))
+
+        # If the artifact_group is now empty, remove it.
         try:
-            db.session.commit()
+            self._maybe_delete_artifact_group(artifact_group_id)
         except:
-            LOG.error("failed to delete artifact %r", artifact_id)
+            LOG.error("failed to delete artifact_group %r", artifact_group_id)
             LOG.exception(sys.exc_info()[1])
-            abort(500, description="failed to delete artifact %r" % (artifact_id,))
+            abort(500, description="failed to delete artifact_group %r" % (artifact_group_id,))
 
         return Response(status=200)
+
+    def post(self, artifact_group_id, artifact_id=None):
+        """Creates a new artifact version"""
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        # We can only modify specific versions.
+        if not artifact_id:
+            abort(400, description="can only create new version from a specific artifact; must supply artifact_id")
+
+        # We can only change unpublished artifacts unless admin.
+        artifact = db.session.query(Artifact).\
+          filter(Artifact.id == artifact_id)\
+          .first()
+        if not artifact:
+            abort(404, description="no such artifact")
+        if not login_session.is_admin and artifact.owner_id != login_session.user_id:
+            abort(401, description="insufficient permission to modify artifact")
+        if not artifact.publication:
+            abort(403, description="artifact not published; cannot create new version from unpublished artifact")
+
+        #j = request.json
+        args = self.postparse.parse_args()
+        response = None
+        if args.reimport: #j and getattr(j,"reimport",False):
+            res = db.session.query(ArtifactImport).\
+              filter(ArtifactImport.url == artifact.url).\
+              filter(ArtifactImport.owner_id == login_session.user_id).\
+              filter(ArtifactImport.artifact_id == None).\
+              filter(not_(ArtifactImport.status.in_(["completed","failed"]))).\
+              all()
+            if len(res) > 0:
+                abort(400, description="user_id %r already importing from %r" % (login_session.user_id,artifact.url))
+
+            dt = datetime.datetime.now()
+            ai = ArtifactImport(
+                type=artifact.type,url=artifact.url,
+                artifact_group_id=artifact.artifact_group_id,
+                parent_artifact_id=artifact.id,owner_id=login_session.user_id,
+                ctime=dt,mtime=dt,status="pending",phase="start",archived=False)
+            ims = ImporterSchedule(artifact_import=ai)
+            db.session.add(ai)
+            db.session.add(ims)
+            db.session.commit()
+            db.session.refresh(ai)
+
+            LOG.debug("scheduling %r" % (ai,))
+            threading.Thread(target=schedule_import,name="schedule_import").start()
+
+            response = jsonify({"artifact_import": ArtifactImportSchema().dump(ai)})
+        else:
+            cloned_artifact = artifact_clone(artifact)
+            cloned_artifact.owner_id = login_session.user_id
+            cloned_artifact.ctime = datetime.datetime.now()
+            cloned_artifact.parent_id = artifact.id
+
+            try:
+                db.session.add(cloned_artifact)
+                db.session.commit()
+            except:
+                LOG.error("failed to add cloned artifact %r", cloned_artifact)
+                LOG.exception(sys.exc_info()[1])
+                abort(500, description="failed to add cloned artifact (source id %r/%r)" % (artifact_group_id, artifact_id,))
+
+            response = jsonify({"artifact": ArtifactSchema().dump(cloned_artifact)})
+
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+
+        return response
 
 
 class ArtifactRelationshipResourceRoot(Resource):
     def __init__(self):
         self.getparse = reqparse.RequestParser()
-        self.getparse.add_argument(name='artifact_id',
+        self.getparse.add_argument(name='artifact_group_id',
                                    type=int,
                                    required=True,
-                                   help='artifact_id to filter')
+                                   help='artifact group id to filter')
         self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument(name='artifact_id',
+        self.reqparse.add_argument(name='artifact_group_id',
                                    type=int,
                                    required=True,
                                    help='source artifact')
@@ -395,8 +710,8 @@ class ArtifactRelationshipResourceRoot(Resource):
                                    type=str,
                                    required=True,
                                    choices=RELATION_TYPES,
-                                   help='relation from artifact_id to related_artifact_id')
-        self.reqparse.add_argument(name='related_artifact_id',
+                                   help='relation from artifact_group_id to related_artifact_group_id')
+        self.reqparse.add_argument(name='related_artifact_group_id',
                                    type=int,
                                    required=True,
                                    help='related artifact')
@@ -408,18 +723,18 @@ class ArtifactRelationshipResourceRoot(Resource):
         login_session = verify_token(request)
 
         args = self.getparse.parse_args()
-        artifact_id = args["artifact_id"]
+        artifact_group_id = args["artifact_group_id"]
 
         # check for valid artifact id
-        artifact = db.session.query(Artifact).filter(
-            Artifact.id == artifact_id).first()
-        if not artifact:
-            abort(400, description='invalid artifact ID')
+        artifact_group = db.session.query(ArtifactGroup).filter(
+            ArtifactGroup.id == artifact_group_id).first()
+        if not artifact_group:
+            abort(400, description='invalid artifact group ID')
 
         # get all relationships
-        relationships = ArtifactRelationship.query.filter_by(artifact_id=artifact_id).all()
+        relationships = ArtifactRelationship.query.filter_by(artifact_group_id=artifact_group_id).all()
 
-        response = jsonify({"artifact_relationships": ArtifactRelationshipSchema(many=True, exclude=['related_artifact']).dump(relationships)})
+        response = jsonify({"artifact_relationships": ArtifactRelationshipSchema(many=True, exclude=['related_artifact_group']).dump(relationships)})
 
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
@@ -431,34 +746,36 @@ class ArtifactRelationshipResourceRoot(Resource):
 
         args = self.reqparse.parse_args()
 
-        artifact_id = args['artifact_id']
+        artifact_group_id = args['artifact_group_id']
         relation = args['relation']
-        related_artifact_id = args['related_artifact_id']
+        related_artifact_group_id = args['related_artifact_group_id']
 
         # check for valid artifact id
-        artifact = db.session.query(Artifact).filter(
-            Artifact.id == artifact_id).first()
-        if not artifact:
-            abort(400, description='invalid artifact ID')
+        artifact_group = db.session.query(ArtifactGroup).filter(
+            ArtifactGroup.id == artifact_group_id).first()
+        if not artifact_group:
+            abort(400, description='invalid artifact group ID')
 
         # check for valid artifact ownership
-        if artifact.owner_id != login_session.user_id and not login_session.is_admin:
-            abort(400, description='insufficient permission: must own source artifact')
+        if artifact_group.owner_id != login_session.user_id and not login_session.is_admin:
+            abort(400, description='insufficient permission: must own source artifact group')
             
         # Check if we are updating an existing relationship
-        queried_relationship = ArtifactRelationship.query.filter_by(artifact_id=artifact_id, relation=relation, related_artifact_id=related_artifact_id).first()
+        queried_relationship = ArtifactRelationship.query.filter_by(artifact_group_id=artifact_group_id, relation=relation, related_artifact_group_id=related_artifact_group_id).first()
 
         if queried_relationship:
             abort(403, description='relationship already exists')
 
         # insert the new relation
         new_relationship = ArtifactRelationship(
-            artifact_id=artifact_id, relation=relation, related_artifact_id=related_artifact_id)
+            artifact_group_id=artifact_group_id, relation=relation,
+            related_artifact_group_id=related_artifact_group_id,
+            artifact_id=artifact_group.publication_id)
         db.session.add(new_relationship)
         db.session.commit()
         db.session.refresh(new_relationship)
 
-        response = jsonify({"artifact_relationship": ArtifactRelationshipSchema(many=False, exclude=['related_artifact']).dump(new_relationship)})
+        response = jsonify({"artifact_relationship": ArtifactRelationshipSchema(many=False, exclude=['related_artifact_group']).dump(new_relationship)})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
@@ -483,7 +800,7 @@ class ArtifactRelationshipResource(Resource):
         if not artifact_relationship:
             abort(400, description='invalid artifact_relationship ID')
 
-        response = jsonify(ArtifactRelationshipSchema(many=False, exclude=['related_artifact']).dump(artifact_relationship))
+        response = jsonify(ArtifactRelationshipSchema(many=False, exclude=['related_artifact_group']).dump(artifact_relationship))
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
@@ -501,15 +818,15 @@ class ArtifactRelationshipResource(Resource):
             ArtifactRelationship.id == artifact_relationship_id).first()
         if not artifact_relationship:
             abort(400, description='invalid artifact_relationship ID')
-        artifact_id = artifact_relationship.artifact_id
+        artifact_group_id = artifact_relationship.artifact_group_id
 
         # check for valid artifact_relationship ownership (via artifact)
-        artifact_relationship_ownership = db.session.query(Artifact).filter(
-            Artifact.id == artifact_id).\
-            filter(True if login_session.is_admin else Artifact.owner_id == login_session.user_id).\
+        artifact_relationship_ownership = db.session.query(ArtifactGroup).filter(
+            ArtifactGroup.id == artifact_group_id).\
+            filter(True if login_session.is_admin else ArtifactGroup.owner_id == login_session.user_id).\
             first()
         if not artifact_relationship_ownership:
-            abort(400, description='insufficient permission: must own source artifact')
+            abort(400, description='insufficient permission: must own source artifact group')
 
         artifact_relationship.relation = relation
         db.session.commit()
@@ -528,12 +845,12 @@ class ArtifactRelationshipResource(Resource):
             ArtifactRelationship.id == artifact_relationship_id).first()
         if not artifact_relationship:
             abort(400, description='invalid artifact_relationship ID')
-        artifact_id = artifact_relationship.artifact_id
+        artifact_group_id = artifact_relationship.artifact_group_id
 
         # check for valid artifact ownership
-        artifact_ownership = db.session.query(Artifact).filter(
-            Artifact.id == artifact_id).\
-            filter(True if login_session.is_admin else Artifact.owner_id == login_session.user_id).\
+        artifact_ownership = db.session.query(ArtifactGroup).filter(
+            ArtifactGroup.id == artifact_group_id).\
+            filter(True if login_session.is_admin else ArtifactGroup.owner_id == login_session.user_id).\
             first()
         if not artifact_ownership:
             abort(400, description='insufficient permission: must own source artifact')
