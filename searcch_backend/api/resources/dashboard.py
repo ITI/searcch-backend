@@ -24,8 +24,8 @@ class UserDashboardAPI(Resource):
         - User favorites
     """
     @staticmethod
-    def generate_artifact_uri(artifact_id):
-        return url_for('api.artifact', artifact_id=artifact_id)
+    def generate_artifact_uri(artifact_group_id, artifact_id=None):
+        return url_for('api.artifact', artifact_group_id, artifact_id=artifact_id)
 
     def get(self):
         verify_api_key(request)
@@ -35,19 +35,28 @@ class UserDashboardAPI(Resource):
         user = db.session.query(User).filter(User.id == login_session.user_id).first()
         
         # artifacts owned by the logged-in user
-        artifact_schema = ArtifactSchema(many=True, only=('id', 'type', 'title', 'ctime'))
-        owned_artifacts = db.session.query(Artifact).filter(Artifact.owner_id == login_session.user_id)
-        given_ratings = db.session.query(ArtifactRatings.artifact_id, ArtifactRatings.rating, Artifact.title, Artifact.type).filter(ArtifactRatings.user_id == login_session.user_id
-                                        ).join(Artifact, Artifact.id == ArtifactRatings.artifact_id).all()
-        favorite_artifacts =  db.session.query(Artifact
-                                                ).join(ArtifactFavorites, Artifact.id == ArtifactFavorites.artifact_id
-                                                ).filter(ArtifactFavorites.user_id == login_session.user_id
-                                                ).all()
+        artifact_schema = ArtifactSchema(many=True, only=('artifact_group_id', 'id', 'type', 'title', 'ctime'))
+        owned_artifacts = db.session.query(Artifact)\
+            .join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id)\
+            .filter(Artifact.owner_id == login_session.user_id)
+        given_ratings = db.session.query(ArtifactRatings.artifact_group_id, ArtifactRatings.rating, Artifact.title, Artifact.type)\
+            .join(ArtifactGroup, ArtifactGroup.id == ArtifactRatings.artifact_group_id)\
+            .join(ArtifactPublication, ArtifactPublication.id == ArtifactGroup.publication_id)\
+            .join(Artifact, Artifact.id == ArtifactPublication.artifact_id)\
+            .filter(ArtifactRatings.user_id == login_session.user_id)\
+            .all()
+        favorite_artifacts =  db.session.query(ArtifactFavorites, Artifact)\
+            .join(ArtifactGroup, ArtifactFavorites.artifact_group_id == ArtifactGroup.id)\
+            .join(ArtifactPublication, ArtifactPublication.id == ArtifactGroup.publication_id)\
+            .join(Artifact, Artifact.id == ArtifactPublication.artifact_id)\
+            .filter(ArtifactFavorites.user_id == login_session.user_id)\
+            .all()
 
         fav_artifacts = []
-        for artifact in favorite_artifacts:
+        for (favorite, artifact) in favorite_artifacts:
             result = {
-                "id": artifact.id,
+                "artifact_group_id": artifact.artifact_group_id,
+                #"id": artifact.id,
                 "type": artifact.type,
                 "title": artifact.title
             }
@@ -56,7 +65,7 @@ class UserDashboardAPI(Resource):
         rated_artifacts = [] 
         for artifact in given_ratings:
             result = {
-                "id": artifact.artifact_id,
+                "artifact_group_id": artifact.artifact_group_id,
                 "rating": artifact.rating,
                 "title": artifact.title,
                 "type": artifact.type
@@ -105,7 +114,7 @@ class ArtifactStatsAPI(Resource):
         for artifact, num_ratings, avg_rating, num_reviews in artifact_list:
             result = {
                 "id": artifact.id,
-                "uri": UserDashboardAPI.generate_artifact_uri(artifact.id),
+                "uri": UserDashboardAPI.generate_artifact_uri(artifact.artifact_group_id, artifact_id=artifact.id),
                 "doi": artifact.url,
                 "type": artifact.type,
                 "title": artifact.title,
