@@ -16,7 +16,7 @@ from searcch_backend.models.schema import *
 LOG = logging.getLogger(__name__)
 
 def verify_strategy(strategy):
-    if strategy not in ['github']:
+    if strategy not in [ 'github', 'google' ]:
         abort(403, description="missing/incorrect strategy")
 
 
@@ -66,6 +66,8 @@ class LoginAPI(Resource):
                                    required=True,
                                    help='Set admin mode for this session, if authorized')
 
+        self._google_userinfo_endpoint = None
+
     def put(self):
         verify_api_key(request)
         login_session = verify_token(request)
@@ -79,6 +81,55 @@ class LoginAPI(Resource):
 
         return Response(status=200)
 
+    def _validate_github(self, sso_token):
+        # get email/name from Github
+        github_user_api = 'https://api.github.com/user'
+        headers = {
+            'Accept': 'application/vnd.github.v3+json',
+            'Authorization': sso_token
+        }
+        response = requests.get(github_user_api, headers=headers)
+        if response.status_code != requests.codes.ok:
+            abort(response.status_code, description="invalid SSO token")
+        response_json = response.json()
+        return (response_json["email"], response_json.get("name", response_json["login"]))
+
+    @property
+    def google_userinfo_endpoint(self):
+        if self._google_userinfo_endpoint:
+            return self._google_userinfo_endpoint
+
+        response = requests.get(
+            "https://accounts.google.com/.well-known/openid-configuration")
+        if response.status_code != requests.codes.ok:
+            abort(response.status_code,
+                  description="unexpected error from IDP (%r)" % (response.status_code,))
+        try:
+            self._google_userinfo_endpoint = response.json()["userinfo_endpoint"]
+        except:
+            abort(500, description="unexpected error with IDP")
+
+        return self._google_userinfo_endpoint
+
+    def _validate_google(self, sso_token):
+        userinfo_endpoint = self.google_userinfo_endpoint
+        headers = {
+            'Authorization': sso_token
+        }
+        response = requests.get(userinfo_endpoint, headers=headers)
+        if response.status_code != requests.codes.ok:
+            abort(response.status_code, description="invalid SSO token")
+        response_json = response.json()
+        LOG.debug("Google SSO userinfo: %r", response_json)
+        return (response_json["email"], response_json.get("displayName", None))
+
+    def _validate_token(self, strategy, sso_token):
+        if strategy == "github":
+            return self._validate_github(sso_token)
+        elif strategy == "google":
+            return self._validate_google(sso_token)
+        abort(405, description="invalid IDP strategy")
+
     def post(self):
         args = self.reqparse.parse_args(strict=True)
 
@@ -90,17 +141,7 @@ class LoginAPI(Resource):
         sso_token = args.get('token')
         login_session = lookup_token(sso_token)
         if not login_session:
-            # get email from Github
-            github_user_email_api = 'https://api.github.com/user/emails'
-            headers = {
-                'Accept': 'application/vnd.github.v3+json',
-                'Authorization': sso_token
-            }
-            response = requests.get(github_user_email_api, headers=headers)
-            if response.status_code != requests.codes.ok:
-                abort(response.status_code, description="invalid SSO token")
-            response_json = response.json()[0]
-            user_email = response_json["email"]
+            (user_email, user_name) = self._validate_token(strategy, sso_token)
 
             # check if User entity with that email exists
             user = db.session.query(User).\
@@ -128,19 +169,6 @@ class LoginAPI(Resource):
                 response.status_code = 200
                 return response
             else:  # create new user
-                github_user_details_api = 'https://api.github.com/user'
-                headers = {
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Authorization': sso_token
-                }
-                response = requests.get(github_user_details_api, headers=headers)
-                
-                if response.status_code != requests.codes.ok:
-                    abort(response.status_code, description="invalid SSO token")
-                
-                user_details_json = response.json()
-                user_name = user_details_json["name"] if user_details_json["name"] else user_details_json["login"]
-
                 # create database entities
                 #
                 # Handle race condition due to not locking this table where
