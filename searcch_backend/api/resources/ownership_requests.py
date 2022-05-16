@@ -79,7 +79,7 @@ class OwnershipRequestsAPI(Resource):
             abort(400, description='ownership request already present')
         
         # Send mail to raise approval request
-        response = jsonify({"message": "created a new ownership request, mail sent"})
+        response = jsonify({"message": "created a new ownership request"})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
