@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .card-container {
+            border: 1px solid black;
+            width: 30%;
+            padding: 0em 1em;
+            border-radius: 0.5em;
+            background-color: lightgray;
+            box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
+        }
+
+        .card-op {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .card-title {
+            padding: 0.2em 0.3em;
+            font-size: 0.8em;
+        }
+
+        .card-info {
+            padding: 0.2em 0.3em;
+            font-size: 0.8em;
+            max-width: 50%;
+            text-overflow: ellipsis;
+            overflow: hidden;     
+            white-space: nowrap;
+        }
+
+        a {
+            display: inline-block;
+        }
+        .btn-holder {
+            padding: 0em 0em 0.5em 0em;
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .btn-holder a {
+            text-decoration: none;
+            width: 100%;
+        }
+
+        button {
+            width: 50%;
+            padding: 5px 10px;
+            margin-bottom: 10px;
+            margin-top: 0.5em;
+            border-radius: 0.5em;
+        }
+
+        .accept {
+            margin-right: 2px;
+            background-color: #4CAF50;
+            text-align: center;
+            color: white;
+            border: none;
+        }
+
+        .reject {
+            margin-left: 2px;
+            background-color: #d34036;
+            text-align: center;
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="body">
+        <h3>
+            Searcch user ownership request approval
+        </h3>
+        <p>
+            A new request has been made for Artifact:
+        </p>
+        <div class="card-container">
+            <div class="card-op">
+                <p class="card-title">Artifact ID:</p>
+                <p class="card-info">123</p>
+            </div>
+
+            <div class="card-op">
+                <p class="card-title">Artifact Name:</p>
+                <p class="card-info">Lorem ipsum dolor sit amet consectetur adipisicing elit. Quam quaerat fugiat repudiandae maiores eius ad. Id doloremque odit exercitationem quam nihil iusto asperiores ratione perspiciatis debitis tempora ducimus, enim ipsum.</p>
+            </div>
+            <div class="card-op">
+                <p class="card-title">Artifact link:</p>
+                <p class="card-info"><a href="google.com">google.com</a></p>
+            </div>
+            <div class="card-op">
+                <p class="card-title">User ID:</p>
+                <p class="card-info">123</p>
+            </div>
+            <div class="card-op">
+                <p class="card-title">User Profile:</p>
+                <p class="card-info"><a href="google.com">google.com</a></p>
+            </div>
+            <div class="card-op">
+                <div class="btn-holder">
+                    <button class="accept"><a href="dummy-frontend">Accept</a></button>
+                    <button class="reject"><a href="dummy-backend">Reject</a></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

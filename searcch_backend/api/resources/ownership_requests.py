@@ -2,12 +2,13 @@ from datetime import date, datetime
 import json
 from urllib import response
 from sqlalchemy.exc import IntegrityError
-from searcch_backend.api.app import db, config_name
+from searcch_backend.api.app import db, config_name, mail
 from searcch_backend.api.common.auth import (verify_api_key, verify_token)
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
-from flask import abort, jsonify, request, make_response, Blueprint
+from flask import abort, jsonify, request, make_response, Blueprint, render_template
 from flask_restful import reqparse, Resource, fields, marshal, inputs
+from flask_sendmail import Message
 import math
 import sys
 
@@ -79,7 +80,17 @@ class OwnershipRequestsAPI(Resource):
             abort(400, description='ownership request already present')
         
         # Send mail to raise approval request
-        response = jsonify({"message": "created a new ownership request"})
+
+        msg = Message('Claim artifact approval request for Artifact id: {}'.format(str(artifact_id)),
+                sender="searcch.hub@cyberexperimentation.org",
+                recipients=["insertEmailHere@example.com"])
+
+        msg.html = render_template('email.html')
+
+        mail.send(msg)
+
+        # Send response
+        response = jsonify({"message": "created a new ownership request, email sent"})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
