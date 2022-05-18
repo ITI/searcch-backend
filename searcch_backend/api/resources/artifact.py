@@ -6,6 +6,7 @@ from searcch_backend.api.common.sql import (
     artifact_apply_curation)
 from searcch_backend.api.common.auth import (verify_api_key, has_api_key, has_token, verify_token)
 from searcch_backend.api.common.importer import schedule_import
+from searcch_backend.api.common.stats import StatsResource
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
@@ -297,6 +298,12 @@ class ArtifactAPI(Resource):
             ArtifactRatings.user_id == ArtifactReviews.user_id,
             ArtifactRatings.artifact_group_id == ArtifactReviews.artifact_group_id
         )).filter(ArtifactRatings.artifact_group_id == artifact_group.id).all()
+
+        # Record Artifact view in database
+        stat_view_artifact_id = artifact_id if artifact_id else artifact_group_id
+        session_id = request.cookies.get('session_id')
+        stat_view_obj = StatsResource(artifact_id=stat_view_artifact_id, session_id=session_id)
+        stat_view_obj.recordView()
 
         response = jsonify({
             "artifact": ArtifactSchema().dump(artifact),

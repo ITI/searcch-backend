@@ -26,7 +26,7 @@ class FileContent(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     content = db.Column(db.LargeBinary(), nullable=False)
-    hash = db.Column(db.Binary(32), nullable=False)
+    hash = db.Column(db.LargeBinary(32), nullable=False)
     size = db.Column(db.BigInteger, nullable=False)
 
     __table_args__ = (
@@ -801,3 +801,35 @@ class ImporterSchedule(db.Model):
     def __repr__(self):
         return "<ImporterSchedule(id=%r,artifact_import=%r,importer_instance=%r,schedule_time=%r" % (
             self.id, self.artifact_import, self.importer_instance, self.schedule_time)
+
+
+# Models to capture Statistical Data
+
+class StatsArtifactViews(db.Model):
+    __tablename__ = "stats_views"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    view_count = db.Column(db.Integer, nullable=False)
+    def __repr__(self):
+        return "<StatsArtifactViews(id=%r, artifact_id=%r, user_id=%r,view_count=%r)>" % (self.id, self.artifact_id, self.user_id, self.view_count)
+
+class StatsSearches(db.Model):
+    __tablename__ = "stats_searches"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    search_term = db.Column(db.String(512), nullable=False)
+    def __repr__(self):
+        return "<StatsSearches(id=%r, search_term=%r)>" % (self.id, self.search_term)
+
+class StatsRecentViews(db.Model):
+    __tablename__ = "recent_views"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    session_id = db.Column(db.Integer, nullable=False)
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    view_count = db.Column(db.Integer, nullable=False)
+    def __repr__(self):
+        return "<StatsRecentViews(id=%r, session_id=%r, artifact_id=%r, user_id=%r,view_count=%r)>" % (self.id, self.session_id, self.artifact_id, self.user_id, self.view_count)
