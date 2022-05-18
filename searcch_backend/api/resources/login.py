@@ -16,7 +16,7 @@ from searcch_backend.models.schema import *
 LOG = logging.getLogger(__name__)
 
 def verify_strategy(strategy):
-    if strategy not in [ 'github', 'google' ]:
+    if strategy not in [ 'github', 'google', 'cilogon' ]:
         abort(403, description="missing/incorrect strategy")
 
 
@@ -67,6 +67,7 @@ class LoginAPI(Resource):
                                    help='Set admin mode for this session, if authorized')
 
         self._google_userinfo_endpoint = None
+        self._cilogon_userinfo_endpoint = None
 
     def put(self):
         verify_api_key(request)
@@ -120,14 +121,43 @@ class LoginAPI(Resource):
         if response.status_code != requests.codes.ok:
             abort(response.status_code, description="invalid SSO token")
         response_json = response.json()
-        LOG.debug("Google SSO userinfo: %r", response_json)
         return (response_json["email"], response_json.get("displayName", None))
+
+    @property
+    def cilogon_userinfo_endpoint(self):
+        if self._cilogon_userinfo_endpoint:
+            return self._cilogon_userinfo_endpoint
+
+        response = requests.get(
+            "https://cilogon.org/.well-known/openid-configuration")
+        if response.status_code != requests.codes.ok:
+            abort(response.status_code,
+                  description="unexpected error from IDP (%r)" % (response.status_code,))
+        try:
+            self._cilogon_userinfo_endpoint = response.json()["userinfo_endpoint"]
+        except:
+            abort(500, description="unexpected error with IDP")
+
+        return self._cilogon_userinfo_endpoint
+
+    def _validate_cilogon(self, sso_token):
+        userinfo_endpoint = self.cilogon_userinfo_endpoint
+        headers = {
+            'Authorization': sso_token
+        }
+        response = requests.get(userinfo_endpoint, headers=headers)
+        if response.status_code != requests.codes.ok:
+            abort(response.status_code, description="invalid SSO token")
+        response_json = response.json()
+        return (response_json["email"], response_json.get("name", None))
 
     def _validate_token(self, strategy, sso_token):
         if strategy == "github":
             return self._validate_github(sso_token)
         elif strategy == "google":
             return self._validate_google(sso_token)
+        elif strategy == "cilogon":
+            return self._validate_cilogon(sso_token)
         abort(405, description="invalid IDP strategy")
 
     def post(self):
