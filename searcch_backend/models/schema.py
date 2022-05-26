@@ -1,4 +1,4 @@
-from marshmallow_sqlalchemy import ModelSchema, SQLAlchemyAutoSchema, auto_field
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema, auto_field
 from marshmallow_sqlalchemy.convert import ModelConverter as BaseModelConverter
 from marshmallow_sqlalchemy.fields import Nested
 from marshmallow import fields, ValidationError
