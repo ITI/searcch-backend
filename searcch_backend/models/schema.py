@@ -378,6 +378,14 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     affiliations = Nested(ArtifactAffiliationSchema, many=True)
     badges = Nested(ArtifactBadgeSchema, many=True)
 
+    view_count = fields.Method("get_views")
+
+    def get_views(self, obj):
+        result = db.session.query(Artifact, StatsArtifactViews.view_count.label("view_count")).join(StatsArtifactViews, Artifact.id==StatsArtifactViews.artifact_id).filter(Artifact.id==obj.id).first()
+        if hasattr(result, "view_count"):
+            return result.view_count
+        return 0
+
 
 class ArtifactSearchMaterializedViewSchema(SQLAlchemyAutoSchema):
     class Meta:
