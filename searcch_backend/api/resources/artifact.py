@@ -300,9 +300,8 @@ class ArtifactAPI(Resource):
         )).filter(ArtifactRatings.artifact_group_id == artifact_group.id).all()
 
         # Record Artifact view in database
-        stat_view_artifact_id = artifact_id if artifact_id else artifact_group_id
         session_id = request.cookies.get('session_id')
-        stat_view_obj = StatsResource(artifact_id=stat_view_artifact_id, session_id=session_id)
+        stat_view_obj = StatsResource(artifact_group_id=artifact_group_id, session_id=session_id)
         stat_view_obj.recordView()
 
         response = jsonify({
@@ -559,7 +558,7 @@ class ArtifactAPI(Resource):
 
         # Update Artifact "member" tables that are primarily related to the
         # group, but index the related artifact version specifically.
-        tables = [ ArtifactRatings, ArtifactReviews, ArtifactFavorites ]
+        tables = [ ArtifactRatings, ArtifactReviews, ArtifactFavorites, StatsRecentViews, StatsArtifactViews ]
         for table in tables:
             records = db.session.query(table).\
               filter(getattr(table, "artifact_group_id") == artifact_group_id).\

@@ -381,7 +381,7 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     view_count = fields.Method("get_views")
 
     def get_views(self, obj):
-        result = db.session.query(Artifact, StatsArtifactViews.view_count.label("view_count")).join(StatsArtifactViews, Artifact.id==StatsArtifactViews.artifact_id).filter(Artifact.id==obj.id).first()
+        result = db.session.query(Artifact, StatsArtifactViews.view_count.label("view_count")).join(StatsArtifactViews, Artifact.artifact_group_id==StatsArtifactViews.artifact_group_id).filter(Artifact.artifact_group_id==obj.artifact_group_id).first()
         if hasattr(result, "view_count"):
             return result.view_count
         return 0

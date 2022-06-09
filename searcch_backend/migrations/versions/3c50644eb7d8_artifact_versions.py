@@ -22,7 +22,7 @@ def upgrade():
     op.create_table('file_content',
         sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
         sa.Column('content', sa.LargeBinary(), nullable=False),
-        sa.Column('hash', sa.LargeBinary(), nullable=False),
+        sa.Column('hash', sa.Binary(), nullable=False),
         sa.Column('size', sa.BigInteger(), nullable=False),
         sa.PrimaryKeyConstraint('id')
     )

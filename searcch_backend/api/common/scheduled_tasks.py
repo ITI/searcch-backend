@@ -20,14 +20,14 @@ class UpdateStatsViews():
         atexit.register(lambda: scheduler.shutdown())
 
     def collectRecentViews(self):
-        query = db.session.query(StatsRecentViews.artifact_id.label('artifact_id'), StatsRecentViews.user_id.label('user_id'), StatsRecentViews.view_count.label('view_count')).all()
+        query = db.session.query(StatsRecentViews.artifact_group_id.label('artifact_group_id'), StatsRecentViews.user_id.label('user_id'), StatsRecentViews.view_count.label('view_count')).all()
 
         self.addToStatsViews(query)
 
         StatsRecentViews.query.delete()
         db.session.commit()
         
-        query = db.session.query(StatsArtifactViews.artifact_id, StatsArtifactViews.user_id, func.sum(StatsArtifactViews.view_count).label('view_count')).group_by(StatsArtifactViews.user_id).group_by(StatsArtifactViews.artifact_id).all()
+        query = db.session.query(StatsArtifactViews.artifact_group_id, StatsArtifactViews.user_id, func.sum(StatsArtifactViews.view_count).label('view_count')).group_by(StatsArtifactViews.user_id).group_by(StatsArtifactViews.artifact_group_id).all()
 
         StatsArtifactViews.query.delete()
         db.session.commit()
@@ -36,9 +36,9 @@ class UpdateStatsViews():
 
     def addToStatsViews(self, query):
         for row in query:
-            artifact_id, user_id, view_count = row
+            artifact_group_id, user_id, view_count = row
             stats_views_entry = StatsArtifactViews(
-                        artifact_id=artifact_id, user_id=user_id, view_count=view_count
+                        artifact_group_id=artifact_group_id, user_id=user_id, view_count=view_count
                 )
             db.session.add(stats_views_entry)
             db.session.commit()

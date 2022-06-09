@@ -107,7 +107,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
         query = query.join(badge_query, Artifact.id == badge_query.c.artifact_id, isouter=False)
 
     #Add View number to query
-    query = query.join(StatsArtifactViews, Artifact.id == StatsArtifactViews.artifact_id, isouter=True)
+    query = query.join(StatsArtifactViews, Artifact.artifact_group_id == StatsArtifactViews.artifact_group_id, isouter=True)
     
     # add filters based on provided parameters
     query = query.filter(ArtifactPublication.id != None)
@@ -217,18 +217,14 @@ class ArtifactSearchIndexAPI(Resource):
                 if not ArtifactSearchIndexAPI.is_artifact_type_valid(a_type):
                     abort(400, description='invalid artifact type passed')
 
-        #Add search term to stats_searches table
-        search_id = db.session.query(StatsSearches).order_by(StatsSearches.id.desc()).first()
-
         try:
-
             stats_search = StatsSearches(
                     search_term=keywords
             )
             db.session.add(stats_search)
             db.session.commit()
         except exc.SQLAlchemyError as error:
-            pass
+            LOG.exception(f'Failed to log search term in the database. Error: {error}')
 
         result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page)
         response = jsonify(result)

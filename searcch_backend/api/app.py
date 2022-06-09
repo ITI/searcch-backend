@@ -160,8 +160,3 @@ api.add_resource(BadgeResource, approot + '/badge/<int:badge_id>', endpoint='api
 
 api.add_resource(LicenseResourceRoot, approot + '/licenses', endpoint='api.licenses')
 api.add_resource(LicenseResource, approot + '/license/<int:org_id>', endpoint='api.license')
-
-
-# Run garbage collector once every day to move data from recent_views table to stats_views table
-interval_seconds = 24*60*60
-UpdateStatsViews(interval_duration=interval_seconds)

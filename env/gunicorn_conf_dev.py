@@ -1,4 +1,6 @@
 import multiprocessing
+from searcch_backend.api.app import app
+from searcch_backend.api.common.scheduled_tasks import UpdateStatsViews
 
 bind = "0.0.0.0:80"
 workers = multiprocessing.cpu_count() * 2 + 1
@@ -19,4 +21,9 @@ daemon = False
 # Set preload_app = True if workers fail with no apparent cause; then you'll
 # see exceptions.
 #
-#preload_app = True
+
+preload_app = True
+
+def on_starting(server):
+    #Run Scheduler
+    UpdateStatsViews(interval_duration=app.config['STATS_GARBAGE_COLLECTOR_INTERVAL'])
