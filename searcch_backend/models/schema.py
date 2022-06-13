@@ -1,4 +1,4 @@
-from marshmallow_sqlalchemy import ModelSchema, SQLAlchemyAutoSchema, auto_field
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema, auto_field
 from marshmallow_sqlalchemy.convert import ModelConverter as BaseModelConverter
 from marshmallow_sqlalchemy.fields import Nested
 from marshmallow import fields, ValidationError
@@ -377,6 +377,14 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     releases = Nested(ArtifactReleaseSchema, many=True)
     affiliations = Nested(ArtifactAffiliationSchema, many=True)
     badges = Nested(ArtifactBadgeSchema, many=True)
+
+    view_count = fields.Method("get_views")
+
+    def get_views(self, obj):
+        result = db.session.query(Artifact, StatsArtifactViews.view_count.label("view_count")).join(StatsArtifactViews, Artifact.artifact_group_id==StatsArtifactViews.artifact_group_id).filter(Artifact.artifact_group_id==obj.artifact_group_id).first()
+        if hasattr(result, "view_count"):
+            return result.view_count
+        return 0
 
 
 class ArtifactSearchMaterializedViewSchema(SQLAlchemyAutoSchema):

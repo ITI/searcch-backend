@@ -5,7 +5,7 @@ from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, url_for, request
 from flask_restful import reqparse, Resource
-from sqlalchemy import func, desc, sql, or_, and_
+from sqlalchemy import func, desc, sql, or_, and_, exc
 from searcch_backend.api.common.auth import (verify_api_key, has_api_key, has_token, verify_token)
 import math
 import logging
@@ -33,7 +33,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
     if not keywords:
         query = db.session.query(Artifact,
                                     sql.expression.bindparam("zero", 0).label("rank"),
-                                    'num_ratings', 'avg_rating', 'num_reviews'
+                                    'num_ratings', 'avg_rating', 'num_reviews', "view_count"
                                     ).order_by(
                                     db.case([
                                         (Artifact.type == 'software', 1),
@@ -53,7 +53,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
                                     ).filter(ArtifactSearchMaterializedView.doc_vector.op('@@')(func.websearch_to_tsquery("english", keywords))
                                     ).subquery()
         query = db.session.query(Artifact, 
-                                    search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews'
+                                    search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews', "view_count"
                                     ).join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id
                                     ).join(search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
         
@@ -105,6 +105,9 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             ).filter(Badge.id.in_(badge_id_list)
             ).subquery()
         query = query.join(badge_query, Artifact.id == badge_query.c.artifact_id, isouter=False)
+
+    #Add View number to query
+    query = query.join(StatsArtifactViews, Artifact.artifact_group_id == StatsArtifactViews.artifact_group_id, isouter=True)
     
     # add filters based on provided parameters
     query = query.filter(ArtifactPublication.id != None)
@@ -120,7 +123,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
 
     artifacts = []
     for row in result:
-        artifact, _, num_ratings, avg_rating, num_reviews = row
+        artifact, _, num_ratings, avg_rating, num_reviews, view_count = row
         abstract = {
             "id": artifact.id,
             "artifact_group_id": artifact.artifact_group_id,
@@ -132,7 +135,8 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             "avg_rating": float(avg_rating) if avg_rating else None,
             "num_ratings": num_ratings if num_ratings else 0,
             "num_reviews": num_reviews if num_reviews else 0,
-            "owner": { "id": artifact.owner.id }
+            "owner": { "id": artifact.owner.id },
+            "views": view_count if view_count else 0
         }
         artifacts.append(abstract)
 
@@ -212,6 +216,15 @@ class ArtifactSearchIndexAPI(Resource):
             for a_type in artifact_types:
                 if not ArtifactSearchIndexAPI.is_artifact_type_valid(a_type):
                     abort(400, description='invalid artifact type passed')
+
+        try:
+            stats_search = StatsSearches(
+                    search_term=keywords
+            )
+            db.session.add(stats_search)
+            db.session.commit()
+        except exc.SQLAlchemyError as error:
+            LOG.exception(f'Failed to log search term in the database. Error: {error}')
 
         result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page)
         response = jsonify(result)

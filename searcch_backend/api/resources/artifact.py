@@ -6,6 +6,7 @@ from searcch_backend.api.common.sql import (
     artifact_apply_curation)
 from searcch_backend.api.common.auth import (verify_api_key, has_api_key, has_token, verify_token)
 from searcch_backend.api.common.importer import schedule_import
+from searcch_backend.api.common.stats import StatsResource
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
@@ -298,6 +299,11 @@ class ArtifactAPI(Resource):
             ArtifactRatings.artifact_group_id == ArtifactReviews.artifact_group_id
         )).filter(ArtifactRatings.artifact_group_id == artifact_group.id).all()
 
+        # Record Artifact view in database
+        session_id = request.cookies.get('session_id')
+        stat_view_obj = StatsResource(artifact_group_id=artifact_group_id, session_id=session_id)
+        stat_view_obj.recordView()
+
         response = jsonify({
             "artifact": ArtifactSchema().dump(artifact),
             "avg_rating": float(rating_aggregates[0][2]) if rating_aggregates else None,
@@ -552,7 +558,7 @@ class ArtifactAPI(Resource):
 
         # Update Artifact "member" tables that are primarily related to the
         # group, but index the related artifact version specifically.
-        tables = [ ArtifactRatings, ArtifactReviews, ArtifactFavorites ]
+        tables = [ ArtifactRatings, ArtifactReviews, ArtifactFavorites, StatsRecentViews, StatsArtifactViews ]
         for table in tables:
             records = db.session.query(table).\
               filter(getattr(table, "artifact_group_id") == artifact_group_id).\

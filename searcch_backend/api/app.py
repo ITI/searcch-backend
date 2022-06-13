@@ -105,6 +105,7 @@ from searcch_backend.api.resources.schema import (
     SchemaArtifactAPI, SchemaAffiliationAPI)
 from searcch_backend.api.resources.badge import BadgeResourceRoot, BadgeResource
 from searcch_backend.api.resources.license import LicenseResourceRoot, LicenseResource
+from searcch_backend.api.common.scheduled_tasks import UpdateStatsViews
 
 approot = app.config['APPLICATION_ROOT']
 
