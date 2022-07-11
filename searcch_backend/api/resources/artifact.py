@@ -300,9 +300,11 @@ class ArtifactAPI(Resource):
         )).filter(ArtifactRatings.artifact_group_id == artifact_group.id).all()
 
         # Record Artifact view in database
+        # XXX: need to handle API-only case.
         session_id = request.cookies.get('session_id')
-        stat_view_obj = StatsResource(artifact_group_id=artifact_group_id, session_id=session_id)
-        stat_view_obj.recordView()
+        if session_id:
+            stat_view_obj = StatsResource(artifact_group_id=artifact_group_id, session_id=session_id)
+            stat_view_obj.recordView()
 
         response = jsonify({
             "artifact": ArtifactSchema().dump(artifact),
