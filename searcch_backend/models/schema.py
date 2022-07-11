@@ -98,10 +98,12 @@ class ArtifactFileSchema(SQLAlchemyAutoSchema):
 class ArtifactRelationshipSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactRelationship
-        exclude = ('related_artifact_group',)
+        #exclude = ('related_artifact_group',)
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
+
+    related_artifact_group = Nested("ArtifactGroupShallowSchema", many=False)
 
 
 class ArtifactReleaseSchema(SQLAlchemyAutoSchema):
@@ -351,6 +353,20 @@ class ArtifactGroupSchema(SQLAlchemyAutoSchema):
     relationships = Nested(ArtifactRelationshipSchema, many=True)
     reverse_relationships = Nested(ArtifactRelationshipSchema, many=True)
     publications = Nested(ArtifactPublicationShallowSchema, many=True)
+
+
+class ArtifactGroupShallowSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactGroup
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    owner = Nested(UserPublicSchema)
+    publication = Nested(ArtifactPublicationShallowSchema)
+    #relationships = Nested(ArtifactRelationshipSchema, many=True)
+    #reverse_relationships = Nested(ArtifactRelationshipSchema, many=True)
+    #publications = Nested(ArtifactPublicationShallowSchema, many=True)
 
 
 class ArtifactSchema(SQLAlchemyAutoSchema):
