@@ -4,6 +4,8 @@ from sqlalchemy import Table, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy import event
+from sqlalchemy.sql import text
+import hashlib
 
 metadata = MetaData()
 Base = declarative_base(metadata=metadata)
@@ -37,6 +39,13 @@ class FileContent(db.Model):
         "hash",
     )
 
+    @classmethod
+    def make_hash(kls,content):
+        m = hashlib.sha256()
+        m.update(content)
+        d = m.digest()
+        return d
+
     def __repr__(self):
         return "<FileContent(id=%r,hash=%r,size=%r)>" % (
             self.id, self.hash, self.size )
@@ -55,8 +64,8 @@ def file_content_fixups(mapper, connection, target):
     if target.size is None:
         target.size = len(target.content)
     if target.id is None:
-        res = connection.execute("select id from file_content where hash=:hashval",
-                                 { "hashval": target.hash })
+        res = connection.execute(text("select id from file_content where hash=:hashval"),
+                                 hashval=target.hash)
         row = res.first()
         if row:
             target.id = row["id"]
