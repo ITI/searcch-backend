@@ -70,8 +70,6 @@ services:
       - searcch-frontend-local-dev-net
     depends_on:
       - searcch-local-dev-postgres
-    ports:
-      - "80"
 
   searcch-prod-postgres:
     image: postgres
@@ -108,8 +106,6 @@ services:
       - env/local-dev-postgres.env
     networks:
       - searcch-backend-local-dev-net
-    ports:
-      - "5432"
 
 networks:
   searcch-backend-dev-net:
