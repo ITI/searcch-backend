@@ -207,6 +207,7 @@ class ImporterResource(Resource):
             importer_instance.admin_status = j["admin_status"]
             importer_instance.admin_status_time = datetime.datetime.now()
         db.session.commit()
+        db.session.refresh(importer_instance)
 
         # Invoke the scheduler in case we changed state.
         if importer_instance.admin_status == "enabled" \
