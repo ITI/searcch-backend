@@ -3,7 +3,12 @@ def maybe_auto_upgrade_db(app, db, migrate, force=False):
     if not force and "DB_AUTO_MIGRATE" not in app.config or not app.config["DB_AUTO_MIGRATE"]:
         return
 
-    with app.app_context():
+    #
+    # NB: doing this within a pushed app_context worked fine when we did it
+    # from each worker with locking, but breaks the workers after a few
+    # requests if used from gunicorn on_starting in the master.
+    #
+    #with app.app_context():
         #
         # All this work to safely auto-migrate in the presence of multiple
         # processes.  NB: the table create is separated out due to racy table
