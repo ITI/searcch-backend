@@ -28,7 +28,7 @@ class FileContent(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     content = db.Column(db.LargeBinary(), nullable=False)
-    hash = db.Column(db.Binary(32), nullable=False)
+    hash = db.Column(db.LargeBinary(32), nullable=False)
     size = db.Column(db.BigInteger, nullable=False)
 
     __table_args__ = (
