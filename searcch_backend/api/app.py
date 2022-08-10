@@ -52,7 +52,7 @@ app.logger.debug("flask config: %r",app.config)
 
 from searcch_backend.api.resources.artifact import (
     ArtifactAPI, ArtifactIndexAPI,
-    ArtifactRelationshipResourceRoot, ArtifactRelationshipResource)
+    ArtifactRelationshipResourceRoot, ArtifactRelationshipResource, ArtifactOwnerRequestAPI)
 from searcch_backend.api.resources.artifact_compare import ArtifactCompareAPI
 from searcch_backend.api.resources.artifact_search import ArtifactSearchIndexAPI, ArtifactRecommendationAPI
 from searcch_backend.api.resources.organization import OrganizationAPI, OrganizationListAPI
@@ -91,6 +91,7 @@ api.add_resource(ArtifactSearchIndexAPI, approot + '/artifact/search', endpoint=
 api.add_resource(ArtifactRelationshipResourceRoot, approot + '/artifact/relationships', endpoint='api.artifact_relationships')
 api.add_resource(ArtifactRelationshipResource, approot + '/artifact/relationship/<int:artifact_relationship_id>', endpoint='api.artifact_relationship')
 api.add_resource(ArtifactRecommendationAPI, approot + '/artifact/recommendation/<int:artifact_group_id>/<int:artifact_id>', endpoint='api.artifact_recommender')
+api.add_resource(ArtifactOwnerRequestAPI, approot + '/artifact/request/owner/<int:artifact_group_id>', endpoint='api.artifact_request_owner')
 
 api.add_resource(OrganizationListAPI, approot + '/organizations', endpoint='api.organizations')
 api.add_resource(OrganizationAPI, approot + '/organization/<int:org_id>', endpoint='api.organization')

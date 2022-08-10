@@ -423,6 +423,12 @@ class ArtifactImportSchema(SQLAlchemyAutoSchema):
     #parent = Nested(ArtifactSchema, many=False)
     artifact = Nested(ArtifactSchema, many=False)
 
+class ArtifactOwnerRequestSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactOwnerRequest
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
 
 class ImporterScheduleSchema(SQLAlchemyAutoSchema):
     class Meta:

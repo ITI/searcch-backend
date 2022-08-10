@@ -870,4 +870,70 @@ class ArtifactRelationshipResource(Resource):
         response.status_code = 200
         return response
 
+class ArtifactOwnerRequestAPI(Resource):
+    def __init__(self):
+        self.getparse = reqparse.RequestParser()
+        self.getparse.add_argument(name='artifact_group_id',
+                                   type=int,
+                                   required=True,
+                                   help='artifact group id to filter')
+        self.reqparse = reqparse.RequestParser()
+        self.reqparse.add_argument(name='message',
+                                   type=str,
+                                   required=True,
+                                   help='reason for owernship request')
+
+        super(ArtifactOwnerRequestAPI, self).__init__()
+
+    def get(self, artifact_group_id):
+        """Sends the existing ownership request if any"""
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        #Check if artifact exists
+        artifact_group = db.session.query(ArtifactGroup).filter(ArtifactGroup.id == artifact_group_id).first()
+        if not artifact_group:
+            abort(404, description="no such artifact group")
+
+        #Check if any pending requests
+        artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(ArtifactOwnerRequest.user_id == login_session.user_id and ArtifactOwnerRequest.status == "pending").first()
+        if artifact_owner_request:
+            response = jsonify({"artifact_owner_request": ArtifactOwnerRequestSchema().dump(artifact_owner_request)})
+        else:
+            response = jsonify({"artifact_owner_request": None})
+
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+
+    def post(self, artifact_group_id):
+        """Creates a new request for artifact ownership"""
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        #Check if already an owner
+        artifact_group = db.session.query(ArtifactGroup).filter(ArtifactGroup.id == artifact_group_id).first()
+        if not artifact_group:
+            abort(404, description="no such artifact group")
+        if artifact_group.owner_id == login_session.user_id:
+            abort(404, description="cannot process request, already an owner")
+        #Check if any pending requests
+        artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(ArtifactOwnerRequest.user_id == login_session.user_id and ArtifactOwnerRequest.status == "pending").first()
+        if artifact_owner_request:
+            abort(404, description="cannot process request, pending request already exists")
+
+        args = self.postparse.parse_args()
+        dt = datetime.datetime.now()
+        new_artifact_owner_request = ArtifactOwnerRequest(
+            user_id=login_session.user_id,
+            artifact_group_id=artifact_group_id, message=args.message,
+            ctime=dt, status="pending")
+        db.session.add(new_artifact_owner_request)
+        db.session.commit()
+        
+        response = jsonify({"message": "artifact ownership saved successfully"})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
 
