@@ -871,14 +871,9 @@ class ArtifactRelationshipResource(Resource):
         return response
 
 class ArtifactOwnerRequestAPI(Resource):
-    def __init__(self):
-        self.getparse = reqparse.RequestParser()
-        self.getparse.add_argument(name='artifact_group_id',
-                                   type=int,
-                                   required=True,
-                                   help='artifact group id to filter')
-        self.reqparse = reqparse.RequestParser()
-        self.reqparse.add_argument(name='message',
+    def __init__(self):        
+        self.postparse = reqparse.RequestParser()
+        self.postparse.add_argument(name='message',
                                    type=str,
                                    required=True,
                                    help='reason for owernship request')
@@ -896,7 +891,7 @@ class ArtifactOwnerRequestAPI(Resource):
             abort(404, description="no such artifact group")
 
         #Check if any pending requests
-        artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(ArtifactOwnerRequest.user_id == login_session.user_id and ArtifactOwnerRequest.status == "pending").first()
+        artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(and_(ArtifactOwnerRequest.user_id == login_session.user_id, ArtifactOwnerRequest.status == "pending", ArtifactOwnerRequest.artifact_group_id == artifact_group_id)).first()
         if artifact_owner_request:
             response = jsonify({"artifact_owner_request": ArtifactOwnerRequestSchema().dump(artifact_owner_request)})
         else:
@@ -919,7 +914,7 @@ class ArtifactOwnerRequestAPI(Resource):
         if artifact_group.owner_id == login_session.user_id:
             abort(404, description="cannot process request, already an owner")
         #Check if any pending requests
-        artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(ArtifactOwnerRequest.user_id == login_session.user_id and ArtifactOwnerRequest.status == "pending").first()
+        artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(and_(ArtifactOwnerRequest.user_id == login_session.user_id, ArtifactOwnerRequest.status == "pending", ArtifactOwnerRequest.artifact_group_id == artifact_group_id)).first()
         if artifact_owner_request:
             abort(404, description="cannot process request, pending request already exists")
 
