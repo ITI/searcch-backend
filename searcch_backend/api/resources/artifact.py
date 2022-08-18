@@ -967,7 +967,7 @@ class ArtifactOwnerRequestsAPI(Resource):
 
         artifact_owner_requests = db.session.query(ArtifactOwnerRequest).\
           filter(True if login_session.is_admin and args["allusers"] \
-                      else ArtifactOwnerRequest.owner_id == login_session.user_id)
+                      else ArtifactOwnerRequest.user_id == login_session.user_id)
 
         pagination = None
         if "page" in args and args["page"]:
