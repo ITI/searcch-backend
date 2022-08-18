@@ -774,6 +774,10 @@ class ArtifactOwnerRequest(db.Model):
     status = db.Column(db.Enum(*ARTIFACT_OWNER_REQUEST_STATUS,name="artifact_owner_request_status_enum"), nullable=False)
     action_message = db.Column(db.Text, nullable=True)
     action_time = db.Column(db.DateTime, nullable=True)
+    action_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    user = db.relationship("User", uselist=False, foreign_keys=[user_id])
+    action_by_user = db.relationship("User", uselist=False, foreign_keys=[action_by_user_id])
 
 class ImporterInstance(db.Model):
     """

@@ -429,6 +429,9 @@ class ArtifactOwnerRequestSchema(SQLAlchemyAutoSchema):
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
+    
+    user = Nested(UserSchema, many=False)
+    action_by_user = Nested(UserSchema, many=False)
 
 class ImporterScheduleSchema(SQLAlchemyAutoSchema):
     class Meta:
