@@ -1012,6 +1012,12 @@ class ArtifactOwnerRequestsAPI(Resource):
         artifact_owner_request.action_message = args.message
         artifact_owner_request.action_time = datetime.datetime.now()
         artifact_owner_request.action_by_user_id = login_session.user_id
+
+        #Update owner in Atrifact Group
+        if artifact_owner_request.status == "approved":
+            artifact_group = db.session.query(ArtifactGroup).filter(ArtifactGroup.id == artifact_owner_request.artifact_group_id).first()
+            artifact_group.owner_id = artifact_owner_request.user_id
+
         db.session.commit()
         
         response = jsonify({"message": "artifact ownership request successfully " + artifact_owner_request.status})
