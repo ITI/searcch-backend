@@ -871,7 +871,7 @@ class ArtifactRelationshipResource(Resource):
         return response
 
 class ArtifactOwnerRequestAPI(Resource):
-    def __init__(self):        
+    def __init__(self):
         self.postparse = reqparse.RequestParser()
         self.postparse.add_argument(name='message',
                                    type=str,
@@ -932,3 +932,95 @@ class ArtifactOwnerRequestAPI(Resource):
         response.status_code = 200
         return response
 
+class ArtifactOwnerRequestsAPI(Resource):
+    def __init__(self):
+        self.getparse = reqparse.RequestParser()
+        self.getparse.add_argument(
+            name="allusers", type=int, required=False, default=0, location="args",
+            help="if set 1, and if caller is authorized, show all user artifacts")
+        self.getparse.add_argument(
+            name="page", type=int, required=False,
+            help="page number for paginated results")
+        self.getparse.add_argument(
+            name="items_per_page", type=int, required=False, default=20,
+            help="results per page if paginated")
+
+        self.putparse = reqparse.RequestParser()
+        self.putparse.add_argument(
+            name='artifact_owner_request_id',type=int,required=True,
+            help='artifact ownership request id')
+        self.putparse.add_argument(
+            name='action',type=str,required=True,choices=["approve", "reject"],
+            help='missing action type')
+        self.putparse.add_argument(
+            name='message',type=str,required=True,
+            help='reason for selected request action')
+
+        super(ArtifactOwnerRequestsAPI, self).__init__()
+
+    def get(self):
+        """Get all artifact owernship request according to the logged user and passed settings"""
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        args = self.getparse.parse_args()
+
+        artifact_owner_requests = db.session.query(ArtifactOwnerRequest).\
+          filter(True if login_session.is_admin and args["allusers"] \
+                      else ArtifactOwnerRequest.user_id == login_session.user_id)
+
+        pagination = None
+        if "page" in args and args["page"]:
+            if args["items_per_page"] <= 0:
+                args["items_per_page"] = sys.maxsize
+            pagination = artifact_owner_requests.paginate(
+                page=args["page"], error_out=False, per_page=args["items_per_page"])
+            artifact_owner_requests = pagination.items
+        else:
+            artifact_owner_requests = artifact_owner_requests.all()
+
+        response_dict = {
+            "artifact_owner_requests": ArtifactOwnerRequestSchema(many=True).dump(artifact_owner_requests)
+        }
+        if pagination:
+            response_dict["page"] = pagination.page
+            response_dict["total"] = pagination.total
+            response_dict["pages"] = int(math.ceil(pagination.total / args["items_per_page"]))
+
+        response = jsonify(response_dict)
+
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+    def put(self):
+        """Take action on request"""
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        if not login_session.is_admin:
+            abort(401, description="insufficient permission to take action")
+
+        args = self.putparse.parse_args()
+        artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(ArtifactOwnerRequest.id == args.artifact_owner_request_id).first()
+        if not artifact_owner_request:
+            abort(404, description="no such artifact owner request")
+        if artifact_owner_request.status != "pending":
+            abort(404, description="cannot take action on already executed requests")
+        
+        artifact_owner_request.status = "approved" if args.action == "approve" else "rejected"
+        artifact_owner_request.action_message = args.message
+        artifact_owner_request.action_time = datetime.datetime.now()
+        artifact_owner_request.action_by_user_id = login_session.user_id
+
+        #Update owner in Atrifact Group
+        if artifact_owner_request.status == "approved":
+            artifact_group = db.session.query(ArtifactGroup).filter(ArtifactGroup.id == artifact_owner_request.artifact_group_id).first()
+            artifact_group.owner_id = artifact_owner_request.user_id
+
+        db.session.commit()
+        
+        response = jsonify({"message": "artifact ownership request successfully " + artifact_owner_request.status})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
