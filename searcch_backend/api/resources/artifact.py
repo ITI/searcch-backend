@@ -944,6 +944,18 @@ class ArtifactOwnerRequestsAPI(Resource):
         self.getparse.add_argument(
             name="items_per_page", type=int, required=False, default=20,
             help="results per page if paginated")
+        self.getparse.add_argument(
+            name="user", type=str, required=False, default="",
+            help="user id/name")
+        self.getparse.add_argument(
+            name="artifact", type=str, required=False, default="",
+            help="artifact id/name")
+        self.getparse.add_argument(
+            name="sort", type=str, required=False, default="",
+            help="sort by")
+        self.getparse.add_argument(
+            name="sort_desc", type=int, required=False, default=0,
+            help="sort order")
 
         self.putparse = reqparse.RequestParser()
         self.putparse.add_argument(
@@ -966,8 +978,57 @@ class ArtifactOwnerRequestsAPI(Resource):
         args = self.getparse.parse_args()
 
         artifact_owner_requests = db.session.query(ArtifactOwnerRequest).\
-          filter(True if login_session.is_admin and args["allusers"] \
-                      else ArtifactOwnerRequest.user_id == login_session.user_id)
+          filter(and_(True if login_session.is_admin and args["allusers"] \
+                      else ArtifactOwnerRequest.user_id == login_session.user_id, \
+                        ArtifactOwnerRequest.status == "pending"))
+
+        artifact_owner_requests = artifact_owner_requests.\
+          join(User, ArtifactOwnerRequest.user_id == User.id).\
+          join(Person, User.person_id == Person.id).\
+          join(Artifact, ArtifactOwnerRequest.artifact_group_id == Artifact.artifact_group_id)
+
+
+        if "user" in args:
+            if args["user"].isnumeric():
+                artifact_owner_requests = artifact_owner_requests.filter(ArtifactOwnerRequest.user_id == int(args["user"]))
+            else:
+                user_cond = "%" + args["user"] + "%"
+                artifact_owner_requests = artifact_owner_requests.\
+                filter(Person.name.ilike(user_cond))
+
+        if "artifact" in args:
+            if args["artifact"].isnumeric():
+                artifact_owner_requests = artifact_owner_requests.filter(ArtifactOwnerRequest.artifact_group_id == int(args["artifact"]))
+            else:
+                artifact_cond = "%" + args["artifact"] + "%"
+                artifact_owner_requests = artifact_owner_requests.\
+                filter(Artifact.title.ilike(artifact_cond))
+
+        sort_keys = {
+            "artifact_group_id": "artifact_group_id",
+            "user.person.id": "user_id",
+            "user.person.name": "name",
+            "artifact_title": "title",
+            "id": "id"
+        }
+
+        if args["sort"]=="":
+            args["sort"] = "id"
+        args["sort"] = sort_keys[args["sort"]]
+
+        if (args["sort"] == "name"):
+            table_obj = Person
+        elif (args["sort"] == "title"):
+            table_obj = Artifact
+        else:
+            table_obj = ArtifactOwnerRequest
+
+        if "sort_desc" in args:
+            artifact_owner_requests = artifact_owner_requests.\
+              order_by(desc(getattr(table_obj,args["sort"])))
+        else:
+            artifact_owner_requests = artifact_owner_requests.\
+              order_by(asc(getattr(table_obj,args["sort"])))
 
         pagination = None
         if "page" in args and args["page"]:
