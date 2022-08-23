@@ -1006,7 +1006,7 @@ class ArtifactOwnerRequestsAPI(Resource):
 
         sort_keys = {
             "artifact_group_id": "artifact_group_id",
-            "user.person.id": "user_id",
+            "user.id": "user_id",
             "user.person.name": "name",
             "artifact_title": "title",
             "id": "id"
@@ -1023,7 +1023,7 @@ class ArtifactOwnerRequestsAPI(Resource):
         else:
             table_obj = ArtifactOwnerRequest
 
-        if "sort_desc" in args:
+        if args["sort_desc"]==1:
             artifact_owner_requests = artifact_owner_requests.\
               order_by(desc(getattr(table_obj,args["sort"])))
         else:
