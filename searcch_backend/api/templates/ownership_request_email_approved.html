@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        * {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        .heading {
+            text-align: center;
+            font-weight: bold;
+            font-size: 25px;
+            background-color: rgb(0, 131, 18);
+            color: white;
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+        .container {
+            padding: 10px;
+        }
+        .info-container {
+            background-color: rgb(236, 231, 216);
+            padding: 10px;
+        }
+        .info-header {
+            margin-top: 40px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .info-table {
+            margin-bottom: 40px;
+            margin-top: 40px;
+        }
+        table {
+            width: 100%;
+            border: 1px;
+            border-style: solid;
+            border-color: black;
+            border-collapse: collapse;
+        }
+        table th, table td {
+            padding: 5px;
+            border-width: 0px;
+            border-right: 1px;
+            border-left: 1px;
+            border-style: solid;
+        }
+        table th {
+            border-bottom: 1px;
+            border-style: solid;
+        }
+        table td {
+            text-align: center;
+            background-color: white;
+        }
+        table .table-header {
+            background-color: rgb(234, 234, 234);
+            color: black;
+        }
+        .info-table-header {
+            text-align: center;
+            padding: 10px;
+            font-weight: bold;
+            color: white;
+            background-color: black;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="body">
+        <div class="container">
+            <div class="heading">
+                (Approved) SEARCCH Ownership Claim Request - Artifact Group ID: {{artifact_group_id}}
+            </div>
+            <div class="info-container">
+                <div class="info-header">
+                    The ownership claim request of Artifact <a href="{{artifact_link}}" target="_blank">{{artifact_title}}</a> (Artifact Group ID: {{artifact_group_id}}) has been approved.
+                </div>
+                <div class="info-table">
+                    <div class="info-table-header">
+                        User Details
+                    </div>
+                    <table>
+                        <colgroup>
+                            <col style="width: 20%;">
+                            <col style="width: 40%;">
+                            <col style="width: 40%;">
+                         </colgroup>
+                        <tr class="table-header">
+                            <th>User ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                        </tr>
+                        <tr>
+                            <td>{{user_id}}</td>
+                            <td>{{user_name}}</td>
+                            <td>{{user_email}}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="info-table">
+                    <div class="info-table-header">
+                        Artifact Details
+                    </div>
+                    <table>
+                        <colgroup>
+                            <col style="width: 20%;">
+                            <col style="width: 80%;">
+                         </colgroup>
+                        <tr class="table-header">
+                            <th>Artifact Group ID</th>
+                            <th>Artifact Title</th>
+                        </tr>
+                        <tr>
+                            <td>{{artifact_group_id}}</td>
+                            <td>{{artifact_title}}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="info-table">
+                    <div class="info-table-header">
+                        Supplementary Information
+                    </div>
+                    <table>
+                        <colgroup>
+                            <col style="width: 100%;">
+                         </colgroup>
+                        <tr class="table-header">
+                            <th>Justification</th>
+                        </tr>
+                        <tr>
+                            <td>{{justification}}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html> 

@@ -1,6 +1,6 @@
 # logic for /artifacts
 
-from searcch_backend.api.app import db, config_name
+from searcch_backend.api.app import db, config_name, mail
 from searcch_backend.api.common.sql import (
     object_from_json, artifact_diff, artifact_clone,
     artifact_apply_curation)
@@ -9,7 +9,7 @@ from searcch_backend.api.common.importer import schedule_import
 from searcch_backend.api.common.stats import StatsResource
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
-from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
+from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response, render_template
 from flask_restful import reqparse, Resource, fields, marshal
 import sqlalchemy
 from sqlalchemy import func, desc, asc, sql, and_, or_, not_, distinct
@@ -19,6 +19,7 @@ import sys
 import logging
 import math
 import threading
+from flask_mail import Message
 
 LOG = logging.getLogger(__name__)
 
@@ -926,7 +927,32 @@ class ArtifactOwnerRequestAPI(Resource):
             ctime=dt, status="pending")
         db.session.add(new_artifact_owner_request)
         db.session.commit()
-        
+
+        mail_data = db.session.query(ArtifactOwnerRequest, User, Person, Artifact).\
+          join(User, ArtifactOwnerRequest.user_id == User.id).\
+          join(Person, User.person_id == Person.id).\
+          join(Artifact, ArtifactOwnerRequest.artifact_group_id == Artifact.artifact_group_id).\
+          filter(ArtifactOwnerRequest.id == new_artifact_owner_request.id).\
+          first()
+
+        msg_recipients = [mail_data.Person.email, "searcch.hub@cyberexperimentation.org"]
+        msg = Message(f'Artifact Ownership Claim - Artifact Group ID: {mail_data.Artifact.artifact_group_id}',\
+            sender="searcch.hub@cyberexperimentation.org")
+
+        for recipient in msg_recipients:
+            msg.recipients = [recipient]
+            is_admin = (recipient=="searcch.hub@cyberexperimentation.org")
+            msg.html = render_template("ownership_request_email_pending.html",\
+                artifact_group_id=mail_data.Artifact.artifact_group_id, \
+                artifact_link=f'https://hub.cyberexperimentation.org/artifact/{mail_data.Artifact.artifact_group_id}',\
+                artifact_title=mail_data.Artifact.title,\
+                user_id=mail_data.User.id,\
+                user_name=mail_data.Person.name,\
+                user_email=mail_data.Person.email,
+                justification=mail_data.ArtifactOwnerRequest.message,
+                admin=is_admin)
+            mail.send(msg)
+
         response = jsonify({"message": "artifact ownership saved successfully"})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
@@ -971,7 +997,7 @@ class ArtifactOwnerRequestsAPI(Resource):
         super(ArtifactOwnerRequestsAPI, self).__init__()
 
     def get(self):
-        """Get all artifact owernship request according to the logged user and passed settings"""
+        """Get artifact owernship request according to the logged user and passed settings"""
         verify_api_key(request)
         login_session = verify_token(request)
 
@@ -1068,18 +1094,49 @@ class ArtifactOwnerRequestsAPI(Resource):
             abort(404, description="no such artifact owner request")
         if artifact_owner_request.status != "pending":
             abort(404, description="cannot take action on already executed requests")
+
+        # # Update Database
         
         artifact_owner_request.status = "approved" if args.action == "approve" else "rejected"
         artifact_owner_request.action_message = args.message
         artifact_owner_request.action_time = datetime.datetime.now()
         artifact_owner_request.action_by_user_id = login_session.user_id
 
-        #Update owner in Atrifact Group
-        if artifact_owner_request.status == "approved":
-            artifact_group = db.session.query(ArtifactGroup).filter(ArtifactGroup.id == artifact_owner_request.artifact_group_id).first()
-            artifact_group.owner_id = artifact_owner_request.user_id
-
         db.session.commit()
+
+        # Send mail to raise approval request
+
+        mail_data = db.session.query(ArtifactOwnerRequest, User, Person, Artifact).\
+          join(User, ArtifactOwnerRequest.user_id == User.id).\
+          join(Person, User.person_id == Person.id).\
+          join(Artifact, ArtifactOwnerRequest.artifact_group_id == Artifact.artifact_group_id).\
+          filter(ArtifactOwnerRequest.id == args.artifact_owner_request_id).\
+          first()
+
+        msg = Message(f'Artifact Ownership Claim - Artifact Group ID: {mail_data.Artifact.artifact_group_id}',\
+                sender="searcch.hub@cyberexperimentation.org",\
+                recipients=[mail_data.Person.email, "searcch.hub@cyberexperimentation.org"])
+
+        if mail_data.ArtifactOwnerRequest.status == "approved":
+            msg.html = render_template("ownership_request_email_approved.html",\
+                artifact_group_id=mail_data.Artifact.artifact_group_id, \
+                artifact_link=f'https://hub.cyberexperimentation.org/artifact/{mail_data.Artifact.artifact_group_id}',\
+                artifact_title=mail_data.Artifact.title,\
+                user_id=mail_data.User.id,\
+                user_name=mail_data.Person.name,\
+                user_email=mail_data.Person.email,
+                justification=mail_data.ArtifactOwnerRequest.message)
+        else:
+            msg.html = render_template("ownership_request_email_rejected.html",\
+                artifact_group_id=mail_data.Artifact.artifact_group_id, \
+                artifact_link=f'https://hub.cyberexperimentation.org/artifact/{mail_data.Artifact.artifact_group_id}',\
+                artifact_title=mail_data.Artifact.title,\
+                user_id=mail_data.User.id,\
+                user_name=mail_data.Person.name,\
+                user_email=mail_data.Person.email,
+                justification=mail_data.ArtifactOwnerRequest.message)
+
+        mail.send(msg)
         
         response = jsonify({"message": "artifact ownership request successfully " + artifact_owner_request.status})
         response.headers.add('Access-Control-Allow-Origin', '*')

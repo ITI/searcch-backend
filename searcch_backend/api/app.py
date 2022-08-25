@@ -10,6 +10,7 @@ from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from flask_migrate import Migrate
+from flask_mail import Mail
 
 # set up configurations
 app = Flask(__name__, instance_relative_config=True)
@@ -18,11 +19,11 @@ app.config.from_object(app_config[config_name])
 if os.getenv('FLASK_INSTANCE_CONFIG_FILE'):
     app.config.from_pyfile(os.getenv('FLASK_INSTANCE_CONFIG_FILE'))
 
-
 db = SQLAlchemy(app)
 migrate = Migrate(app, db, directory="searcch_backend/migrations")
 ma = Marshmallow(app)
 api = Api(app)
+mail = Mail(app)
 
 @app.teardown_appcontext
 def shutdown_session(exception=None):
