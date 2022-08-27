@@ -19,17 +19,8 @@ class DevelopmentConfig(Config):
     SESSION_TIMEOUT_IN_MINUTES = 120
     DB_AUTO_MIGRATE = True
     JSON_SORT_KEYS = False
-    
-    MAIL_SERVER = 'smtp.mailtrap.io'
-    MAIL_PORT = 2525
-    MAIL_USERNAME = '8c8ae47ffa0696'
-    MAIL_PASSWORD = '46062fd76bd9f7'
-    MAIL_USE_TLS = True
-    MAIL_USE_SSL = False
-    MAIL_DEBUG = True
-    MAIL_SUPPRESS_SEND = False
-    TESTING = False
-
+    TESTING = True
+    MAIL_SUPPRESS_SEND = True
 
 class ProductionConfig(Config):
     """
@@ -42,6 +33,8 @@ class ProductionConfig(Config):
     SESSION_TIMEOUT_IN_MINUTES = 120
     DB_AUTO_MIGRATE = True
     JSON_SORT_KEYS = False
+    TESTING = False
+    MAIL_SUPPRESS_SEND = False
 
 app_config = {
     'development': DevelopmentConfig,
