@@ -13,7 +13,7 @@ Base = declarative_base(metadata=metadata)
 
 ARTIFACT_TYPES = (
     "publication", "presentation", "dataset", "software",
-    "other"
+    "pcap"
 )
 ARTIFACT_IMPORT_TYPES = (
     "unknown", *ARTIFACT_TYPES

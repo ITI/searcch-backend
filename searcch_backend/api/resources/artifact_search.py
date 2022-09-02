@@ -36,7 +36,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
                                     'num_ratings', 'avg_rating', 'num_reviews', "view_count"
                                     ).order_by(
                                     db.case([
-                                        (Artifact.type == 'software', 1),
+                                        (Artifact.type == 'pcap', 1),
                                         (Artifact.type == 'dataset', 2),
                                         (Artifact.type ==
                                         'publication', 3),
@@ -215,7 +215,8 @@ class ArtifactSearchIndexAPI(Resource):
         if artifact_types:
             for a_type in artifact_types:
                 if not ArtifactSearchIndexAPI.is_artifact_type_valid(a_type):
-                    abort(400, description='invalid artifact type passed')
+                    string = ' '.join(ARTIFACT_TYPES)
+                    abort(400, description='invalid artifact type passed' + string + ' got '+a_type)
 
         try:
             stats_search = StatsSearches(
