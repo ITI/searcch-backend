@@ -1125,7 +1125,7 @@ class ArtifactOwnerRequestsAPI(Resource):
                 user_id=mail_data.User.id,\
                 user_name=mail_data.Person.name,\
                 user_email=mail_data.Person.email,
-                justification=mail_data.ArtifactOwnerRequest.message)
+                justification=mail_data.ArtifactOwnerRequest.action_message)
         else:
             msg.html = render_template("ownership_request_email_rejected.html",\
                 artifact_group_id=mail_data.Artifact.artifact_group_id, \
@@ -1134,7 +1134,7 @@ class ArtifactOwnerRequestsAPI(Resource):
                 user_id=mail_data.User.id,\
                 user_name=mail_data.Person.name,\
                 user_email=mail_data.Person.email,
-                justification=mail_data.ArtifactOwnerRequest.message)
+                justification=mail_data.ArtifactOwnerRequest.action_message)
 
         mail.send(msg)
         
