@@ -50,10 +50,39 @@ if "DEBUG" in app.config and app.config["DEBUG"]:
 
 app.logger.debug("flask config: %r",app.config)
 
+if "DB_AUTO_MIGRATE" in app.config and app.config["DB_AUTO_MIGRATE"]:
+    with app.app_context():
+        #
+        # All this work to safely auto-migrate in the presence of multiple
+        # processes.  NB: the table create is separated out due to racy table
+        # creation semantics in postgres:
+        # https://www.postgresql.org/message-id/CA+TgmoZAdYVtwBfp1FL2sMZbiHCWT4UPrzRLNnX1Nb30Ku3-gg@mail.gmail.com
+        #
+        import alembic
+        # First create the table (we don't have alembic_versions until later).
+        try:
+            db.session.execute("create table if not exists alembic_lock (locked boolean)")
+        except:
+            db.session.commit()
+        # Lock the table.
+        try:
+            db.session.execute("lock table alembic_lock in exclusive mode")
+        except:
+            app.logger.error("failed to lock before auto_migrate")
+            raise
+        # Migrate.
+        try:
+            alembic.command.upgrade(migrate.get_config(),"head")
+        except:
+            app.logger.error("failed to auto_migrate database; exiting")
+            raise
+        app.logger.info("auto_migrated database")
+        # Commit (unlock).
+        db.session.commit()
+
 from searcch_backend.api.resources.artifact import (
     ArtifactAPI, ArtifactIndexAPI,
     ArtifactRelationshipResourceRoot, ArtifactRelationshipResource)
-from searcch_backend.api.resources.artifact_compare import ArtifactCompareAPI
 from searcch_backend.api.resources.artifact_search import ArtifactSearchIndexAPI, ArtifactRecommendationAPI
 from searcch_backend.api.resources.organization import OrganizationAPI, OrganizationListAPI
 from searcch_backend.api.resources.login import LoginAPI
@@ -75,7 +104,6 @@ from searcch_backend.api.resources.schema import (
     SchemaArtifactAPI, SchemaAffiliationAPI)
 from searcch_backend.api.resources.badge import BadgeResourceRoot, BadgeResource
 from searcch_backend.api.resources.license import LicenseResourceRoot, LicenseResource
-from searcch_backend.api.common.scheduled_tasks import UpdateStatsViews
 
 approot = app.config['APPLICATION_ROOT']
 
@@ -85,26 +113,25 @@ api.add_resource(SessionResourceRoot, approot + '/sessions', endpoint='api.sessi
 api.add_resource(SessionResource, approot + '/session/<int:session_id>', endpoint='api.session')
 
 api.add_resource(ArtifactIndexAPI, approot + '/artifacts', endpoint='api.artifacts')
-api.add_resource(ArtifactAPI, approot + '/artifact/<int:artifact_group_id>', approot + '/artifact/<int:artifact_group_id>/<int:artifact_id>', endpoint='api.artifact')
-api.add_resource(ArtifactCompareAPI, approot + '/artifact/compare/<int:artifact_group_id>/<int:artifact_id>', endpoint='api.artifact_compare')
+api.add_resource(ArtifactAPI, approot + '/artifact/<int:artifact_id>', endpoint='api.artifact')
 api.add_resource(ArtifactSearchIndexAPI, approot + '/artifact/search', endpoint='api.artifact_search')
 api.add_resource(ArtifactRelationshipResourceRoot, approot + '/artifact/relationships', endpoint='api.artifact_relationships')
 api.add_resource(ArtifactRelationshipResource, approot + '/artifact/relationship/<int:artifact_relationship_id>', endpoint='api.artifact_relationship')
-api.add_resource(ArtifactRecommendationAPI, approot + '/artifact/recommendation/<int:artifact_group_id>/<int:artifact_id>', endpoint='api.artifact_recommender')
+api.add_resource(ArtifactRecommendationAPI, approot + '/artifact/recommendation/<int:artifact_id>', endpoint='api.artifact_recommender')
 
 api.add_resource(OrganizationListAPI, approot + '/organizations', endpoint='api.organizations')
 api.add_resource(OrganizationAPI, approot + '/organization/<int:org_id>', endpoint='api.organization')
 
 api.add_resource(InterestsListAPI, approot + '/interests', endpoint='api.interests')
 
-api.add_resource(RatingAPI, approot + '/rating/<int:artifact_group_id>', endpoint='api.rating')
-api.add_resource(UserRatingAPI, approot + '/rating/user/<int:user_id>/artifact/<int:artifact_group_id>', endpoint='api.userrating')
+api.add_resource(RatingAPI, approot + '/rating/<int:artifact_id>', endpoint='api.rating')
+api.add_resource(UserRatingAPI, approot + '/rating/user/<int:user_id>/artifact/<int:artifact_id>', endpoint='api.userrating')
 
-api.add_resource(ReviewAPI, approot + '/review/<int:artifact_group_id>', endpoint='api.review')
-api.add_resource(ReviewListAPI, approot + '/reviews/<int:artifact_group_id>', endpoint='api.reviews')
+api.add_resource(ReviewAPI, approot + '/review/<int:artifact_id>', endpoint='api.review')
+api.add_resource(ReviewListAPI, approot + '/reviews/<int:artifact_id>', endpoint='api.reviews')
 
 api.add_resource(FavoritesListAPI, approot + '/favorites/<int:user_id>', endpoint='api.favorites')
-api.add_resource(FavoriteAPI, approot + '/favorite/<int:artifact_group_id>', endpoint='api.favorite')
+api.add_resource(FavoriteAPI, approot + '/favorite/<int:artifact_id>', endpoint='api.favorite')
 
 api.add_resource(UsersIndexAPI, approot + '/users', endpoint='api.users')
 api.add_resource(UserProfileAPI, approot + '/user/<int:user_id>', approot + '/user', endpoint='api.user')

@@ -5,48 +5,45 @@ from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, url_for, request
 from flask_restful import reqparse, Resource
-from sqlalchemy import func, desc, sql, or_, and_, exc
+from sqlalchemy import func, desc, sql, or_, and_
 from searcch_backend.api.common.auth import (verify_api_key, has_api_key, has_token, verify_token)
 import math
 import logging
 import json
-from sqlalchemy.dialects import postgresql
 
 LOG = logging.getLogger(__name__)
 
-def generate_artifact_uri(artifact_group_id, artifact_id=None):
-    return url_for('api.artifact', artifact_group_id=artifact_group_id,
-                   artifact_id=artifact_id)
+def generate_artifact_uri(artifact_id):
+    return url_for('api.artifact', artifact_id=artifact_id)
 
 def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page):
     """ search for artifacts based on keywords, with optional filters by owner and affiliation """
     sqratings = db.session.query(
-        ArtifactRatings.artifact_group_id,
+        ArtifactRatings.artifact_id,
         func.count(ArtifactRatings.id).label('num_ratings'),
         func.avg(ArtifactRatings.rating).label('avg_rating')
-    ).group_by("artifact_group_id").subquery()
+    ).group_by("artifact_id").subquery()
     sqreviews = db.session.query(
-        ArtifactReviews.artifact_group_id,
+        ArtifactReviews.artifact_id,
         func.count(ArtifactReviews.id).label('num_reviews')
-    ).group_by("artifact_group_id").subquery()
+    ).group_by("artifact_id").subquery()
 
     # create base query object
     if not keywords:
         query = db.session.query(Artifact,
                                     sql.expression.bindparam("zero", 0).label("rank"),
-                                    'num_ratings', 'avg_rating', 'num_reviews', "view_count"
+                                    'num_ratings', 'avg_rating', 'num_reviews'
                                     ).order_by(
                                     db.case([
-                                        (Artifact.type == 'pcap', 1),
+                                        (Artifact.type == 'software', 1),
                                         (Artifact.type == 'dataset', 2),
                                         (Artifact.type ==
                                         'publication', 3),
                                     ], else_=4)
                                 )
-        query = query.join(ArtifactGroup, ArtifactGroup.id == Artifact.artifact_group_id
-                        ).join(sqratings, ArtifactGroup.id == sqratings.c.artifact_group_id, isouter=True
-                        ).join(ArtifactPublication, ArtifactPublication.id == ArtifactGroup.publication_id
-                        ).join(sqreviews, ArtifactGroup.id == sqreviews.c.artifact_group_id, isouter=True
+        query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                        ).join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id
+                        ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
                         ).order_by(sqratings.c.avg_rating.desc().nullslast(),sqreviews.c.num_reviews.desc())
     else:
         search_query = db.session.query(ArtifactSearchMaterializedView.artifact_id, 
@@ -54,12 +51,12 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
                                     ).filter(ArtifactSearchMaterializedView.doc_vector.op('@@')(func.websearch_to_tsquery("english", keywords))
                                     ).subquery()
         query = db.session.query(Artifact, 
-                                    search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews', "view_count"
+                                    search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews'
                                     ).join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id
                                     ).join(search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
         
-        query = query.join(sqratings, Artifact.artifact_group_id == sqratings.c.artifact_group_id, isouter=True
-                        ).join(sqreviews, Artifact.artifact_group_id == sqreviews.c.artifact_group_id, isouter=True
+        query = query.join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                        ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
                         ).order_by(desc(search_query.c.rank))
 
     if author_keywords or organization:
@@ -106,9 +103,6 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             ).filter(Badge.id.in_(badge_id_list)
             ).subquery()
         query = query.join(badge_query, Artifact.id == badge_query.c.artifact_id, isouter=False)
-
-    #Add View number to query
-    query = query.join(StatsArtifactViews, Artifact.artifact_group_id == StatsArtifactViews.artifact_group_id, isouter=True)
     
     # add filters based on provided parameters
     query = query.filter(ArtifactPublication.id != None)
@@ -124,11 +118,10 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
 
     artifacts = []
     for row in result:
-        artifact, _, num_ratings, avg_rating, num_reviews, view_count = row
+        artifact, _, num_ratings, avg_rating, num_reviews = row
         abstract = {
             "id": artifact.id,
-            "artifact_group_id": artifact.artifact_group_id,
-            "uri": generate_artifact_uri(artifact.artifact_group_id, artifact_id=artifact.id),
+            "uri": generate_artifact_uri(artifact.id),
             "doi": artifact.url,
             "type": artifact.type,
             "title": artifact.title,
@@ -136,10 +129,8 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             "avg_rating": float(avg_rating) if avg_rating else None,
             "num_ratings": num_ratings if num_ratings else 0,
             "num_reviews": num_reviews if num_reviews else 0,
-            "owner": { "id": artifact.owner.id },
-            "views": view_count if view_count else 0
+            "owner": { "id": artifact.owner.id }
         }
-
         artifacts.append(abstract)
 
     return dict(
@@ -217,17 +208,7 @@ class ArtifactSearchIndexAPI(Resource):
         if artifact_types:
             for a_type in artifact_types:
                 if not ArtifactSearchIndexAPI.is_artifact_type_valid(a_type):
-                    string = ' '.join(ARTIFACT_TYPES)
-                    abort(400, description='invalid artifact type passed' + string + ' got '+a_type)
-
-        try:
-            stats_search = StatsSearches(
-                    search_term=keywords
-            )
-            db.session.add(stats_search)
-            db.session.commit()
-        except exc.SQLAlchemyError as error:
-            LOG.exception(f'Failed to log search term in the database. Error: {error}')
+                    abort(400, description='invalid artifact type passed')
 
         result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page)
         response = jsonify(result)
@@ -247,7 +228,7 @@ class ArtifactRecommendationAPI(Resource):
 
         super(ArtifactRecommendationAPI, self).__init__()
     
-    def get(self, artifact_group_id, artifact_id):
+    def get(self, artifact_id):
         verify_api_key(request)
         login_session = verify_token(request)
         args = self.reqparse.parse_args()
@@ -255,8 +236,7 @@ class ArtifactRecommendationAPI(Resource):
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
-            Artifact.id == artifact_id).filter(
-            Artifact.artifact_group_id == artifact_group_id).first()
+            Artifact.id == artifact_id).first()
         if not artifact:
             abort(400, description='invalid artifact ID')
 

@@ -4,8 +4,6 @@ class Config(object):
     """
     API_VERSION = 1
     APPLICATION_ROOT = '/v{}'.format(API_VERSION)
-    # Run garbage collector once every day to move data from recent_views table to stats_views table
-    STATS_GARBAGE_COLLECTOR_INTERVAL = 24*60*60
 
 
 class DevelopmentConfig(Config):

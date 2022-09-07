@@ -9,7 +9,7 @@ from flask_restful import reqparse, Resource, fields, marshal
 
 
 class UserRatingAPI(Resource):
-    def get(self, user_id, artifact_group_id):
+    def get(self, user_id, artifact_id):
         verify_api_key(request)
         login_session = verify_token(request)
 
@@ -18,12 +18,12 @@ class UserRatingAPI(Resource):
 
         # check for valid artifact id
         artifact = db.session.query(Artifact).filter(
-            Artifact.id == artifact_group_id).first()
+            Artifact.id == artifact_id).first()
         if not artifact:
             abort(400, description='invalid artifact ID')
 
         rating = db.session.query(ArtifactRatings.rating).filter(
-            ArtifactRatings.artifact_group_id == artifact_group_id, ArtifactRatings.user_id == login_session.user_id).first()
+            ArtifactRatings.artifact_id == artifact_id, ArtifactRatings.user_id == login_session.user_id).first()
         if not rating:
             response = jsonify(
                 {"message": "the user has not rated this artifact"})
@@ -46,7 +46,7 @@ class RatingAPI(Resource):
 
         super(RatingAPI, self).__init__()
 
-    def post(self, artifact_group_id):
+    def post(self, artifact_id):
         verify_api_key(request)
         login_session = verify_token(request)
 
@@ -54,15 +54,14 @@ class RatingAPI(Resource):
         rating = args['rating']
 
         # check for valid artifact id
-        artifact_group = db.session.query(ArtifactGroup).filter(
-            ArtifactGroup.id == artifact_group_id).first()
-        if not artifact_group:
-            abort(400, description='invalid artifact group ID')
+        artifact = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).first()
+        if not artifact:
+            abort(400, description='invalid artifact ID')
 
         # add new rating to the database
         new_rating = ArtifactRatings(
-            user_id=login_session.user_id, artifact_group_id=artifact_group_id,
-            rating=rating, artifact_id=artifact_group.publication.artifact_id)
+            user_id=login_session.user_id, artifact_id=artifact_id, rating=rating)
         db.session.add(new_rating)
         db.session.commit()
 
@@ -71,29 +70,21 @@ class RatingAPI(Resource):
         response.status_code = 200
         return response
 
-    def put(self, artifact_group_id):
+    def put(self, artifact_id):
         verify_api_key(request)
         login_session = verify_token(request)
 
         args = self.reqparse.parse_args()
         rating = args['rating']
 
-        artifact_group = db.session.query(ArtifactGroup).filter(
-            ArtifactGroup.id == artifact_group_id).first()
-        if not artifact_group:
-            abort(400, description='invalid artifact group ID')
-
         existing_rating = db.session.query(ArtifactRatings).filter(
-            ArtifactRatings.user_id == login_session.user_id, ArtifactRatings.artifact_group_id == artifact_group_id).first()
+            ArtifactRatings.user_id == login_session.user_id, ArtifactRatings.artifact_id == artifact_id).first()
         if existing_rating:
             existing_rating.rating = rating
-            existing_rating.artifact_id = artifact_group.publication.artifact_id
             db.session.commit()
             msg = "updated rating"
         else:
-            new_rating = ArtifactRatings(
-                user_id=login_session.user_id, artifact_group_id=artifact_group_id,
-                rating=rating, artifact_id=artifact_group.publication.artifact_id)
+            new_rating = ArtifactRatings(user_id=login_session.user_id, artifact_id=artifact_id, rating=rating)
             db.session.add(new_rating)
             db.session.commit()
             msg = "added new rating"
@@ -103,12 +94,12 @@ class RatingAPI(Resource):
         response.status_code = 200
         return response
 
-    def delete(self, artifact_group_id):
+    def delete(self, artifact_id):
         verify_api_key(request)
         login_session = verify_token(request)
 
         rating = db.session.query(ArtifactRatings).filter(
-            ArtifactRatings.user_id == login_session.user_id, ArtifactRatings.artifact_group_id == artifact_group_id).first()
+            ArtifactRatings.user_id == login_session.user_id, ArtifactRatings.artifact_id == artifact_id).first()
         if rating:
             db.session.delete(rating)
             db.session.commit()
@@ -117,4 +108,4 @@ class RatingAPI(Resource):
             response.status_code = 200
             return response
         else:
-            abort(404, description="user has not rated this artifact group")
+            abort(404, description="user has not rated this artifact")

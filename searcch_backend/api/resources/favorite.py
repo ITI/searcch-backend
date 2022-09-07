@@ -10,22 +10,22 @@ from sqlalchemy import func, desc, sql
 
 def subquery_constructs():
     sqratings = db.session.query(
-        ArtifactRatings.artifact_group_id,
+        ArtifactRatings.artifact_id,
         func.count(ArtifactRatings.id).label('num_ratings'),
         func.avg(ArtifactRatings.rating).label('avg_rating')
-    ).group_by("artifact_group_id").subquery()
+    ).group_by("artifact_id").subquery()
 
     sqreviews = db.session.query(
-        ArtifactReviews.artifact_group_id,
+        ArtifactReviews.artifact_id,
         func.count(ArtifactReviews.id).label('num_reviews')
-    ).group_by("artifact_group_id").subquery()
+    ).group_by("artifact_id").subquery()
     
     return sqratings, sqreviews
 
 class FavoritesListAPI(Resource):
     @staticmethod
-    def generate_artifact_uri(artifact_group_id):
-        return url_for('api.artifact', artifact_group_id=artifact_group_id)
+    def generate_artifact_uri(artifact_id):
+        return url_for('api.artifact', artifact_id=artifact_id)
 
     def get(self, user_id):
         verify_api_key(request)
@@ -36,24 +36,22 @@ class FavoritesListAPI(Resource):
 
         sqratings, sqreviews = subquery_constructs()
 
-        favorite_artifacts = db.session.query(ArtifactGroup, Artifact, 'num_ratings', 'avg_rating', 'num_reviews'
-            ).join(ArtifactPublication, ArtifactGroup.publication_id == ArtifactPublication.id, isouter=True
-            ).join(Artifact, ArtifactPublication.artifact_id == Artifact.id, isouter=True
-            ).join(sqratings, ArtifactGroup.id == sqratings.c.artifact_group_id, isouter=True
-            ).join(sqreviews, ArtifactGroup.id == sqreviews.c.artifact_group_id, isouter=True
-            ).join(ArtifactFavorites, ArtifactGroup.id == ArtifactFavorites.artifact_group_id
-            ).filter(ArtifactFavorites.user_id == login_session.user_id
-            ).all()
+        favorite_artifacts = db.session.query(Artifact, 'num_ratings', 'avg_rating', 'num_reviews'
+                                                ).join(sqratings, Artifact.id == sqratings.c.artifact_id, isouter=True
+                                                ).join(sqreviews, Artifact.id == sqreviews.c.artifact_id, isouter=True
+                                                ).join(ArtifactFavorites, Artifact.id == ArtifactFavorites.artifact_id
+                                                ).filter(ArtifactFavorites.user_id == login_session.user_id
+                                                ).all()
 
         artifacts = []
-        for artifact_group, artifact, num_ratings, avg_rating, num_reviews in favorite_artifacts:
+        for artifact, num_ratings, avg_rating, num_reviews in favorite_artifacts:
             result = {
-                "artifact_group_id": artifact_group.id,
+                "id": artifact.id,
                 "uri": FavoritesListAPI.generate_artifact_uri(artifact.id),
-                "doi": getattr(artifact, 'url', None),
-                "type": getattr(artifact, 'type', None),
-                "title": getattr(artifact, 'title', None),
-                "description": getattr(artifact, 'description', None),
+                "doi": artifact.url,
+                "type": artifact.type,
+                "title": artifact.title,
+                "description": artifact.description,                
                 "avg_rating": float(avg_rating) if avg_rating else None,
                 "num_ratings": num_ratings if num_ratings else 0,
                 "num_reviews": num_reviews if num_reviews else 0
@@ -68,42 +66,41 @@ class FavoritesListAPI(Resource):
 
 class FavoriteAPI(Resource):
 
-    def post(self, artifact_group_id):
+    def post(self, artifact_id):
         verify_api_key(request)
         login_session = verify_token(request)
 
         # check for valid artifact id
-        artifact_group = db.session.query(ArtifactGroup).filter(
-            ArtifactGroup.id == artifact_group_id).first()
-        if not artifact_group:
-            abort(400, description='invalid artifact group ID')
+        artifact = db.session.query(Artifact).filter(
+            Artifact.id == artifact_id).first()
+        if not artifact:
+            abort(400, description='invalid artifact ID')
 
         # add new rating to the database
         new_favorite = ArtifactFavorites(
-            user_id=login_session.user_id, artifact_group_id=artifact_group_id,
-            artifact_id=artifact_group.publication.artifact_id)
+            user_id=login_session.user_id, artifact_id=artifact_id)
         db.session.add(new_favorite)
         db.session.commit()
 
-        response = jsonify({"message": "added artifact group to favorites list"})
+        response = jsonify({"message": "added artifact to favorites list"})
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
 
-    def delete(self, artifact_group_id):
+    def delete(self, artifact_id):
         verify_api_key(request)
         login_session = verify_token(request)
 
         existing_favorite = db.session.query(ArtifactFavorites).filter(
-            ArtifactFavorites.user_id == login_session.user_id, ArtifactFavorites.artifact_group_id == artifact_group_id).first()
+            ArtifactFavorites.user_id == login_session.user_id, ArtifactFavorites.artifact_id == artifact_id).first()
         if existing_favorite:
             db.session.delete(existing_favorite)
             db.session.commit()
             response = jsonify(
-                {"message": "deleted artifact group from favorites list"})
+                {"message": "deleted artifact from favorites list"})
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
             return response
         else:
             abort(
-                404, description="this artifact group does not exist in the user's favorites list")
+                404, description="this artifact does not exist in the user's favorites list")
