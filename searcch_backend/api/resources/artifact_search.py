@@ -10,6 +10,7 @@ from searcch_backend.api.common.auth import (verify_api_key, has_api_key, has_to
 import math
 import logging
 import json
+from sqlalchemy.dialects import postgresql
 
 LOG = logging.getLogger(__name__)
 
@@ -138,6 +139,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             "owner": { "id": artifact.owner.id },
             "views": view_count if view_count else 0
         }
+
         artifacts.append(abstract)
 
     return dict(
