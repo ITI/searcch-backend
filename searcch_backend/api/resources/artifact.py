@@ -139,7 +139,7 @@ class ArtifactIndexAPI(Resource):
         else:
             artifacts = artifacts.all()
 
-        exclude = None
+        exclude = []
         if args["short_view_include"] is not None:
             sva = args["short_view_include"].split(",")
             exclude = list(Artifact.__mapper__.relationships.keys())
