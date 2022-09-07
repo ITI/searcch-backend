@@ -1,5 +1,4 @@
 Dockerfile
 docker-compose.yml
-env/
 README.md
 SECURITY.md

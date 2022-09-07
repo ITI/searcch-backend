@@ -9,10 +9,10 @@ services:
       - 80:80
       - 443:443
     volumes:
-      - /data/caddy/Caddyfile:/etc/caddy/Caddyfile
-      - /data/caddy/data:/data
-      - /data/caddy/config:/config
-      - /data/caddy/ssl/:/etc/ssl/certs/searcch/
+      - ${DATADIR:-/data}/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ${DATADIR:-/data}/caddy/data:/data
+      - ${DATADIR:-/data}/caddy/config:/config
+      - ${DATADIR:-/data}/caddy/ssl/:/etc/ssl/certs/searcch/
     networks:
       - searcch-frontend-prod-net
       - searcch-frontend-dev-net
@@ -24,9 +24,9 @@ services:
     restart: unless-stopped
     build: "https://${TOKEN:-token-here}:@github.com/ITI/searcch-backend.git"
     volumes:
-      - /data/searcch-backend-prod/gunicorn_conf.py:/app/gunicorn_conf.py
-      - /data/searcch-backend-prod/config-production.py:/app/config-production.py
-      - /data/searcch-backend-prod/logs:/app/logs
+      - ${DATADIR:-/data}/searcch-backend-prod/gunicorn_conf.py:/app/gunicorn_conf.py
+      - ${DATADIR:-/data}/searcch-backend-prod/config-production.py:/app/config-production.py
+      - ${DATADIR:-/data}/searcch-backend-prod/logs:/app/logs
     env_file:
       - env/searcch-backend-prod.env
     networks:
@@ -43,9 +43,9 @@ services:
     #build: "https://${TOKEN:-token-here}:@github.com/ITI/searcch-backend.git#dev"
     build: .
     volumes:
-      - /data/searcch-backend-dev/gunicorn_conf.py:/app/gunicorn_conf.py
-      - /data/searcch-backend-dev/config-development.py:/app/config-development.py
-      - /data/searcch-backend-dev/logs:/app/logs
+      - ${DATADIR:-/data}/searcch-backend-dev/gunicorn_conf.py:/app/gunicorn_conf.py
+      - ${DATADIR:-/data}/searcch-backend-dev/config-development.py:/app/config-development.py
+      - ${DATADIR:-/data}/searcch-backend-dev/logs:/app/logs
     env_file:
       - env/searcch-backend-dev.env
     networks:
@@ -60,9 +60,9 @@ services:
     hostname: searcch-backend-local-dev
     build: .
     volumes:
-      - /data/searcch-backend-local-dev/gunicorn_conf.py:/app/gunicorn_conf.py
-      - /data/searcch-backend-local-dev/config-local-dev.py:/app/config-local-dev.py
-      - /data/searcch-backend-local-dev/logs:/app/logs
+      - ${DATADIR:-/data}/searcch-backend-local-dev/gunicorn_conf.py:/app/gunicorn_conf.py
+      - ${DATADIR:-/data}/searcch-backend-local-dev/config-local-dev.py:/app/config-local-dev.py
+      - ${DATADIR:-/data}/searcch-backend-local-dev/logs:/app/logs
     env_file:
       - env/searcch-backend-local-dev.env
     networks:
@@ -70,8 +70,6 @@ services:
       - searcch-frontend-local-dev-net
     depends_on:
       - searcch-local-dev-postgres
-    ports:
-      - "80"
 
   searcch-prod-postgres:
     image: postgres
@@ -79,7 +77,7 @@ services:
     hostname: searcch-prod-postgres
     restart: unless-stopped
     volumes:
-      - /data/searcch-prod-psql:/var/lib/postgresql/data
+      - ${DATADIR:-/data}/searcch-prod-psql:/var/lib/postgresql/data
     env_file:
       - env/prod-postgres.env
     networks:
@@ -91,7 +89,7 @@ services:
     hostname: searcch-dev-postgres
     restart: unless-stopped
     volumes:
-      - /data/searcch-dev-psql:/var/lib/postgresql/data
+      - ${DATADIR:-/data}/searcch-dev-psql:/var/lib/postgresql/data
     env_file:
       - env/dev-postgres.env
     networks:
@@ -103,13 +101,11 @@ services:
     hostname: searcch-local-dev-postgres
     restart: unless-stopped
     volumes:
-      - /data/searcch-local-dev-psql:/var/lib/postgresql/data
+      - ${DATADIR:-/data}/searcch-local-dev-psql:/var/lib/postgresql/data
     env_file:
       - env/local-dev-postgres.env
     networks:
       - searcch-backend-local-dev-net
-    ports:
-      - "5432"
 
 networks:
   searcch-backend-dev-net:
