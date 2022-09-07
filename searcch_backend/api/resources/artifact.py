@@ -890,13 +890,15 @@ class ArtifactOwnerRequestAPI(Resource):
         artifact_group = db.session.query(ArtifactGroup).filter(ArtifactGroup.id == artifact_group_id).first()
         if not artifact_group:
             abort(404, description="no such artifact group")
-
-        #Check if any pending requests
-        artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(and_(ArtifactOwnerRequest.user_id == login_session.user_id, ArtifactOwnerRequest.status == "pending", ArtifactOwnerRequest.artifact_group_id == artifact_group_id)).first()
-        if artifact_owner_request:
-            response = jsonify({"artifact_owner_request": ArtifactOwnerRequestSchema().dump(artifact_owner_request)})
+        if artifact_group.owner_id == login_session.user_id:
+            response = jsonify({"artifact_owner_request": {"message": "You are the owner of this artifact.", "error": True}})
         else:
-            response = jsonify({"artifact_owner_request": None})
+            #Check if any pending requests
+            artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(and_(ArtifactOwnerRequest.user_id == login_session.user_id, ArtifactOwnerRequest.status == "pending", ArtifactOwnerRequest.artifact_group_id == artifact_group_id)).first()
+            if artifact_owner_request:
+                response = jsonify({"artifact_owner_request": ArtifactOwnerRequestSchema().dump(artifact_owner_request)})
+            else:
+                response = jsonify({"artifact_owner_request": None})
 
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
@@ -940,6 +942,8 @@ class ArtifactOwnerRequestAPI(Resource):
             sender="searcch.hub@cyberexperimentation.org")
 
         for recipient in msg_recipients:
+            if not recipient:
+                continue
             msg.recipients = [recipient]
             is_admin = (recipient=="searcch.hub@cyberexperimentation.org")
             msg.html = render_template("ownership_request_email_pending.html",\
@@ -1114,8 +1118,13 @@ class ArtifactOwnerRequestsAPI(Resource):
           first()
 
         msg = Message(f'Artifact Ownership Claim - Artifact Group ID: {mail_data.Artifact.artifact_group_id}',\
-                sender="searcch.hub@cyberexperimentation.org",\
-                recipients=[mail_data.Person.email, "searcch.hub@cyberexperimentation.org"])
+                sender="searcch.hub@cyberexperimentation.org")
+        
+        recipients = ["searcch.hub@cyberexperimentation.org"]
+        if mail_data.Person.email:
+            recipients.append(mail_data.Person.email)
+        
+        msg.recipients = recipients
 
         if mail_data.ArtifactOwnerRequest.status == "approved":
             msg.html = render_template("ownership_request_email_approved.html",\
