@@ -139,7 +139,7 @@ class ArtifactIndexAPI(Resource):
         else:
             artifacts = artifacts.all()
 
-        exclude = None
+        exclude = []
         if args["short_view_include"] is not None:
             sva = args["short_view_include"].split(",")
             exclude = list(Artifact.__mapper__.relationships.keys())
@@ -181,6 +181,9 @@ class ArtifactIndexAPI(Resource):
             artifact.ctime = datetime.datetime.now()
         if login_session:
             artifact.owner = login_session.user
+        artifact_group = ArtifactGroup(owner=artifact.owner, next_version=0)
+        artifact.artifact_group = artifact_group
+        db.session.add(artifact_group)
         db.session.add(artifact)
         fake_module_name = "manual"
         if not login_session:
