@@ -423,6 +423,23 @@ class ArtifactImportSchema(SQLAlchemyAutoSchema):
     #parent = Nested(ArtifactSchema, many=False)
     artifact = Nested(ArtifactSchema, many=False)
 
+class ArtifactOwnerRequestSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactOwnerRequest
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+    
+    user = Nested(UserSchema, many=False)
+    action_by_user = Nested(UserSchema, many=False)
+
+    artifact_title = fields.Method("get_artifact_title")
+
+    def get_artifact_title(self, obj):
+        result = db.session.query(Artifact.title).filter(Artifact.artifact_group_id==obj.artifact_group_id).first()
+        if hasattr(result, "title"):
+            return result.title
+        return ""
 
 class ImporterScheduleSchema(SQLAlchemyAutoSchema):
     class Meta:
