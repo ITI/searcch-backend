@@ -1,6 +1,6 @@
 # logic for /artifacts
 
-from searcch_backend.api.app import db, config_name, mail
+from searcch_backend.api.app import db, config_name, mail, app
 from searcch_backend.api.common.sql import (
     object_from_json, artifact_diff, artifact_clone,
     artifact_apply_curation)
@@ -937,24 +937,24 @@ class ArtifactOwnerRequestAPI(Resource):
           filter(ArtifactOwnerRequest.id == new_artifact_owner_request.id).\
           first()
 
-        msg_recipients = [mail_data.Person.email, "searcch.hub@cyberexperimentation.org"]
-        msg = Message(f'Artifact Ownership Claim - Artifact Group ID: {mail_data.Artifact.artifact_group_id}',\
-            sender="searcch.hub@cyberexperimentation.org")
+        msg_recipients = [mail_data.Person.email, *app.config['ADMIN_MAILING_RECIPIENTS']]
+        msg = Message(f'Artifact Ownership Claim - Artifact Group ID: {mail_data.Artifact.artifact_group_id}')
 
         for recipient in msg_recipients:
             if not recipient:
                 continue
             msg.recipients = [recipient]
-            is_admin = (recipient=="searcch.hub@cyberexperimentation.org")
+            is_admin = (recipient in app.config['ADMIN_MAILING_RECIPIENTS'])
             msg.html = render_template("ownership_request_email_pending.html",\
                 artifact_group_id=mail_data.Artifact.artifact_group_id, \
-                artifact_link=f'https://hub.cyberexperimentation.org/artifact/{mail_data.Artifact.artifact_group_id}',\
+                artifact_link=f'{app.config["FRONTEND_URL"]}/artifact/{mail_data.Artifact.artifact_group_id}',\
                 artifact_title=mail_data.Artifact.title,\
                 user_id=mail_data.User.id,\
                 user_name=mail_data.Person.name,\
                 user_email=mail_data.Person.email,
                 justification=mail_data.ArtifactOwnerRequest.message,
-                admin=is_admin)
+                admin=is_admin,
+                admin_link=f'{app.config["FRONTEND_URL"]}/admin/claims')
             mail.send(msg)
 
         response = jsonify({"message": "artifact ownership saved successfully"})
@@ -1117,10 +1117,9 @@ class ArtifactOwnerRequestsAPI(Resource):
           filter(ArtifactOwnerRequest.id == args.artifact_owner_request_id).\
           first()
 
-        msg = Message(f'Artifact Ownership Claim - Artifact Group ID: {mail_data.Artifact.artifact_group_id}',\
-                sender="searcch.hub@cyberexperimentation.org")
+        msg = Message(f'Artifact Ownership Claim - Artifact Group ID: {mail_data.Artifact.artifact_group_id}')
         
-        recipients = ["searcch.hub@cyberexperimentation.org"]
+        recipients = app.config['ADMIN_MAILING_RECIPIENTS']
         if mail_data.Person.email:
             recipients.append(mail_data.Person.email)
         
@@ -1129,7 +1128,7 @@ class ArtifactOwnerRequestsAPI(Resource):
         if mail_data.ArtifactOwnerRequest.status == "approved":
             msg.html = render_template("ownership_request_email_approved.html",\
                 artifact_group_id=mail_data.Artifact.artifact_group_id, \
-                artifact_link=f'https://hub.cyberexperimentation.org/artifact/{mail_data.Artifact.artifact_group_id}',\
+                artifact_link=f'{app.config["FRONTEND_URL"]}/artifact/{mail_data.Artifact.artifact_group_id}',\
                 artifact_title=mail_data.Artifact.title,\
                 user_id=mail_data.User.id,\
                 user_name=mail_data.Person.name,\
@@ -1138,7 +1137,7 @@ class ArtifactOwnerRequestsAPI(Resource):
         else:
             msg.html = render_template("ownership_request_email_rejected.html",\
                 artifact_group_id=mail_data.Artifact.artifact_group_id, \
-                artifact_link=f'https://hub.cyberexperimentation.org/artifact/{mail_data.Artifact.artifact_group_id}',\
+                artifact_link=f'{app.config["FRONTEND_URL"]}/artifact/{mail_data.Artifact.artifact_group_id}',\
                 artifact_title=mail_data.Artifact.title,\
                 user_id=mail_data.User.id,\
                 user_name=mail_data.Person.name,\

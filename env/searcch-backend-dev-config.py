@@ -7,3 +7,6 @@ SESSION_TIMEOUT_IN_MINUTES = 24*60
 SQLALCHEMY_DATABASE_URI = "postgresql+psycopg2cffi://postgres:postgres@searcch-backend-dev-postgres:5432/searcchhub_devel"
 SHARED_SECRET_KEY = 'shared_secret_key'
 DB_AUTO_MIGRATE = True
+FRONTEND_URL='https://hub-dev.cyberexperimentation.org'
+ADMIN_MAILING_RECIPIENTS = ['searcch.hub@cyberexperimentation.org']
+MAIL_DEFAULT_SENDER = 'searcch.hub@cyberexperimentation.org'

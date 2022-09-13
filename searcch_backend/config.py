@@ -19,8 +19,7 @@ class DevelopmentConfig(Config):
     SESSION_TIMEOUT_IN_MINUTES = 120
     DB_AUTO_MIGRATE = True
     JSON_SORT_KEYS = False
-    TESTING = True
-    MAIL_SUPPRESS_SEND = True
+    MAIL_SUPPRESS_SEND = False
 
 class ProductionConfig(Config):
     """
@@ -33,7 +32,6 @@ class ProductionConfig(Config):
     SESSION_TIMEOUT_IN_MINUTES = 120
     DB_AUTO_MIGRATE = True
     JSON_SORT_KEYS = False
-    TESTING = False
     MAIL_SUPPRESS_SEND = False
 
 app_config = {
