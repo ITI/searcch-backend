@@ -27,5 +27,6 @@ ENV FLASK_APP=run:app
 
 Expose 8080
 
-CMD ["gunicorn","--config","gunicorn_conf.py","run:app"]
+CMD ["bash"]
+#CMD ["gunicorn","--config","gunicorn_conf.py","run:app"]
 #CMD ["flask","run","--host=0.0.0.0","--port=80"]
