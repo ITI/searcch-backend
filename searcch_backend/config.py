@@ -20,6 +20,8 @@ class DevelopmentConfig(Config):
     DB_AUTO_MIGRATE = True
     JSON_SORT_KEYS = False
     MAIL_SUPPRESS_SEND = False
+    ADMIN_MAILING_RECIPIENTS = []
+    MAIL_SERVER = "searcch-backend-postfix"
 
 class ProductionConfig(Config):
     """
@@ -33,6 +35,8 @@ class ProductionConfig(Config):
     DB_AUTO_MIGRATE = True
     JSON_SORT_KEYS = False
     MAIL_SUPPRESS_SEND = False
+    ADMIN_MAILING_RECIPIENTS = []
+    MAIL_SERVER = "searcch-backend-postfix"
 
 app_config = {
     'development': DevelopmentConfig,

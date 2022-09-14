@@ -1,0 +1,21 @@
+FROM debian:stable-slim
+
+RUN apt-get update -y \
+  && DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y \
+    postfix less nano ca-certificates iputils-ping iproute2 \
+  && apt-get clean all \
+  && rm -rfv /var/lib/apt/lists/* \
+  && cp -p /etc/postfix/main.cf /etc/postfix/main.cf.dist
+
+COPY etc/postfix-run.sh /run.sh
+
+COPY etc/postfix-main.cf /etc/postfix/main.cf
+
+ENV MYHOSTNAME=localhost \
+    MYNETWORKS="" \
+    RELAYHOST="" \
+    RELAYUSER="" \
+    RELAYPASS=""
+
+CMD /run.sh

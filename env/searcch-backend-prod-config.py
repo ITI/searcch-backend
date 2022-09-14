@@ -10,3 +10,4 @@ DB_AUTO_MIGRATE = True
 FRONTEND_URL='https://hub.cyberexperimentation.org'
 ADMIN_MAILING_RECIPIENTS = ['searcch.hub@cyberexperimentation.org']
 MAIL_DEFAULT_SENDER = 'searcch.hub@cyberexperimentation.org'
+MAIL_SERVER = "searcch-backend-postfix"
