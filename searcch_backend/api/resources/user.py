@@ -223,7 +223,10 @@ class UserArtifactsAPI(Resource):
         user = db.session.query(User).filter(User.id == login_session.user_id).first()
 
         artifact_schema = ArtifactSchema(many=True)
-        owned_artifacts = db.session.query(Artifact).filter(Artifact.owner_id == login_session.user_id)
+        owned_artifacts = db.session.query(Artifact).\
+          join(ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id).\
+          filter(Artifact.owner_id == login_session.user_id \
+                 or ArtifactGroup.owner_id == login_session.user_id)
 
         response = jsonify({
             "owned_artifacts": artifact_schema.dump(owned_artifacts)

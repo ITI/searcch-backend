@@ -78,16 +78,16 @@ class ArtifactIndexAPI(Resource):
                     abort(400, description='invalid artifact type passed')
 
         artifacts = db.session.query(Artifact).\
+          join(ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id).\
           filter(True if login_session.is_admin and args["allusers"] \
-                      else Artifact.owner_id == login_session.user_id)
+                      else (Artifact.owner_id == login_session.user_id \
+                            or ArtifactGroup.owner_id == login_session.user_id))
         if not args.allversions:
             artifacts = artifacts.distinct(Artifact.artifact_group_id)
         if args.artifact_group_id is not None:
             artifacts = artifacts.\
               filter(Artifact.artifact_group_id == args.artifact_group_id)
         if not args.allversions:
-            artifacts = artifacts.\
-              join(ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id)
             # If an artifact group has a current publication, only return that.
             if args.published == 1:
                 artifacts = artifacts.\
