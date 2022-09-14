@@ -1103,8 +1103,14 @@ class ArtifactOwnerRequestsAPI(Resource):
             abort(404, description="cannot take action on already executed requests")
 
         # # Update Database
-        
-        artifact_owner_request.status = "approved" if args.action == "approve" else "rejected"
+        if args.action == "approve":
+            artifact_owner_request.status = "approved"
+            artifact_group = db.session.query(ArtifactGroup).\
+              filter(ArtifactGroup.id == artifact_owner_request.artifact_group_id).\
+              first()
+            artifact_group.owner_id = artifact_owner_request.user_id
+        else:
+            artifact_owner_request.status = "rejected"
         artifact_owner_request.action_message = args.message
         artifact_owner_request.action_time = datetime.datetime.now()
         artifact_owner_request.action_by_user_id = login_session.user_id
