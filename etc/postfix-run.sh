@@ -31,5 +31,6 @@ fi
 /usr/sbin/postmap hash:/etc/postfix/sasl/sasl_passwd
 
 cp -p /etc/resolv.conf /var/spool/postfix/etc/
+cp -p /etc/services /var/spool/postfix/etc/
 
 exec /usr/sbin/postfix start-fg
