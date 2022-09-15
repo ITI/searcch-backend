@@ -358,6 +358,8 @@ class ArtifactGroupSchema(SQLAlchemyAutoSchema):
 class ArtifactGroupShallowSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactGroup
+        exclude = ('relationships', 'reverse_relationships',
+                   'publications')
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
