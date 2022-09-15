@@ -127,6 +127,10 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
         abstract = {
             "id": artifact.id,
             "artifact_group_id": artifact.artifact_group_id,
+            "artifact_group": {
+                "id": artifact.artifact_group_id,
+                "owner_id": artifact.artifact_group.owner_id
+            },
             "uri": generate_artifact_uri(artifact.artifact_group_id, artifact_id=artifact.id),
             "doi": artifact.url,
             "type": artifact.type,

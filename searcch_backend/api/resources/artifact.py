@@ -607,7 +607,7 @@ class ArtifactAPI(Resource):
               first()
             if not artifact:
                 abort(404, description="no such artifact")
-            if not (login_session.is_admin or artifact.owner_id == login_session.user_id):
+            if not (login_session.is_admin or artifact.owner_id == login_session.user_id or artifact_group.owner_id == login_session.user_id):
                 abort(401, description="insufficient permission to delete artifact")
             if artifact.publication and not login_session.is_admin:
                 abort(403, description="artifact already published; cannot delete")
@@ -650,7 +650,7 @@ class ArtifactAPI(Resource):
           .first()
         if not artifact:
             abort(404, description="no such artifact")
-        if not login_session.is_admin and artifact.owner_id != login_session.user_id:
+        if not login_session.is_admin and artifact.artifact_group.owner_id != login_session.user_id:
             abort(401, description="insufficient permission to modify artifact")
         if not artifact.publication:
             abort(403, description="artifact not published; cannot create new version from unpublished artifact")
