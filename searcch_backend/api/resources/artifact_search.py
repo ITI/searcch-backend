@@ -270,8 +270,10 @@ class ArtifactRecommendationAPI(Resource):
         top_keywords = db.session.query(ArtifactTag.tag).filter(
             ArtifactTag.artifact_id == artifact_id, ArtifactTag.source.like('%keywords%')).all()
         if not top_keywords:
-            response = jsonify(
-                {"message": "The artifact doesnt have any top rated keywords"})
+            response = jsonify({
+                "artifacts": {
+                    "total": 0, "page": 1, "pages": 1, "artifacts": []
+                }, "avg_rating": None, "num_ratings": 0, "authors": []})
         else:
             keywords = [result.tag for result in top_keywords]
             artifacts = search_artifacts(keywords=" or ".join(keywords), artifact_types = ARTIFACT_TYPES, page_num = page_num, items_per_page= 10, author_keywords = None,  organization = None, owner_keywords = None, badge_id_list = None)
