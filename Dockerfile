@@ -11,9 +11,10 @@ RUN \
   && rm -rf /var/lib/apt/lists/* \
   && pip install --upgrade pip setuptools wheel
 
-WORKDIR /app
+WORKDIR /app/
 
 COPY requirements.txt .
+#COPY env/gunicorn_conf_dev.py gunicorn_conf.py
 
 RUN \
   pip3 install --no-cache-dir -r requirements.txt \
@@ -27,6 +28,6 @@ ENV FLASK_APP=run:app
 
 Expose 8080
 
-CMD ["bash"]
-#CMD ["gunicorn","--config","gunicorn_conf.py","run:app"]
+#CMD ["bash"]
+CMD ["gunicorn","--config","gunicorn_conf.py","run:app"]
 #CMD ["flask","run","--host=0.0.0.0","--port=80"]
