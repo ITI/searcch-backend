@@ -12,7 +12,7 @@ loglevel = "debug"
 pidfile = "logs/process_id.pid"
 capture_output = True
 enable_stdio_inheritance = True
-daemon = True
+daemon = False
 
 #
 # NB: early exceptions from the app may be lost when workers fail immediately.
