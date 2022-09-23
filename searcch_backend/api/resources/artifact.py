@@ -802,7 +802,7 @@ class ArtifactRelationshipResourceRoot(Resource):
         new_relationship = ArtifactRelationship(
             artifact_group_id=artifact_group_id, relation=relation,
             related_artifact_group_id=related_artifact_group_id,
-            artifact_id=artifact_group.publication_id)
+            artifact_id=artifact_group.publication.artifact_id)
         db.session.add(new_relationship)
         db.session.commit()
         db.session.refresh(new_relationship)
