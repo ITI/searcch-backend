@@ -10,6 +10,7 @@ from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from flask_migrate import Migrate
+from flask_mail import Mail
 
 # set up configurations
 app = Flask(__name__, instance_relative_config=True)
@@ -18,11 +19,11 @@ app.config.from_object(app_config[config_name])
 if os.getenv('FLASK_INSTANCE_CONFIG_FILE'):
     app.config.from_pyfile(os.getenv('FLASK_INSTANCE_CONFIG_FILE'))
 
-
 db = SQLAlchemy(app)
 migrate = Migrate(app, db, directory="searcch_backend/migrations")
 ma = Marshmallow(app)
 api = Api(app)
+mail = Mail(app)
 
 @app.teardown_appcontext
 def shutdown_session(exception=None):
@@ -52,7 +53,7 @@ app.logger.debug("flask config: %r",app.config)
 
 from searcch_backend.api.resources.artifact import (
     ArtifactAPI, ArtifactIndexAPI,
-    ArtifactRelationshipResourceRoot, ArtifactRelationshipResource)
+    ArtifactRelationshipResourceRoot, ArtifactRelationshipResource, ArtifactOwnerRequestAPI, ArtifactOwnerRequestsAPI)
 from searcch_backend.api.resources.artifact_compare import ArtifactCompareAPI
 from searcch_backend.api.resources.artifact_search import ArtifactSearchIndexAPI, ArtifactRecommendationAPI
 from searcch_backend.api.resources.artifact_request import ArtifactRequestAPI
@@ -93,6 +94,9 @@ api.add_resource(ArtifactRequestAPI, approot + '/artifact/request/<int:artifact_
 api.add_resource(ArtifactRelationshipResourceRoot, approot + '/artifact/relationships', endpoint='api.artifact_relationships')
 api.add_resource(ArtifactRelationshipResource, approot + '/artifact/relationship/<int:artifact_relationship_id>', endpoint='api.artifact_relationship')
 api.add_resource(ArtifactRecommendationAPI, approot + '/artifact/recommendation/<int:artifact_group_id>/<int:artifact_id>', endpoint='api.artifact_recommender')
+
+api.add_resource(ArtifactOwnerRequestAPI, approot + '/artifact/request/owner/<int:artifact_group_id>', endpoint='api.artifact_request_owner')
+api.add_resource(ArtifactOwnerRequestsAPI, approot + '/artifact/requests/owner', endpoint='api.artifact_requests_owner')
 
 api.add_resource(OrganizationListAPI, approot + '/organizations', endpoint='api.organizations')
 api.add_resource(OrganizationAPI, approot + '/organization/<int:org_id>', endpoint='api.organization')

@@ -107,6 +107,22 @@ services:
     networks:
       - searcch-backend-local-dev-net
 
+  searcch-backend-postfix:
+    image: searcch-backend-postfix
+    container_name: searcch-backend-postfix
+    build:
+      context: .
+      dockerfile: Dockerfile.postfix
+    volumes:
+      #- ${DATADIR:-/data}/searcch-backend-postfix/main.cf:/etc/postfix/main.cf
+      - ${DATADIR:-/data}/searcch-backend-postfix/postfix.log:/var/log/postfix.log
+    env_file:
+      - env/searcch-backend-postfix.env
+    networks:
+      - searcch-backend-prod-net
+      - searcch-backend-dev-net
+      - searcch-backend-local-dev-net
+
 networks:
   searcch-backend-dev-net:
     name: searcch-backend-dev-net

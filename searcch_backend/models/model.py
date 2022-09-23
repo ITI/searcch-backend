@@ -754,6 +754,30 @@ class ArtifactImport(db.Model):
             self.id, self.type, self.url, self.importer_module_name,
             self.owner, self.status, self.artifact_group, self.artifact)
 
+ARTIFACT_OWNER_REQUEST_STATUS = (
+    "pending", "approved", "rejected", "pre_approved"
+)
+
+class ArtifactOwnerRequest(db.Model):
+    # The ArtifactOwnerRequest class stores all the artifact owership requesst
+
+    __tablename__ = "artifact_owner_request"
+    __table_args__ = (
+        db.UniqueConstraint("artifact_group_id", "user_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    ctime = db.Column(db.DateTime, nullable=False)
+    status = db.Column(db.Enum(*ARTIFACT_OWNER_REQUEST_STATUS,name="artifact_owner_request_status_enum"), nullable=False)
+    action_message = db.Column(db.Text, nullable=True)
+    action_time = db.Column(db.DateTime, nullable=True)
+    action_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    user = db.relationship("User", uselist=False, foreign_keys=[user_id])
+    action_by_user = db.relationship("User", uselist=False, foreign_keys=[action_by_user_id])
 
 class ImporterInstance(db.Model):
     """

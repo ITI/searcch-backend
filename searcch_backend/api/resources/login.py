@@ -173,6 +173,9 @@ class LoginAPI(Resource):
         if not login_session:
             (user_email, user_name) = self._validate_token(strategy, sso_token)
 
+            if not user_email or user_email.find("@") <= 0:
+                abort(403, description="Identity provider did not share your email address; check your profile's security settings at your provider")
+
             # check if User entity with that email exists
             user = db.session.query(User).\
               join(Person, Person.id == User.person_id).\

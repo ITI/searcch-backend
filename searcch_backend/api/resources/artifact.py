@@ -1,6 +1,6 @@
 # logic for /artifacts
 
-from searcch_backend.api.app import db, config_name
+from searcch_backend.api.app import db, config_name, mail, app
 from searcch_backend.api.common.sql import (
     object_from_json, artifact_diff, artifact_clone,
     artifact_apply_curation)
@@ -9,7 +9,7 @@ from searcch_backend.api.common.importer import schedule_import
 from searcch_backend.api.common.stats import StatsResource
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
-from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response
+from flask import abort, jsonify, request, make_response, Blueprint, url_for, Response, render_template
 from flask_restful import reqparse, Resource, fields, marshal
 import sqlalchemy
 from sqlalchemy import func, desc, asc, sql, and_, or_, not_, distinct
@@ -19,6 +19,7 @@ import sys
 import logging
 import math
 import threading
+from flask_mail import Message
 
 LOG = logging.getLogger(__name__)
 
@@ -77,16 +78,16 @@ class ArtifactIndexAPI(Resource):
                     abort(400, description='invalid artifact type passed')
 
         artifacts = db.session.query(Artifact).\
+          join(ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id).\
           filter(True if login_session.is_admin and args["allusers"] \
-                      else Artifact.owner_id == login_session.user_id)
+                      else (Artifact.owner_id == login_session.user_id \
+                            or ArtifactGroup.owner_id == login_session.user_id))
         if not args.allversions:
             artifacts = artifacts.distinct(Artifact.artifact_group_id)
         if args.artifact_group_id is not None:
             artifacts = artifacts.\
               filter(Artifact.artifact_group_id == args.artifact_group_id)
         if not args.allversions:
-            artifacts = artifacts.\
-              join(ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id)
             # If an artifact group has a current publication, only return that.
             if args.published == 1:
                 artifacts = artifacts.\
@@ -184,6 +185,14 @@ class ArtifactIndexAPI(Resource):
         artifact_group = ArtifactGroup(owner=artifact.owner, next_version=0)
         artifact.artifact_group = artifact_group
         db.session.add(artifact_group)
+
+        # If we were given a publication record, set its version.  Note that we
+        # cannot update the artifact_group.publication record until we commit
+        # the state.  That happens below, after the first commit.
+        if artifact.publication:
+            artifact.publication.version = artifact_group.next_version
+            artifact_group.next_version += 1
+
         db.session.add(artifact)
         fake_module_name = "manual"
         if not login_session:
@@ -211,7 +220,19 @@ class ArtifactIndexAPI(Resource):
             LOG.exception(sys.exc_info()[1])
             abort(500)
 
+        # Refresh to pick up committed state, as well as for updating
+        # artifact_group.publication record.
         db.session.refresh(artifact)
+
+        # If there had been a publication sent to us (e.g. via importer
+        # artifact.export), now that it has been added above, we need to update
+        # the artifact_group to point to it.  But we could not do that before,
+        # since there would have been a circular dep.  And this is safe to do
+        # without error in a second transaction.
+        if artifact.publication:
+            db.session.refresh(artifact_group)
+            artifact_group.publication = artifact.publication
+            db.session.commit()
 
         response = jsonify(dict(artifact=ArtifactSchema().dump(artifact)))
         response.headers.add('Access-Control-Allow-Origin', '*')
@@ -606,7 +627,7 @@ class ArtifactAPI(Resource):
               first()
             if not artifact:
                 abort(404, description="no such artifact")
-            if not (login_session.is_admin or artifact.owner_id == login_session.user_id):
+            if not (login_session.is_admin or artifact.owner_id == login_session.user_id or artifact_group.owner_id == login_session.user_id):
                 abort(401, description="insufficient permission to delete artifact")
             if artifact.publication and not login_session.is_admin:
                 abort(403, description="artifact already published; cannot delete")
@@ -649,7 +670,7 @@ class ArtifactAPI(Resource):
           .first()
         if not artifact:
             abort(404, description="no such artifact")
-        if not login_session.is_admin and artifact.owner_id != login_session.user_id:
+        if not login_session.is_admin and artifact.artifact_group.owner_id != login_session.user_id:
             abort(401, description="insufficient permission to modify artifact")
         if not artifact.publication:
             abort(403, description="artifact not published; cannot create new version from unpublished artifact")
@@ -781,7 +802,7 @@ class ArtifactRelationshipResourceRoot(Resource):
         new_relationship = ArtifactRelationship(
             artifact_group_id=artifact_group_id, relation=relation,
             related_artifact_group_id=related_artifact_group_id,
-            artifact_id=artifact_group.publication_id)
+            artifact_id=artifact_group.publication.artifact_id)
         db.session.add(new_relationship)
         db.session.commit()
         db.session.refresh(new_relationship)
@@ -873,4 +894,288 @@ class ArtifactRelationshipResource(Resource):
         response.status_code = 200
         return response
 
+class ArtifactOwnerRequestAPI(Resource):
+    def __init__(self):
+        self.postparse = reqparse.RequestParser()
+        self.postparse.add_argument(name='message',
+                                   type=str,
+                                   required=True,
+                                   help='reason for owernship request')
 
+        super(ArtifactOwnerRequestAPI, self).__init__()
+
+    def get(self, artifact_group_id):
+        """Sends the existing ownership request if any"""
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        #Check if artifact exists
+        artifact_group = db.session.query(ArtifactGroup).filter(ArtifactGroup.id == artifact_group_id).first()
+        if not artifact_group:
+            abort(404, description="no such artifact group")
+        if artifact_group.owner_id == login_session.user_id:
+            response = jsonify({"artifact_owner_request": {"message": "You are the owner of this artifact.", "error": True}})
+        else:
+            #Check if any pending requests
+            artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(and_(ArtifactOwnerRequest.user_id == login_session.user_id, ArtifactOwnerRequest.status == "pending", ArtifactOwnerRequest.artifact_group_id == artifact_group_id)).first()
+            if artifact_owner_request:
+                response = jsonify({"artifact_owner_request": ArtifactOwnerRequestSchema().dump(artifact_owner_request)})
+            else:
+                response = jsonify({"artifact_owner_request": None})
+
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+
+    def post(self, artifact_group_id):
+        """Creates a new request for artifact ownership"""
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        #Check if already an owner
+        artifact_group = db.session.query(ArtifactGroup).filter(ArtifactGroup.id == artifact_group_id).first()
+        if not artifact_group:
+            abort(404, description="no such artifact group")
+        if artifact_group.owner_id == login_session.user_id:
+            abort(404, description="cannot process request, already an owner")
+        #Check if any pending requests
+        artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(and_(ArtifactOwnerRequest.user_id == login_session.user_id, ArtifactOwnerRequest.status == "pending", ArtifactOwnerRequest.artifact_group_id == artifact_group_id)).first()
+        if artifact_owner_request:
+            abort(404, description="cannot process request, pending request already exists")
+
+        args = self.postparse.parse_args()
+        dt = datetime.datetime.now()
+        new_artifact_owner_request = ArtifactOwnerRequest(
+            user_id=login_session.user_id,
+            artifact_group_id=artifact_group_id, message=args.message,
+            ctime=dt, status="pending")
+        db.session.add(new_artifact_owner_request)
+        db.session.commit()
+
+        mail_data = db.session.query(ArtifactOwnerRequest, User, Person, Artifact).\
+          join(User, ArtifactOwnerRequest.user_id == User.id).\
+          join(Person, User.person_id == Person.id).\
+          join(Artifact, ArtifactOwnerRequest.artifact_group_id == Artifact.artifact_group_id).\
+          filter(ArtifactOwnerRequest.id == new_artifact_owner_request.id).\
+          first()
+
+        msg_recipients = [mail_data.Person.email, *app.config['ADMIN_MAILING_RECIPIENTS']]
+        msg = Message(f'Artifact Ownership Claim - Artifact Group ID: {mail_data.Artifact.artifact_group_id}')
+
+        for recipient in msg_recipients:
+            if not recipient:
+                continue
+            msg.recipients = [recipient]
+            is_admin = (recipient in app.config['ADMIN_MAILING_RECIPIENTS'])
+            msg.html = render_template("ownership_request_email_pending.html",\
+                artifact_group_id=mail_data.Artifact.artifact_group_id, \
+                artifact_link=f'{app.config["FRONTEND_URL"]}/artifact/{mail_data.Artifact.artifact_group_id}',\
+                artifact_title=mail_data.Artifact.title,\
+                user_id=mail_data.User.id,\
+                user_name=mail_data.Person.name,\
+                user_email=mail_data.Person.email,
+                justification=mail_data.ArtifactOwnerRequest.message,
+                admin=is_admin,
+                admin_link=f'{app.config["FRONTEND_URL"]}/admin/claims')
+            mail.send(msg)
+
+        response = jsonify({"message": "artifact ownership saved successfully"})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+class ArtifactOwnerRequestsAPI(Resource):
+    def __init__(self):
+        self.getparse = reqparse.RequestParser()
+        self.getparse.add_argument(
+            name="allusers", type=int, required=False, default=0, location="args",
+            help="if set 1, and if caller is authorized, show all user artifacts")
+        self.getparse.add_argument(
+            name="page", type=int, required=False,
+            help="page number for paginated results")
+        self.getparse.add_argument(
+            name="items_per_page", type=int, required=False, default=20,
+            help="results per page if paginated")
+        self.getparse.add_argument(
+            name="user", type=str, required=False, default="",
+            help="user id/name")
+        self.getparse.add_argument(
+            name="artifact", type=str, required=False, default="",
+            help="artifact id/name")
+        self.getparse.add_argument(
+            name="sort", type=str, required=False, default="",
+            help="sort by")
+        self.getparse.add_argument(
+            name="sort_desc", type=int, required=False, default=0,
+            help="sort order")
+
+        self.putparse = reqparse.RequestParser()
+        self.putparse.add_argument(
+            name='artifact_owner_request_id',type=int,required=True,
+            help='artifact ownership request id')
+        self.putparse.add_argument(
+            name='action',type=str,required=True,choices=["approve", "reject"],
+            help='missing action type')
+        self.putparse.add_argument(
+            name='message',type=str,required=True,
+            help='reason for selected request action')
+
+        super(ArtifactOwnerRequestsAPI, self).__init__()
+
+    def get(self):
+        """Get artifact owernship request according to the logged user and passed settings"""
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        args = self.getparse.parse_args()
+
+        artifact_owner_requests = db.session.query(ArtifactOwnerRequest).\
+          filter(and_(True if login_session.is_admin and args["allusers"] \
+                      else ArtifactOwnerRequest.user_id == login_session.user_id, \
+                        ArtifactOwnerRequest.status == "pending"))
+
+        artifact_owner_requests = artifact_owner_requests.\
+          join(User, ArtifactOwnerRequest.user_id == User.id).\
+          join(Person, User.person_id == Person.id).\
+          join(Artifact, ArtifactOwnerRequest.artifact_group_id == Artifact.artifact_group_id)
+
+
+        if "user" in args:
+            if args["user"].isnumeric():
+                artifact_owner_requests = artifact_owner_requests.filter(ArtifactOwnerRequest.user_id == int(args["user"]))
+            else:
+                user_cond = "%" + args["user"] + "%"
+                artifact_owner_requests = artifact_owner_requests.\
+                filter(Person.name.ilike(user_cond))
+
+        if "artifact" in args:
+            if args["artifact"].isnumeric():
+                artifact_owner_requests = artifact_owner_requests.filter(ArtifactOwnerRequest.artifact_group_id == int(args["artifact"]))
+            else:
+                artifact_cond = "%" + args["artifact"] + "%"
+                artifact_owner_requests = artifact_owner_requests.\
+                filter(Artifact.title.ilike(artifact_cond))
+
+        sort_keys = {
+            "artifact_group_id": "artifact_group_id",
+            "user.id": "user_id",
+            "user.person.name": "name",
+            "artifact_title": "title",
+            "id": "id"
+        }
+
+        if args["sort"]=="":
+            args["sort"] = "id"
+        args["sort"] = sort_keys[args["sort"]]
+
+        if (args["sort"] == "name"):
+            table_obj = Person
+        elif (args["sort"] == "title"):
+            table_obj = Artifact
+        else:
+            table_obj = ArtifactOwnerRequest
+
+        if args["sort_desc"]==1:
+            artifact_owner_requests = artifact_owner_requests.\
+              order_by(desc(getattr(table_obj,args["sort"])))
+        else:
+            artifact_owner_requests = artifact_owner_requests.\
+              order_by(asc(getattr(table_obj,args["sort"])))
+
+        pagination = None
+        if "page" in args and args["page"]:
+            if args["items_per_page"] <= 0:
+                args["items_per_page"] = sys.maxsize
+            pagination = artifact_owner_requests.paginate(
+                page=args["page"], error_out=False, per_page=args["items_per_page"])
+            artifact_owner_requests = pagination.items
+        else:
+            artifact_owner_requests = artifact_owner_requests.all()
+
+        response_dict = {
+            "artifact_owner_requests": ArtifactOwnerRequestSchema(many=True).dump(artifact_owner_requests)
+        }
+        if pagination:
+            response_dict["page"] = pagination.page
+            response_dict["total"] = pagination.total
+            response_dict["pages"] = int(math.ceil(pagination.total / args["items_per_page"]))
+
+        response = jsonify(response_dict)
+
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
+
+    def put(self):
+        """Take action on request"""
+        verify_api_key(request)
+        login_session = verify_token(request)
+
+        if not login_session.is_admin:
+            abort(401, description="insufficient permission to take action")
+
+        args = self.putparse.parse_args()
+        artifact_owner_request = db.session.query(ArtifactOwnerRequest).filter(ArtifactOwnerRequest.id == args.artifact_owner_request_id).first()
+        if not artifact_owner_request:
+            abort(404, description="no such artifact owner request")
+        if artifact_owner_request.status != "pending":
+            abort(404, description="cannot take action on already executed requests")
+
+        # # Update Database
+        if args.action == "approve":
+            artifact_owner_request.status = "approved"
+            artifact_group = db.session.query(ArtifactGroup).\
+              filter(ArtifactGroup.id == artifact_owner_request.artifact_group_id).\
+              first()
+            artifact_group.owner_id = artifact_owner_request.user_id
+        else:
+            artifact_owner_request.status = "rejected"
+        artifact_owner_request.action_message = args.message
+        artifact_owner_request.action_time = datetime.datetime.now()
+        artifact_owner_request.action_by_user_id = login_session.user_id
+
+        db.session.commit()
+
+        # Send mail to raise approval request
+
+        mail_data = db.session.query(ArtifactOwnerRequest, User, Person, Artifact).\
+          join(User, ArtifactOwnerRequest.user_id == User.id).\
+          join(Person, User.person_id == Person.id).\
+          join(Artifact, ArtifactOwnerRequest.artifact_group_id == Artifact.artifact_group_id).\
+          filter(ArtifactOwnerRequest.id == args.artifact_owner_request_id).\
+          first()
+
+        msg = Message(f'Artifact Ownership Claim - Artifact Group ID: {mail_data.Artifact.artifact_group_id}')
+        
+        recipients = app.config['ADMIN_MAILING_RECIPIENTS']
+        if mail_data.Person.email:
+            recipients.append(mail_data.Person.email)
+        
+        msg.recipients = recipients
+
+        if mail_data.ArtifactOwnerRequest.status == "approved":
+            msg.html = render_template("ownership_request_email_approved.html",\
+                artifact_group_id=mail_data.Artifact.artifact_group_id, \
+                artifact_link=f'{app.config["FRONTEND_URL"]}/artifact/{mail_data.Artifact.artifact_group_id}',\
+                artifact_title=mail_data.Artifact.title,\
+                user_id=mail_data.User.id,\
+                user_name=mail_data.Person.name,\
+                user_email=mail_data.Person.email,
+                justification=mail_data.ArtifactOwnerRequest.action_message)
+        else:
+            msg.html = render_template("ownership_request_email_rejected.html",\
+                artifact_group_id=mail_data.Artifact.artifact_group_id, \
+                artifact_link=f'{app.config["FRONTEND_URL"]}/artifact/{mail_data.Artifact.artifact_group_id}',\
+                artifact_title=mail_data.Artifact.title,\
+                user_id=mail_data.User.id,\
+                user_name=mail_data.Person.name,\
+                user_email=mail_data.Person.email,
+                justification=mail_data.ArtifactOwnerRequest.action_message)
+
+        mail.send(msg)
+        
+        response = jsonify({"message": "artifact ownership request successfully " + artifact_owner_request.status})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
