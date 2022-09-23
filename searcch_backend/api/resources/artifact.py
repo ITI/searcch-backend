@@ -185,6 +185,14 @@ class ArtifactIndexAPI(Resource):
         artifact_group = ArtifactGroup(owner=artifact.owner, next_version=0)
         artifact.artifact_group = artifact_group
         db.session.add(artifact_group)
+
+        # If we were given a publication record, set its version.  Note that we
+        # cannot update the artifact_group.publication record until we commit
+        # the state.  That happens below, after the first commit.
+        if artifact.publication:
+            artifact.publication.version = artifact_group.next_version
+            artifact_group.next_version += 1
+
         db.session.add(artifact)
         fake_module_name = "manual"
         if not login_session:
@@ -212,7 +220,19 @@ class ArtifactIndexAPI(Resource):
             LOG.exception(sys.exc_info()[1])
             abort(500)
 
+        # Refresh to pick up committed state, as well as for updating
+        # artifact_group.publication record.
         db.session.refresh(artifact)
+
+        # If there had been a publication sent to us (e.g. via importer
+        # artifact.export), now that it has been added above, we need to update
+        # the artifact_group to point to it.  But we could not do that before,
+        # since there would have been a circular dep.  And this is safe to do
+        # without error in a second transaction.
+        if artifact.publication:
+            db.session.refresh(artifact_group)
+            artifact_group.publication = artifact.publication
+            db.session.commit()
 
         response = jsonify(dict(artifact=ArtifactSchema().dump(artifact)))
         response.headers.add('Access-Control-Allow-Origin', '*')
