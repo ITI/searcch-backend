@@ -167,8 +167,8 @@ class ArtifactPublication(db.Model):
     publisher = db.relationship("User", uselist=False)
 
     def __repr__(self):
-        return "<ArtifactPublication(id=%r,artifact_id=%r,time='%s',publisher='%r', version=%r)>" % (
-            self.id, self.artifact_id, self.time.isoformat(), self.publisher, 1)
+        return "<ArtifactPublication(id=%r,artifact_id=%r,time='%s',publisher='%r')>" % (
+            self.id, self.artifact_id, self.time.isoformat(), self.publisher)
 
 
 class Exporter(db.Model):
