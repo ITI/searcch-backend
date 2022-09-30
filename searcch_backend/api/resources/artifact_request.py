@@ -3,6 +3,7 @@
 from searcch_backend.api.app import db
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
+from searcch_backend.api.common.stats import StatsResource
 from flask import abort, jsonify, url_for, request
 from flask_restful import reqparse, Resource
 from sqlalchemy import func, desc, sql, or_, and_, exc
