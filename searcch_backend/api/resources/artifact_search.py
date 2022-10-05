@@ -38,10 +38,16 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
                                     ).order_by(
                                     db.case([
                                         (Artifact.type == 'pcap', 1),
-                                        (Artifact.type == 'dataset', 2),
+                                        (Artifact.type == 'flowtools', 2),
+                                        (Artifact.type == 'flowride', 3),
+                                        (Artifact.type == 'fsdb', 4),
+                                        (Artifact.type == 'csv', 5),
+                                        (Artifact.type == 'custom', 6),
+                                        (Artifact.type == 'netflow', 7),
+                                        (Artifact.type == 'dataset', 8),
                                         (Artifact.type ==
-                                        'publication', 3),
-                                    ], else_=4)
+                                         'publication', 9),
+                                    ], else_=10)
                                 )
         query = query.join(ArtifactGroup, ArtifactGroup.id == Artifact.artifact_group_id
                         ).join(sqratings, ArtifactGroup.id == sqratings.c.artifact_group_id, isouter=True

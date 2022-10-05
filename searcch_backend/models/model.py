@@ -13,8 +13,9 @@ Base = declarative_base(metadata=metadata)
 
 ARTIFACT_TYPES = (
     "publication", "presentation", "dataset", "software",
-    "pcap"
+    "pcap", "netflow", "flowtools", "flowride", "fsdb", "csv", "custom"
 )
+
 ARTIFACT_IMPORT_TYPES = (
     "unknown", *ARTIFACT_TYPES
 )
@@ -659,7 +660,8 @@ class Artifact(db.Model):
     releases = db.relationship("ArtifactRelease", uselist=True)
     affiliations = db.relationship("ArtifactAffiliation")
     badges = db.relationship("ArtifactBadge", uselist=True)
-
+    collection = db.Column(db.String(1024), nullable=True)
+    
     # NB: all foreign keys are read-only, so not included here.
     __user_ro_fields__ = (
         "artifact_group_id","parent_id","version","ctime","mtime","ext_id","owner_id" )
