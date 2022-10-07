@@ -16,6 +16,14 @@ ARTIFACT_TYPES = (
     "pcap", "netflow", "flowtools", "flowride", "fsdb", "csv", "custom"
 )
 
+ACCESS_TYPES = (
+    "download", "onsite", "cloud"
+)
+
+ANON_TYPES = (
+    "cryptopan-full", "cryptopan-host", "remove-host", "none", "custom"
+)
+
 ARTIFACT_IMPORT_TYPES = (
     "unknown", *ARTIFACT_TYPES
 )
@@ -660,7 +668,14 @@ class Artifact(db.Model):
     releases = db.relationship("ArtifactRelease", uselist=True)
     affiliations = db.relationship("ArtifactAffiliation")
     badges = db.relationship("ArtifactBadge", uselist=True)
-    collection = db.Column(db.String(1024), nullable=True)
+    from_time = db.Column(db.DateTime)
+    to_time = db.Column(db.DateTime)
+    size = db.Column(db.BigInteger)
+    access = db.Column(db.Enum(*ACCESS_TYPES,name="access_enum"))
+    anonymization = db.Column(db.Enum(*ANON_TYPES,name="anon_enum"))
+    collection = db.Column(db.String(1024), nullable=False)
+    provider = db.Column(db.String(1024), nullable=False)
+    
     
     # NB: all foreign keys are read-only, so not included here.
     __user_ro_fields__ = (
