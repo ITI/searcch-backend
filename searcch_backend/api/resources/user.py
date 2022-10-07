@@ -7,7 +7,7 @@ from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, url_for, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
-from sqlalchemy import func, desc, asc, sql, or_, and_
+from sqlalchemy import func, desc, asc, sql, or_
 import sqlalchemy
 import sys
 import logging
@@ -226,24 +226,15 @@ class UserArtifactsAPI(Resource):
 
         owned_artifacts = db.session.query(Artifact).\
           join(ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id).\
-          filter(ArtifactGroup.owner_id == login_session.user_id).\
+          filter(or_(ArtifactGroup.owner_id == login_session.user_id,\
+                     Artifact.owner_id == login_session.user_id)).\
           order_by(Artifact.artifact_group_id, Artifact.ctime.desc()).\
           distinct(Artifact.artifact_group_id)
 
         owned_artifacts = artifact_schema.dump(owned_artifacts)
 
-        contributed_artifacts = db.session.query(Artifact).\
-          join(ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id).\
-          filter(and_(Artifact.owner_id == login_session.user_id,\
-                       ArtifactGroup.owner_id != Artifact.owner_id)).\
-          order_by(Artifact.artifact_group_id, Artifact.ctime.desc()).\
-          distinct(Artifact.artifact_group_id)
-
-        contributed_artifacts = artifact_schema.dump(contributed_artifacts)
-
         response = jsonify({
-            "owned_artifacts": owned_artifacts,
-            "contributed_artifacts": contributed_artifacts
+            "owned_artifacts": owned_artifacts
         })
         
         response.headers.add('Access-Control-Allow-Origin', '*')
