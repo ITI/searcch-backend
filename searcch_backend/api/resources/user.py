@@ -7,7 +7,7 @@ from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, url_for, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
-from sqlalchemy import func, desc, asc, sql, or_
+from sqlalchemy import func, desc, asc, sql, or_, and_
 import sqlalchemy
 import sys
 import logging
@@ -226,7 +226,9 @@ class UserArtifactsAPI(Resource):
 
         owned_artifacts = db.session.query(Artifact).\
           join(ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id).\
-          filter(or_(ArtifactGroup.owner_id == login_session.user_id,\
+          join(ArtifactPublication, Artifact.id == ArtifactPublication.artifact_id, isouter=True).\
+          filter(or_(and_(ArtifactGroup.owner_id == login_session.user_id,\
+                          ArtifactPublication.id != None),\
                      Artifact.owner_id == login_session.user_id)).\
           order_by(Artifact.artifact_group_id, Artifact.ctime.desc()).\
           distinct(Artifact.artifact_group_id)
