@@ -223,13 +223,18 @@ class UserArtifactsAPI(Resource):
         user = db.session.query(User).filter(User.id == login_session.user_id).first()
 
         artifact_schema = ArtifactSchema(many=True)
+
         owned_artifacts = db.session.query(Artifact).\
           join(ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id).\
-          filter(Artifact.owner_id == login_session.user_id \
-                 or ArtifactGroup.owner_id == login_session.user_id)
+          filter(or_(ArtifactGroup.owner_id == login_session.user_id,\
+                     Artifact.owner_id == login_session.user_id)).\
+          order_by(Artifact.artifact_group_id, Artifact.ctime.desc()).\
+          distinct(Artifact.artifact_group_id)
+
+        owned_artifacts = artifact_schema.dump(owned_artifacts)
 
         response = jsonify({
-            "owned_artifacts": artifact_schema.dump(owned_artifacts)
+            "owned_artifacts": owned_artifacts
         })
         
         response.headers.add('Access-Control-Allow-Origin', '*')
