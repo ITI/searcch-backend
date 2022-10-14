@@ -55,6 +55,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
         query = db.session.query(Artifact, 
                                     search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews', "view_count"
                                     ).join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id
+                                    ).join(ArtifactGroup, ArtifactGroup.publication_id == ArtifactPublication.id
                                     ).join(search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
         
         query = query.join(sqratings, Artifact.artifact_group_id == sqratings.c.artifact_group_id, isouter=True
