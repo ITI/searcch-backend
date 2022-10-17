@@ -12,7 +12,7 @@ Base = declarative_base(metadata=metadata)
 
 
 ARTIFACT_TYPES = (
-    "publication", "presentation", "dataset", "software",
+    "publication", "presentation", "dag", "argus",
     "pcap", "netflow", "flowtools", "flowride", "fsdb", "csv", "custom"
 )
 
