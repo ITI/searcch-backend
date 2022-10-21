@@ -18,14 +18,14 @@ def generate_artifact_uri(artifact_group_id, artifact_id=None):
     return url_for('api.artifact', artifact_group_id=artifact_group_id,
                    artifact_id=artifact_id)
 
-def sort_artifacts(query, sqratings, sqpopularity, sqreviews, sort_by, sort_order):
+def sort_artifacts(query, sqratings, sqreviews, sort_by, sort_order):
     if sort_by == 'date':
         query = query.order_by(Artifact.ctime.desc() if sort_order == 'desc' else Artifact.ctime.asc())
     elif sort_by == 'rating':
         query = query.order_by(sqratings.c.avg_rating.desc() if sort_order == 'desc' else sqratings.c.avg_rating.asc(),
                                sqreviews.c.num_reviews.desc() if sort_order == 'desc' else sqreviews.c.num_reviews.asc())
-    elif sort_by == 'popularity':
-        query = query.order_by(sqpopularity.c.popularity.desc() if sort_order == 'desc' else sqpopularity.c.popularity.asc())
+    elif sort_by == 'views':
+        query = query.order_by(desc('view_count') if sort_order == 'desc' else 'view_count')
     return query
 
 def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page, sort_by = 'default', sort_order = 'desc'):
@@ -43,27 +43,19 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
     ).join(ArtifactReviews, ArtifactGroup.id == ArtifactReviews.artifact_group_id, isouter=True
     ).group_by(ArtifactGroup.id).subquery()
 
-    sqpopularity = db.session.query(
-        ArtifactGroup.id,
-        ((sqratings.c.avg_rating * sqratings.c.num_ratings) + sqreviews.c.num_reviews + coalesce(StatsArtifactViews.view_count,0)).label('popularity')
-    ).join(sqratings, ArtifactGroup.id == sqratings.c.artifact_group_id, isouter=True
-    ).join(sqreviews, ArtifactGroup.id == sqreviews.c.artifact_group_id, isouter=True
-    ).join(StatsArtifactViews, ArtifactGroup.id == StatsArtifactViews.artifact_group_id, isouter=True
-    ).subquery()
-
     # create base query object            
     if not keywords:
         query = db.session.query(Artifact,
                                     sql.expression.bindparam("zero", 0).label("rank"),
-                                    'num_ratings', 'avg_rating', 'num_reviews', "view_count", "popularity"
+                                    'num_ratings', 'avg_rating', 'num_reviews', "view_count"
                                     )
         query = query.join(ArtifactGroup, ArtifactGroup.id == Artifact.artifact_group_id
                         ).join(sqratings, ArtifactGroup.id == sqratings.c.artifact_group_id, isouter=True
                         ).join(ArtifactPublication, ArtifactPublication.id == ArtifactGroup.publication_id
                         ).join(sqreviews, ArtifactGroup.id == sqreviews.c.artifact_group_id, isouter=True
-                        ).join(sqpopularity, ArtifactGroup.id == sqpopularity.c.id, isouter=True)
+                        )
 
-        query = sort_artifacts(query, sqratings, sqpopularity, sqreviews, sort_by, sort_order)
+        query = sort_artifacts(query, sqratings, sqreviews, sort_by, sort_order)
         query = query.order_by(
                                     db.case([
                                         (Artifact.type == 'software', 1),
@@ -77,15 +69,15 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
                                     ).filter(ArtifactSearchMaterializedView.doc_vector.op('@@')(func.websearch_to_tsquery("english", keywords))
                                     ).subquery()
         query = db.session.query(Artifact, 
-                                    search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews', "view_count", "popularity"
+                                    search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews', "view_count"
                                     ).join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id
                                     ).join(search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
         
         query = query.join(sqratings, Artifact.artifact_group_id == sqratings.c.artifact_group_id, isouter=True
                         ).join(sqreviews, Artifact.artifact_group_id == sqreviews.c.artifact_group_id, isouter=True
-                        ).join(sqpopularity, Artifact.artifact_group_id == sqpopularity.c.id, isouter=True)
+                        )
 
-        query = sort_artifacts(query, sqratings, sqpopularity, sqreviews, sort_by, sort_order)
+        query = sort_artifacts(query, sqratings, sqreviews, sort_by, sort_order)
         query = query.order_by(desc(search_query.c.rank))
         
     if author_keywords or organization:
@@ -150,7 +142,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
 
     artifacts = []
     for row in result:
-        artifact, _, num_ratings, avg_rating, num_reviews, view_count, popularity = row
+        artifact, _, num_ratings, avg_rating, num_reviews, view_count = row
         abstract = {
             "id": artifact.id,
             "artifact_group_id": artifact.artifact_group_id,
@@ -167,8 +159,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             "num_ratings": num_ratings if num_ratings else 0,
             "num_reviews": num_reviews if num_reviews else 0,
             "owner": { "id": artifact.owner.id },
-            "views": view_count if view_count else 0,
-            "popularity": float(popularity) if popularity else 0
+            "views": view_count if view_count else 0
         }
         artifacts.append(abstract)
 
