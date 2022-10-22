@@ -16,18 +16,24 @@ class AdminUpdatePrivileges(Resource):
         self.reqparse = reqparse.RequestParser()
         self.reqparse.add_argument(name='can_admin',
                                    type=str,
-                                   required=False,
+                                   required=True,
                                    default=None,
                                    help='admin privilege of user')
+        self.reqparse.add_argument(name='user_id',
+                                   type=int,
+                                   required=True,
+                                   default=None,
+                                   help='user_id of user to update')
         
 
         super(AdminUpdatePrivileges, self).__init__()
     
-    def put(self, user_id):
+    def put(self):
         verify_api_key(request)
         login_session = verify_token(request)
         args = self.reqparse.parse_args()
         can_admin = args['can_admin']
+        user_id = args['user_id']
 
         # check if requesting user is an admin
         admin_user = db.session.query(User.can_admin)\
