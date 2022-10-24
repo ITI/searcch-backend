@@ -5,7 +5,8 @@ from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, url_for, request
 from flask_restful import reqparse, Resource
-from sqlalchemy import func, desc, sql, or_, and_, exc
+from sqlalchemy import func, desc, sql, or_, and_, exc, nullslast
+from sqlalchemy.sql.functions import coalesce
 from searcch_backend.api.common.auth import (verify_api_key, has_api_key, has_token, verify_token)
 import math
 import logging
@@ -17,36 +18,51 @@ def generate_artifact_uri(artifact_group_id, artifact_id=None):
     return url_for('api.artifact', artifact_group_id=artifact_group_id,
                    artifact_id=artifact_id)
 
-def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page):
+def sort_artifacts(query, sqratings, sqreviews, sort_by, sort_order):
+    if sort_by == 'date':
+        query = query.order_by(Artifact.ctime.desc() if sort_order == 'desc' else Artifact.ctime.asc())
+    elif sort_by == 'rating':
+        query = query.order_by(sqratings.c.avg_rating.desc() if sort_order == 'desc' else sqratings.c.avg_rating.asc(),
+                               sqreviews.c.num_reviews.desc() if sort_order == 'desc' else sqreviews.c.num_reviews.asc())
+    elif sort_by == 'views':
+        query = query.order_by(desc('view_count') if sort_order == 'desc' else 'view_count')
+    return query
+
+def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page, sort_by = 'default', sort_order = 'desc'):
     """ search for artifacts based on keywords, with optional filters by owner and affiliation """
     sqratings = db.session.query(
-        ArtifactRatings.artifact_group_id,
+        ArtifactGroup.id.label('artifact_group_id'),
         func.count(ArtifactRatings.id).label('num_ratings'),
-        func.avg(ArtifactRatings.rating).label('avg_rating')
-    ).group_by("artifact_group_id").subquery()
-    sqreviews = db.session.query(
-        ArtifactReviews.artifact_group_id,
-        func.count(ArtifactReviews.id).label('num_reviews')
-    ).group_by("artifact_group_id").subquery()
+        coalesce(func.avg(ArtifactRatings.rating),0).label('avg_rating')
+    ).join(ArtifactRatings, ArtifactGroup.id == ArtifactRatings.artifact_group_id, isouter=True
+    ).group_by(ArtifactGroup.id).subquery()
 
-    # create base query object
+    sqreviews = db.session.query(
+        ArtifactGroup.id.label('artifact_group_id'),
+        func.count(ArtifactReviews.id).label('num_reviews')
+    ).join(ArtifactReviews, ArtifactGroup.id == ArtifactReviews.artifact_group_id, isouter=True
+    ).group_by(ArtifactGroup.id).subquery()
+
+    # create base query object            
     if not keywords:
         query = db.session.query(Artifact,
                                     sql.expression.bindparam("zero", 0).label("rank"),
                                     'num_ratings', 'avg_rating', 'num_reviews', "view_count"
-                                    ).order_by(
-                                    db.case([
-                                        (Artifact.type == 'software', 1),
-                                        (Artifact.type == 'dataset', 2),
-                                        (Artifact.type ==
-                                        'publication', 3),
-                                    ], else_=4)
-                                )
+                                    )
         query = query.join(ArtifactGroup, ArtifactGroup.id == Artifact.artifact_group_id
                         ).join(sqratings, ArtifactGroup.id == sqratings.c.artifact_group_id, isouter=True
                         ).join(ArtifactPublication, ArtifactPublication.id == ArtifactGroup.publication_id
                         ).join(sqreviews, ArtifactGroup.id == sqreviews.c.artifact_group_id, isouter=True
-                        ).order_by(sqratings.c.avg_rating.desc().nullslast(),sqreviews.c.num_reviews.desc())
+                        )
+
+        query = sort_artifacts(query, sqratings, sqreviews, sort_by, sort_order)
+        query = query.order_by(
+                                    db.case([
+                                        (Artifact.type == 'software', 1),
+                                        (Artifact.type == 'dataset', 2),
+                                        (Artifact.type == 'publication', 3),
+                                    ], else_=4)
+                            )
     else:
         search_query = db.session.query(ArtifactSearchMaterializedView.artifact_id, 
                                         func.ts_rank_cd(ArtifactSearchMaterializedView.doc_vector, func.websearch_to_tsquery("english", keywords)).label("rank")
@@ -60,8 +76,11 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
         
         query = query.join(sqratings, Artifact.artifact_group_id == sqratings.c.artifact_group_id, isouter=True
                         ).join(sqreviews, Artifact.artifact_group_id == sqreviews.c.artifact_group_id, isouter=True
-                        ).order_by(desc(search_query.c.rank))
+                        )
 
+        query = sort_artifacts(query, sqratings, sqreviews, sort_by, sort_order)
+        query = query.order_by(desc(search_query.c.rank))
+        
     if author_keywords or organization:
         rank_list = []
         if author_keywords:
@@ -107,7 +126,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             ).subquery()
         query = query.join(badge_query, Artifact.id == badge_query.c.artifact_id, isouter=False)
 
-    #Add View number to query
+    # Add View number to query
     query = query.join(StatsArtifactViews, Artifact.artifact_group_id == StatsArtifactViews.artifact_group_id, isouter=True)
     
     # add filters based on provided parameters
@@ -137,7 +156,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             "type": artifact.type,
             "title": artifact.title,
             "description": artifact.description,
-            "avg_rating": float(avg_rating) if avg_rating else None,
+            "avg_rating": float(avg_rating),
             "num_ratings": num_ratings if num_ratings else 0,
             "num_reviews": num_reviews if num_reviews else 0,
             "owner": { "id": artifact.owner.id },
@@ -195,6 +214,20 @@ class ArtifactSearchIndexAPI(Resource):
                                    required=False,
                                    action='append',
                                    help='badge IDs to search for')
+        
+        # sort
+        self.reqparse.add_argument(name='sort',
+                                   type=str,
+                                   required=False,
+                                   default='default',
+                                   help='sort parameter for results')
+        self.reqparse.add_argument(name='order',
+                                   type=str,
+                                   required=False,
+                                   default='desc',
+                                   help='sort order for results')
+
+        super(ArtifactSearchIndexAPI, self).__init__()
 
         super(ArtifactSearchIndexAPI, self).__init__()
 
@@ -216,6 +249,10 @@ class ArtifactSearchIndexAPI(Resource):
         owner_keywords = args['owner']
         badge_id_list = args['badge_id']
 
+        # sort
+        sort = args['sort']
+        order = args['order']
+
         # sanity checks
         if artifact_types:
             for a_type in artifact_types:
@@ -231,7 +268,7 @@ class ArtifactSearchIndexAPI(Resource):
         except exc.SQLAlchemyError as error:
             LOG.exception(f'Failed to log search term in the database. Error: {error}')
 
-        result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page)
+        result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page, sort, order)
         response = jsonify(result)
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
