@@ -492,6 +492,21 @@ class Badge(db.Model):
             self.title, self.url, self.version, self.organization, self.venue, self.verified)
 
 
+class DUA(db.Model):
+    __tablename__ = "dua"
+
+    collection = db.Column(db.String(1024), nullable=False, primary_key=True)
+    provider = db.Column(db.String(1024), nullable=False, primary_key=True)
+    dua_url = db.Column(db.Text(), nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("collection", "provider"),)
+
+    def __repr__(self):
+        return "<DUA(collection=%r,provider=%r, dua_url=%r)>" % (
+            self.collection, self.provider, self.dua_url)
+
+
 class ArtifactBadge(db.Model):
     __tablename__ = "artifact_badges"
 

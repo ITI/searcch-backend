@@ -371,6 +371,14 @@ class ArtifactGroupShallowSchema(SQLAlchemyAutoSchema):
     #publications = Nested(ArtifactPublicationShallowSchema, many=True)
 
 
+class DUASchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = DUA
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+
 class ArtifactSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Artifact
