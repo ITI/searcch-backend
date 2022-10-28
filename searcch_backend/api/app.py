@@ -135,4 +135,4 @@ api.add_resource(BadgeResource, approot + '/badge/<int:badge_id>', endpoint='api
 api.add_resource(LicenseResourceRoot, approot + '/licenses', endpoint='api.licenses')
 api.add_resource(LicenseResource, approot + '/license/<int:org_id>', endpoint='api.license')
 
-api.add_resource(AdminUpdatePrivileges, approot + '/admin/update_privileges', endpoint='api.admin')
+api.add_resource(AdminUpdatePrivileges, approot + '/admin/user/<int:user_id>', endpoint='api.admin')
