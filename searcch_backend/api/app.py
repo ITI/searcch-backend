@@ -76,7 +76,7 @@ from searcch_backend.api.resources.schema import (
     SchemaArtifactAPI, SchemaAffiliationAPI)
 from searcch_backend.api.resources.badge import BadgeResourceRoot, BadgeResource
 from searcch_backend.api.resources.license import LicenseResourceRoot, LicenseResource
-from searcch_backend.api.common.scheduled_tasks import UpdateStatsViews
+from searcch_backend.api.resources.admin import AdminUpdatePrivileges
 
 approot = app.config['APPLICATION_ROOT']
 
@@ -134,3 +134,5 @@ api.add_resource(BadgeResource, approot + '/badge/<int:badge_id>', endpoint='api
 
 api.add_resource(LicenseResourceRoot, approot + '/licenses', endpoint='api.licenses')
 api.add_resource(LicenseResource, approot + '/license/<int:org_id>', endpoint='api.license')
+
+api.add_resource(AdminUpdatePrivileges, approot + '/admin/user/<int:user_id>', endpoint='api.admin')
