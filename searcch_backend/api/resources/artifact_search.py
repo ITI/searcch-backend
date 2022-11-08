@@ -261,12 +261,38 @@ class ArtifactRecommendationAPI(Resource):
             Artifact.artifact_group_id == artifact_group_id).first()
         if not artifact:
             abort(400, description='invalid artifact ID')
+        
+        # using dictionaries to avoid duplicates
+        authors = {}
+        org_names = {}
+
+        # get current user's person id
+        current_user_person = db.session.query(Person.id, Person.name).join(User, User.person_id == Person.id).filter(User.id == login_session.user_id).first()
+        
+        # get current user's org id
+        current_user_org_name = db.session.query(Organization.name).join(Affiliation, Affiliation.org_id == Organization.id).filter(Affiliation.person_id == current_user_person[0]).first()
+        
+        if current_user_org_name:
+            org_names[current_user_org_name[0]] = None
+
+        # get org id
+        org_q = db.session.query(Person.name, Affiliation.org_id, Organization.name).join(Organization, Affiliation.org_id == Organization.id, isouter=True).join(ArtifactAffiliation, ArtifactAffiliation.affiliation_id == Affiliation.id).join(Person, Affiliation.person_id == Person.id).filter(ArtifactAffiliation.artifact_id == artifact_id).all()
+
+        for org in org_q:
+            if org[1]:
+                org_names[org[2]] = None
+            else:
+                authors[org[0]] = None
+
+        # List of Authors ( if there are no organization affiliations )
+        authors_relationship = list(authors.keys())
+
+        # List of Current User's Organization and other Authors' Organizations
+        org_names_relationship = list(org_names.keys())
 
         authors_res = db.session.query(ArtifactAffiliation, Person.name).filter(ArtifactAffiliation.artifact_id == artifact_id).join(Affiliation,Affiliation.id == ArtifactAffiliation.affiliation_id).join(Person, Affiliation.person_id == Person.id).all()
-
-        #Authors of artifact for later
+        # List of Authors of the Artifact (The Original Authors List)
         authors = [res.name for res in authors_res]
-
     
         top_keywords = db.session.query(ArtifactTag.tag).filter(
             ArtifactTag.artifact_id == artifact_id, ArtifactTag.source.like('%keywords%')).all()
