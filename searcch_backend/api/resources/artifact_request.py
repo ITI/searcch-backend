@@ -113,3 +113,42 @@ class ArtifactRequestAPI(Resource):
         response.status_code = 200
         return response
 
+    def post(self, artifact_group_id, artifact_id=None):
+        if has_api_key(request):
+            verify_api_key(request)
+
+        # Verify the group exists
+        artifact_group = db.session.query(ArtifactGroup).filter(
+            ArtifactGroup.id == artifact_group_id).first()
+        if not artifact_group:
+            abort(404, description="nonexistent artifact group")
+
+        # Verify the artifact exists
+        if artifact_id:
+            artifact = db.session.query(Artifact).filter(
+                Artifact.id == artifact_id).first()
+            if not artifact:
+                abort(404, description="nonexistent artifact")
+
+        # Verify the user is the owner of the artifact group
+        login_session = None
+        if has_token(request):
+            login_session = verify_token(request)
+        if not login_session:
+            abort(400, description="insufficient permission to access unpublished artifact")
+
+        # Create the artifact
+        # artifact = Artifact(artifact_group_id=artifact_group_id,
+        #                     owner_id=login_session.user_id)
+        # db.session.add(artifact)
+        # db.session.commit()
+
+        # response = jsonify({
+        #     "artifact": ArtifactSchema().dump(artifact)
+        # })
+        response = jsonify({
+            "message": "test success"
+        })
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
