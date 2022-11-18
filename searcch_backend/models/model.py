@@ -898,3 +898,16 @@ class StatsRecentViews(db.Model):
     view_count = db.Column(db.Integer, nullable=False)
     def __repr__(self):
         return "<StatsRecentViews(id=%r, session_id=%r, artifact_group_id=%r, user_id=%r,view_count=%r)>" % (self.id, self.session_id, self.artifact_group_id, self.user_id, self.view_count)
+
+class ArtifactRequests(db.Model):
+    __tablename__ = "artifact_requests"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
+    requester_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    research_desc = db.Column(db.String(2048), nullable=False)
+    research_that_interact = db.Column(db.String(2048), nullable=False)
+    agreement_file = db.Column(db.LargeBinary, nullable=False)
+
+    def __repr__(self):
+        return "<ArtifactRequests(id=%r, artifact_group_id=%r, requester_user_id=%r, research_desc=%r, research_that_interacts=%r, agreement_file=%r)>" % (self.id, self.artifact_group_id, self.requester_user_id, self.research_desc, self.research_that_interacts, self.agreement_file)

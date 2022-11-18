@@ -23,8 +23,11 @@ def upgrade():
         sa.Column('agreement_file', sa.LargeBinary(), nullable=False),
         sa.Column('research_desc', sa.Text(), nullable=True),
         sa.Column('research_that_interact', sa.Text(), nullable=True),
+        sa.Column('artifact_group_id', sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(['requester_user_id'], ['users.id']),
-        sa.PrimaryKeyConstraint('id')
+        sa.ForeignKeyConstraint(['artifact_group_id'], ['artifact_groups.id']),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('artifact_group_id', 'requester_user_id')
     )
 
 

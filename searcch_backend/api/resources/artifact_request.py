@@ -12,6 +12,7 @@ import math
 import logging
 import json
 from sqlalchemy.dialects import postgresql
+import werkzeug
 
 LOG = logging.getLogger(__name__)
 
@@ -117,6 +118,8 @@ class ArtifactRequestAPI(Resource):
         if has_api_key(request):
             verify_api_key(request)
 
+        args = self.reqparse.parse_args()
+
         # Verify the group exists
         artifact_group = db.session.query(ArtifactGroup).filter(
             ArtifactGroup.id == artifact_group_id).first()
@@ -137,18 +140,34 @@ class ArtifactRequestAPI(Resource):
         if not login_session:
             abort(400, description="insufficient permission to access unpublished artifact")
 
-        # Create the artifact
-        # artifact = Artifact(artifact_group_id=artifact_group_id,
-        #                     owner_id=login_session.user_id)
-        # db.session.add(artifact)
-        # db.session.commit()
+        user_id = login_session.user_id
+        research_desc = request.form.get('research_desc')
+        if not research_desc:
+            abort(400, description="missing research_desc")
+        research_that_interact = request.form.get('research_that_interact')
+        if not research_that_interact:
+            abort(400, description="missing researchers that interact")
+        agreement_file = request.files.get('file')
+        if not agreement_file:
+            abort(400, description="missing agreement file")
+        agreement_file = agreement_file.read()
 
-        # response = jsonify({
-        #     "artifact": ArtifactSchema().dump(artifact)
-        # })
+        request_entry = ArtifactRequests(
+            artifact_group_id=artifact_group_id,
+            requester_user_id=user_id,
+            research_desc=research_desc,
+            research_that_interact=research_that_interact,
+            agreement_file=agreement_file
+        )
+
+        db.session.add(request_entry)
+        db.session.commit()
+
         response = jsonify({
-            "message": "test success"
+            "message": "request successfully submitted",
+            "request": ArtifactRequestSchema().dump(request_entry)
         })
+
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
