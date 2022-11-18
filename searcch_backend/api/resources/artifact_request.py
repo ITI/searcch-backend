@@ -140,33 +140,45 @@ class ArtifactRequestAPI(Resource):
         if not login_session:
             abort(400, description="insufficient permission to access unpublished artifact")
 
-        user_id = login_session.user_id
-        research_desc = request.form.get('research_desc')
-        if not research_desc:
-            abort(400, description="missing research_desc")
-        research_that_interact = request.form.get('research_that_interact')
-        if not research_that_interact:
-            abort(400, description="missing researchers that interact")
-        agreement_file = request.files.get('file')
-        if not agreement_file:
-            abort(400, description="missing agreement file")
-        agreement_file = agreement_file.read()
+        # Verify if user has already submitted a request
+        artfact_request = db.session.query(ArtifactRequests).filter(
+                ArtifactRequests.artifact_group_id == artifact_group_id,
+                ArtifactRequests.requester_user_id == login_session.user_id
+            ).first()
+        if artfact_request:
+            response = jsonify({
+                "status": 1,
+                "error": "User has already submitted a request for this artifact"
+            })
+        else:
+            user_id = login_session.user_id
+            research_desc = request.form.get('research_desc')
+            if not research_desc:
+                abort(400, description="missing research_desc")
+            research_that_interact = request.form.get('research_that_interact')
+            if not research_that_interact:
+                abort(400, description="missing researchers that interact")
+            agreement_file = request.files.get('file')
+            if not agreement_file:
+                abort(400, description="missing agreement file")
+            agreement_file = agreement_file.read()
 
-        request_entry = ArtifactRequests(
-            artifact_group_id=artifact_group_id,
-            requester_user_id=user_id,
-            research_desc=research_desc,
-            research_that_interact=research_that_interact,
-            agreement_file=agreement_file
-        )
+            request_entry = ArtifactRequests(
+                artifact_group_id=artifact_group_id,
+                requester_user_id=user_id,
+                research_desc=research_desc,
+                research_that_interact=research_that_interact,
+                agreement_file=agreement_file
+            )
 
-        db.session.add(request_entry)
-        db.session.commit()
+            db.session.add(request_entry)
+            db.session.commit()
 
-        response = jsonify({
-            "message": "request successfully submitted",
-            "request": ArtifactRequestSchema().dump(request_entry)
-        })
+            response = jsonify({
+                "status": 0,
+                "message": "Request submitted successfully",
+                "request": ArtifactRequestSchema().dump(request_entry)
+            })
 
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
