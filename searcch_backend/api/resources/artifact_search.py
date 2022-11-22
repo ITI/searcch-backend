@@ -34,14 +34,20 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
     if not keywords:
         query = db.session.query(Artifact,
                                     sql.expression.bindparam("zero", 0).label("rank"),
-                                    'num_ratings', 'avg_rating', 'num_reviews', "view_count"
+                                    'num_ratings', 'avg_rating', 'num_reviews', "view_count", 'dua_url'
                                     ).order_by(
                                     db.case([
                                         (Artifact.type == 'pcap', 1),
-                                        (Artifact.type == 'dataset', 2),
+                                        (Artifact.type == 'flowtools', 2),
+                                        (Artifact.type == 'flowride', 3),
+                                        (Artifact.type == 'fsdb', 4),
+                                        (Artifact.type == 'csv', 5),
+                                        (Artifact.type == 'custom', 6),
+                                        (Artifact.type == 'netflow', 7),
+                                        (Artifact.type == 'dataset', 8),
                                         (Artifact.type ==
-                                        'publication', 3),
-                                    ], else_=4)
+                                         'publication', 9),
+                                    ], else_=10)
                                 )
         query = query.join(ArtifactGroup, ArtifactGroup.id == Artifact.artifact_group_id
                         ).join(sqratings, ArtifactGroup.id == sqratings.c.artifact_group_id, isouter=True
@@ -54,7 +60,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
                                     ).filter(ArtifactSearchMaterializedView.doc_vector.op('@@')(func.websearch_to_tsquery("english", keywords))
                                     ).subquery()
         query = db.session.query(Artifact, 
-                                    search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews', "view_count"
+                                    search_query.c.rank, 'num_ratings', 'avg_rating', 'num_reviews', "view_count", 'dua_url'
                                     ).join(ArtifactPublication, ArtifactPublication.artifact_id == Artifact.id
                                     ).join(search_query, Artifact.id == search_query.c.artifact_id, isouter=False)
         
@@ -118,13 +124,17 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
         else:
             query = query.filter(Artifact.type == artifact_types[0])
 
+
+    dua_query = db.session.query(DUA).subquery()
+    query = query.join(DUA, Artifact.collection == DUA.collection and Artifact.provider == DUA.provider)
     
     pagination = query.paginate(page=page_num, error_out=False, max_per_page=items_per_page)
     result = pagination.items
 
     artifacts = []
     for row in result:
-        artifact, _, num_ratings, avg_rating, num_reviews, view_count = row
+        artifact, _, num_ratings, avg_rating, num_reviews, view_count, dua_url = row
+        print("Dua url ", dua_url)
         abstract = {
             "id": artifact.id,
             "artifact_group_id": artifact.artifact_group_id,
@@ -141,7 +151,8 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             "num_ratings": num_ratings if num_ratings else 0,
             "num_reviews": num_reviews if num_reviews else 0,
             "owner": { "id": artifact.owner.id },
-            "views": view_count if view_count else 0
+            "views": view_count if view_count else 0,
+            "dua_url": dua_url
         }
 
         artifacts.append(abstract)

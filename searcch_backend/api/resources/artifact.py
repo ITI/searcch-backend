@@ -323,6 +323,7 @@ class ArtifactAPI(Resource):
             ArtifactRatings.artifact_group_id == ArtifactReviews.artifact_group_id
         )).filter(ArtifactRatings.artifact_group_id == artifact_group.id).all()
 
+        dua = db.session.query(DUA).filter(DUA.collection == artifact.collection).filter(DUA.provider == artifact.provider).first()
         # Record Artifact view in database
         # XXX: need to handle API-only case.
         session_id = request.cookies.get('session_id')
@@ -331,10 +332,11 @@ class ArtifactAPI(Resource):
             stat_view_obj.recordView()
 
         response = jsonify({
-            "artifact": ArtifactSchema().dump(artifact),
+            "artifact": ArtifactSchema().dump(artifact),            
             "avg_rating": float(rating_aggregates[0][2]) if rating_aggregates else None,
             "num_ratings": rating_aggregates[0][1] if rating_aggregates else 0,
             "num_reviews": len(ratings) if ratings else 0,
+            "dua_url": dua.dua_url,
             "rating_review": [{
                 "rating": ArtifactRatingsSchema(only=("rating",)).dump(rating), 
                 "review": ArtifactReviewsSchema(exclude=("artifact_group_id", "user_id")).dump(review)

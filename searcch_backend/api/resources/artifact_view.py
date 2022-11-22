@@ -15,10 +15,10 @@ from sqlalchemy.dialects import postgresql
 
 LOG = logging.getLogger(__name__)
 
-class ArtifactRequestAPI(Resource):
+class ArtifactViewAPI(Resource):
     def __init__(self):
         self.reqparse = reqparse.RequestParser()
-        super(ArtifactRequestAPI, self).__init__()
+        super(ArtifactViewAPI, self).__init__()
 
     def get(self, artifact_group_id, artifact_id=None):
         if has_api_key(request):

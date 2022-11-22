@@ -12,9 +12,18 @@ Base = declarative_base(metadata=metadata)
 
 
 ARTIFACT_TYPES = (
-    "publication", "presentation", "dataset", "software",
-    "pcap"
+    "publication", "presentation", "dag", "argus",
+    "pcap", "netflow", "flowtools", "flowride", "fsdb", "csv", "custom"
 )
+
+ACCESS_TYPES = (
+    "download", "onsite", "cloud"
+)
+
+ANON_TYPES = (
+    "cryptopan-full", "cryptopan-host", "remove-host", "none", "custom"
+)
+
 ARTIFACT_IMPORT_TYPES = (
     "unknown", *ARTIFACT_TYPES
 )
@@ -483,6 +492,21 @@ class Badge(db.Model):
             self.title, self.url, self.version, self.organization, self.venue, self.verified)
 
 
+class DUA(db.Model):
+    __tablename__ = "dua"
+
+    collection = db.Column(db.String(1024), nullable=False, primary_key=True)
+    provider = db.Column(db.String(1024), nullable=False, primary_key=True)
+    dua_url = db.Column(db.Text(), nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("collection", "provider"),)
+
+    def __repr__(self):
+        return "<DUA(collection=%r,provider=%r, dua_url=%r)>" % (
+            self.collection, self.provider, self.dua_url)
+
+
 class ArtifactBadge(db.Model):
     __tablename__ = "artifact_badges"
 
@@ -659,7 +683,15 @@ class Artifact(db.Model):
     releases = db.relationship("ArtifactRelease", uselist=True)
     affiliations = db.relationship("ArtifactAffiliation")
     badges = db.relationship("ArtifactBadge", uselist=True)
-
+    fromtime = db.Column(db.DateTime)
+    totime = db.Column(db.DateTime)
+    size = db.Column(db.BigInteger)
+    access = db.Column(db.Enum(*ACCESS_TYPES,name="access_enum"))
+    anonymization = db.Column(db.Enum(*ANON_TYPES,name="anon_enum"))
+    collection = db.Column(db.String(1024), nullable=False)
+    provider = db.Column(db.String(1024), nullable=False)
+    
+    
     # NB: all foreign keys are read-only, so not included here.
     __user_ro_fields__ = (
         "artifact_group_id","parent_id","version","ctime","mtime","ext_id","owner_id" )
