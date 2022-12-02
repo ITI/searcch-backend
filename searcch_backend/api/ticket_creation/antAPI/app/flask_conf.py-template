@@ -1,0 +1,16 @@
+'''
+Flask configuration
+'''
+
+DEBUG = True
+
+SECRET_KEY = 'change me'
+
+#location of the db (relative to instance)
+SQLALCHEMY_DATABASE_URI = 'sqlite:///antapi.db' #relative to instance path
+
+#max upload size
+MAX_CONTENT_LENGTH = 32*1024**2
+
+TRAC_ATTACHMENT_DIR = 'trac_attachments'
+TRAC_ATTACHMENT_MAXSIZE = 16*1024**2
