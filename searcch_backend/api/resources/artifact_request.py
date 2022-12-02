@@ -13,6 +13,14 @@ import logging
 import json
 from sqlalchemy.dialects import postgresql
 import werkzeug
+from searcch_backend.api.ticket_creation.antAPI.client.auth import AntAPIClientAuthenticator
+from searcch_backend.api.ticket_creation.antAPI.client.trac import (
+       antapi_trac_ticket_new,
+       antapi_trac_ticket_attach,
+)
+from searcch_backend.api.ticket_creation.antapi_client_conf import AUTH
+import json
+
 
 LOG = logging.getLogger(__name__)
 
@@ -162,6 +170,9 @@ class ArtifactRequestAPI(Resource):
             if not agreement_file:
                 abort(400, description="missing agreement file")
             agreement_file = agreement_file.read()
+            dataset = request.form.get('dataset')
+            if not dataset:
+                abort(400, description="missing dataset")
 
             request_entry = ArtifactRequests(
                 artifact_group_id=artifact_group_id,
@@ -173,6 +184,25 @@ class ArtifactRequestAPI(Resource):
 
             db.session.add(request_entry)
             db.session.commit()
+
+            auth = AntAPIClientAuthenticator(**AUTH)
+
+            researchers = json.loads(research_that_interact)
+            
+            for researcher in researchers:
+
+                ticket_fields = dict(
+                    description='Artifact request for dataset',
+                    researcher=researcher['name'],
+                    # email=researcher['email'],
+                    email='testing@comunda.ant.isi.edu',
+                    affiliation='none',
+                    datasets=dataset,
+                )
+
+                ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
+
+
 
             response = jsonify({
                 "status": 0,
