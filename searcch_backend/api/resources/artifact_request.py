@@ -12,6 +12,15 @@ import math
 import logging
 import json
 from sqlalchemy.dialects import postgresql
+import werkzeug
+from searcch_backend.api.ticket_creation.antAPI.client.auth import AntAPIClientAuthenticator
+from searcch_backend.api.ticket_creation.antAPI.client.trac import (
+       antapi_trac_ticket_new,
+       antapi_trac_ticket_attach,
+)
+from searcch_backend.api.ticket_creation.antapi_client_conf import AUTH
+import json
+
 
 LOG = logging.getLogger(__name__)
 
@@ -113,3 +122,94 @@ class ArtifactRequestAPI(Resource):
         response.status_code = 200
         return response
 
+    def post(self, artifact_group_id, artifact_id=None):
+        if has_api_key(request):
+            verify_api_key(request)
+
+        args = self.reqparse.parse_args()
+
+        # Verify the group exists
+        artifact_group = db.session.query(ArtifactGroup).filter(
+            ArtifactGroup.id == artifact_group_id).first()
+        if not artifact_group:
+            abort(404, description="nonexistent artifact group")
+
+        # Verify the artifact exists
+        if artifact_id:
+            artifact = db.session.query(Artifact).filter(
+                Artifact.id == artifact_id).first()
+            if not artifact:
+                abort(404, description="nonexistent artifact")
+
+        # Verify the user is the owner of the artifact group
+        login_session = None
+        if has_token(request):
+            login_session = verify_token(request)
+        if not login_session:
+            abort(400, description="insufficient permission to access unpublished artifact")
+
+        # Verify if user has already submitted a request
+        artfact_request = db.session.query(ArtifactRequests).filter(
+                ArtifactRequests.artifact_group_id == artifact_group_id,
+                ArtifactRequests.requester_user_id == login_session.user_id
+            ).first()
+        if artfact_request:
+            response = jsonify({
+                "status": 1,
+                "error": "User has already submitted a request for this artifact"
+            })
+        else:
+            user_id = login_session.user_id
+            research_desc = request.form.get('research_desc')
+            if not research_desc:
+                abort(400, description="missing research_desc")
+            research_that_interact = request.form.get('research_that_interact')
+            if not research_that_interact:
+                abort(400, description="missing researchers that interact")
+            agreement_file = request.files.get('file')
+            if not agreement_file:
+                abort(400, description="missing agreement file")
+            agreement_file = agreement_file.read()
+            dataset = request.form.get('dataset')
+            if not dataset:
+                abort(400, description="missing dataset")
+
+            request_entry = ArtifactRequests(
+                artifact_group_id=artifact_group_id,
+                requester_user_id=user_id,
+                research_desc=research_desc,
+                research_that_interact=research_that_interact,
+                agreement_file=agreement_file
+            )
+
+            db.session.add(request_entry)
+            db.session.commit()
+
+            auth = AntAPIClientAuthenticator(**AUTH)
+
+            researchers = json.loads(research_that_interact)
+            
+            for researcher in researchers:
+
+                ticket_fields = dict(
+                    description='Artifact request for dataset',
+                    researcher=researcher['name'],
+                    # email=researcher['email'],
+                    email='testing@comunda.ant.isi.edu',
+                    affiliation='none',
+                    datasets=dataset,
+                )
+
+                ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
+
+
+
+            response = jsonify({
+                "status": 0,
+                "message": "Request submitted successfully",
+                "request": ArtifactRequestSchema().dump(request_entry)
+            })
+
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.status_code = 200
+        return response
