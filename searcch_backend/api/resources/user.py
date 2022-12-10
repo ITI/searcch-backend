@@ -129,6 +129,8 @@ class UserProfileAPI(Resource):
                                    type=str, required=False)
         self.reqparse.add_argument(name='email', 
                                    type=str, required=False)
+        self.reqparse.add_argument(name='position', 
+                                   type=str, required=False)
 
         super(UserProfileAPI, self).__init__()
 
@@ -160,9 +162,11 @@ class UserProfileAPI(Resource):
                         "name": user.person.name,
                         "research_interests": user.person.research_interests,
                         "website": user.person.website,
-                        "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else ""
+                        "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else "",
+                        "position":user.person.position
                     },
-                    "affiliations": UserAffiliationSchema(many=True).dump(affiliations)
+                    "affiliations": UserAffiliationSchema(many=True).dump(affiliations),
+                    
                 }
             }
 
@@ -192,7 +196,7 @@ class UserProfileAPI(Resource):
         research_interests = args['research_interests']
         website = args['website']
         email = args['email']
-
+        position = args['position']
         user = login_session.user
         person = db.session.query(Person).filter(Person.id == user.person_id).first()
         
@@ -206,6 +210,8 @@ class UserProfileAPI(Resource):
             person.profile_photo = profile_photo
         if email:
             person.email = email
+        if position is not None:
+            person.position = position
 
         db.session.commit()
 

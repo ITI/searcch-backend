@@ -126,7 +126,7 @@ class PersonPublicSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Person
         model_converter = ModelConverter
-        exclude = ('email', 'research_interests', 'website', 'profile_photo', 'person_tsv')
+        exclude = ('email', 'research_interests', 'website', 'profile_photo', 'person_tsv', 'position')
         include_fk = True
         include_relationships = True
 
