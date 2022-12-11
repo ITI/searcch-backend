@@ -321,6 +321,7 @@ class Person(db.Model):
     research_interests = db.Column(db.Text, nullable=True)
     website = db.Column(db.Text, nullable=True)
     person_tsv = db.Column(TSVECTOR)
+    position = db.Column(db.Text, nullable=True)
 
     def __repr__(self):
         return "<Person(id=%r,name=%r, email=%r)>" % (
