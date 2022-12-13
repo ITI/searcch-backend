@@ -25,31 +25,31 @@ def upgrade():
                     "alter type artifact_enum add value '%s'" % (new_value,))
         except:
             pass
-    op.create_table('dua',
-    sa.Column('collection', sa.String(length=1024), nullable=False),
-    sa.Column('provider', sa.String(length=1024), nullable=False),
-    sa.Column('dua_url', sa.Text(), nullable=False),
-    sa.PrimaryKeyConstraint('collection', 'provider'),
-    sa.UniqueConstraint('collection', 'provider')
-    )
-    op.drop_constraint('artifact_groups_id_next_version_key', 'artifact_groups', type_='unique')
-    access_ne = postgresql.ENUM(
-        'download', 'onsite', 'cloud',
-        name='access_enum')
-    access_ne.create(op.get_bind())
-    anon_ne = postgresql.ENUM(
-        'cryptopan-full', 'cryptopan-host', 'remove-host', 'none', 'custom',
-        name='anon_enum')
-    anon_ne.create(op.get_bind())
-    op.add_column('artifacts', sa.Column('access', sa.Enum('download', 'onsite', 'cloud', name='access_enum'), nullable=True))
-    op.add_column('artifacts', sa.Column('anonymization', sa.Enum('cryptopan-full', 'cryptopan-host', 'remove-host', 'none', 'custom', name='anon_enum'), nullable=True))
-    op.add_column('artifacts', sa.Column('collection', sa.String(length=1024), nullable=False))
-    op.add_column('artifacts', sa.Column('fromtime', sa.DateTime(), nullable=True))
-    op.add_column('artifacts', sa.Column('provider', sa.String(length=1024), nullable=False))
-    op.add_column('artifacts', sa.Column('size', sa.BigInteger(), nullable=True))
-    op.add_column('artifacts', sa.Column('totime', sa.DateTime(), nullable=True))
-    op.drop_index('org_idx', table_name='organizations')
-    op.drop_index('person_idx', table_name='persons')
+    # op.create_table('dua',
+    #     sa.Column('collection', sa.String(length=1024), nullable=False),
+    #     sa.Column('provider', sa.String(length=1024), nullable=False),
+    #     sa.Column('dua_url', sa.Text(), nullable=False),
+    #     sa.PrimaryKeyConstraint('collection', 'provider'),
+    #     sa.UniqueConstraint('collection', 'provider')
+    # )
+    # op.drop_constraint('artifact_groups_id_next_version_key', 'artifact_groups', type_='unique')
+    # access_ne = postgresql.ENUM(
+    #     'download', 'onsite', 'cloud',
+    #     name='access_enum')
+    # access_ne.create(op.get_bind())
+    # anon_ne = postgresql.ENUM(
+    #     'cryptopan-full', 'cryptopan-host', 'remove-host', 'none', 'custom',
+    #     name='anon_enum')
+    # anon_ne.create(op.get_bind())
+    # op.add_column('artifacts', sa.Column('access', sa.Enum('download', 'onsite', 'cloud', name='access_enum'), nullable=True))
+    # op.add_column('artifacts', sa.Column('anonymization', sa.Enum('cryptopan-full', 'cryptopan-host', 'remove-host', 'none', 'custom', name='anon_enum'), nullable=True))
+    # op.add_column('artifacts', sa.Column('collection', sa.String(length=1024), nullable=False))
+    # op.add_column('artifacts', sa.Column('fromtime', sa.DateTime(), nullable=True))
+    # op.add_column('artifacts', sa.Column('provider', sa.String(length=1024), nullable=False))
+    # op.add_column('artifacts', sa.Column('size', sa.BigInteger(), nullable=True))
+    # op.add_column('artifacts', sa.Column('totime', sa.DateTime(), nullable=True))
+    # op.drop_index('org_idx', table_name='organizations')
+    # op.drop_index('person_idx', table_name='persons')
     # ### end Alembic commands ###
 
 
