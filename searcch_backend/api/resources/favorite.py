@@ -48,6 +48,7 @@ class FavoritesListAPI(Resource):
         artifacts = []
         for artifact_group, artifact, num_ratings, avg_rating, num_reviews in favorite_artifacts:
             result = {
+                "artifact_group": ArtifactGroupShallowSchema().dump(artifact_group),
                 "artifact_group_id": artifact_group.id,
                 "uri": FavoritesListAPI.generate_artifact_uri(artifact.id),
                 "doi": getattr(artifact, 'url', None),
