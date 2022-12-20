@@ -5,6 +5,7 @@ import logging
 import json
 import sys
 import base64
+import functools
 
 LOG = logging.getLogger(__name__)
 
@@ -726,6 +727,45 @@ def artifact_clone(artifact):
 
     return clone(artifact)
 
+def object_match(cls, session, skip_primary_keys=True,
+                 skip_foreign_keys=True, none_wild=True,
+                 **kwargs):
+    for k in cls.__mapper__.column_attrs.keys():
+        colprop = getattr(cls, k).property.columns[0]
+        if not colprop.nullable \
+          and (not skip_primary_keys and colprop.primary_key) \
+          and (not k in kwargs or kwargs[k] == None):
+            LOG.debug(
+                "object_match: non-nullable %s.%s not present in match args; returning None",
+                cls.__name__, k)
+            return None
+    q = session.query(cls)
+    for kwa in list(kwargs):
+        prop = getattr(cls, kwa).property
+        # Either a regular field or foreign key, or
+        colprop = getattr(prop, "columns", [None])[0]
+        # a relationship property whose local_columns we can check to see
+        # if are foreign keys.
+        local_columns = getattr(prop, "local_columns", [])
+        if colprop is None:
+            LOG.debug("object_match: %s.%s colprop is None", cls.__name__, kwa)
+        # Skip foreign keys.
+        if (colprop is not None and colprop.foreign_keys and skip_foreign_keys) \
+            or (local_columns and functools.reduce(lambda x,y: x and y, map(lambda x: bool(x.foreign_keys), local_columns))):
+            continue
+        if skip_primary_keys and colprop is not None and colprop.primary_key:
+            continue
+        if kwa == "verified":
+            continue
+        if none_wild and kwargs[kwa] in [None, [], {}]:
+            continue
+        LOG.debug("object_match: adding column filter %s.%s", cls.__name__, kwa)
+        q = q.filter(getattr(cls,kwa).__eq__(kwargs[kwa]))
+    q = q.filter(cls.verified == True)
+    res = q.first()
+    LOG.debug("object_match: returning %r", res)
+    return res
+
 def object_from_json(session,obj_class,j,skip_primary_keys=True,skip_tsv=True,
                      error_on_primary_key=False,allow_fk=False,enable_cache=True,
                      should_query=True,never_query=False,obj_cache=None,obj_cache_dicts=None):
@@ -889,36 +929,53 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,skip_tsv=True,
 
     # Query the DB iff all top-level obj_kwargs are basic types or persistent
     # objects, and if our parent told us we should query.
+    LOG.debug("object_from_json: %s.query(never_query=%r,should_query=%r)",
+              obj_class.__name__, never_query, should_query)
     if not never_query and should_query:
         can_query = True
         for kwa in list(obj_kwargs):
-            if isinstance(obj_kwargs[kwa],list):
+            if isinstance(obj_kwargs[kwa],list) and \
+              (not hasattr(obj_class, "object_match") or obj_kwargs[kwa]):
                 # This is a relation list, so we can't query for this object
                 # like this.
                 can_query = False
+                LOG.debug("object_from_json: %s.can_query=False (%s) (list relation)",
+                          obj_class.__name__, kwa)
             if not isinstance(obj_kwargs[kwa],db.Model):
                 continue
             try:
                 state = sqlalchemy.inspect(obj_kwargs[kwa])
                 can_query = getattr(state, "persistent", False)
+                if not can_query:
+                    LOG.debug(
+                        "object_from_json: %s.can_query=False (%s) (persistent)",
+                        obj_class.__name__, kwa)
             except:
                 pass
             if not can_query:
                 break
-        if can_query:
+        qres = None
+        if can_query and getattr(obj_class, "object_match", None):
+            qres = obj_class.object_match(
+                session, skip_primary_keys=skip_primary_keys, **obj_kwargs)
+            LOG.debug("object_from_json: %s._match qres=%r",
+                      obj_class.__name__, qres)
+        elif can_query:
             q = session.query(obj_class)
             for kwa in list(obj_kwargs):
                 q = q.filter(getattr(obj_class,kwa).__eq__(obj_kwargs[kwa]))
-            qres = q.all()
-            if qres:
-                if obj_cache:
-                    obj_cache.append(qres[0])
-                    obj_cache_dicts.append(j)
-                if qres[0] in session:
-                    LOG.debug("object_from_json(in=True,query): %r",qres[0])
-                else:
-                    LOG.debug("object_from_json(in=False,query): %r",qres[0].__class__.__name__)
-                return qres[0]
+            qres = q.first()
+            LOG.debug("object_from_json: %s.query qres=%r",
+                      obj_class.__name__, qres)
+        if qres:
+            if obj_cache:
+                obj_cache.append(qres)
+                obj_cache_dicts.append(j)
+            if qres in session:
+                LOG.debug("object_from_json(in=True,query): %r",qres)
+            else:
+                LOG.debug("object_from_json(in=False,query): %r",qres.__class__.__name__)
+            return qres
 
     ret = obj_class(**obj_kwargs)
     if ret in session:

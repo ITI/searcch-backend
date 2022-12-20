@@ -28,7 +28,7 @@ def sort_artifacts(query, sqratings, sqreviews, sort_by, sort_order):
         query = query.order_by(desc('view_count') if sort_order == 'desc' else 'view_count')
     return query
 
-def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page, sort_by = 'default', sort_order = 'desc'):
+def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, venue_id_list, venue_keywords, page_num, items_per_page, sort_by = 'default', sort_order = 'desc'):
     """ search for artifacts based on keywords, with optional filters by owner and affiliation """
     sqratings = db.session.query(
         ArtifactGroup.id.label('artifact_group_id'),
@@ -125,6 +125,20 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             ).filter(Badge.id.in_(badge_id_list)
             ).subquery()
         query = query.join(badge_query, Artifact.id == badge_query.c.artifact_id, isouter=False)
+    if venue_id_list:
+        venue_query = db.session.query(ArtifactVenue.artifact_id
+            ).join(Venue, Venue.id == ArtifactVenue.venue_id
+            ).filter(Venue.id.in_(venue_id_list)
+            ).subquery()
+        query = query.join(venue_query, Artifact.id == venue_query.c.artifact_id, isouter=False)
+    if venue_keywords:
+        if type(venue_keywords) is list:
+            venue_keywords = ' or '.join(venue_keywords)
+        venue_query = db.session.query(
+            ArtifactVenue.artifact_id, func.ts_rank_cd(Venue.venue_tsv, func.websearch_to_tsquery("english", venue_keywords)).label("vrank")
+            ).join(Venue, Venue.id == ArtifactVenue.venue_id
+            ).filter(Venue.venue_tsv.op('@@')(func.websearch_to_tsquery("english", venue_keywords))).order_by(desc("vrank")).subquery()
+        query = query.join(venue_query, Artifact.id == venue_query.c.artifact_id, isouter=False)
 
     # Add View number to query
     query = query.join(StatsArtifactViews, Artifact.artifact_group_id == StatsArtifactViews.artifact_group_id, isouter=True)
@@ -214,7 +228,16 @@ class ArtifactSearchIndexAPI(Resource):
                                    required=False,
                                    action='append',
                                    help='badge IDs to search for')
-        
+        self.reqparse.add_argument(name='venue_id',
+                                   type=int,
+                                   required=False,
+                                   action='append',
+                                   help='venue IDs to search for')
+        self.reqparse.add_argument(name='venue_keywords',
+                                   type=str,
+                                   required=False,
+                                   help='missing venue_keywords in query string')
+
         # sort
         self.reqparse.add_argument(name='sort',
                                    type=str,
@@ -248,6 +271,8 @@ class ArtifactSearchIndexAPI(Resource):
         organization = args['organization']
         owner_keywords = args['owner']
         badge_id_list = args['badge_id']
+        venue_id_list = args['venue_id']
+        venue_keywords = args['venue_keywords']
 
         # sort
         sort = args['sort']
@@ -267,8 +292,9 @@ class ArtifactSearchIndexAPI(Resource):
             db.session.commit()
         except exc.SQLAlchemyError as error:
             LOG.exception(f'Failed to log search term in the database. Error: {error}')
+            db.session.rollback()
 
-        result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page, sort, order)
+        result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, venue_id_list, venue_keywords, page_num, items_per_page, sort, order)
         response = jsonify(result)
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
@@ -314,7 +340,9 @@ class ArtifactRecommendationAPI(Resource):
                 }, "avg_rating": None, "num_ratings": 0, "authors": []})
         else:
             keywords = [result.tag for result in top_keywords]
-            artifacts = search_artifacts(keywords=" or ".join(keywords), artifact_types = ARTIFACT_TYPES, page_num = page_num, items_per_page= 10, author_keywords = None,  organization = None, owner_keywords = None, badge_id_list = None)
+            artifacts = search_artifacts(
+                " or ".join(keywords), ARTIFACT_TYPES, None, None, None,
+                None, None, None, page_num, 10, None, None)
             res =  db.session.query(ArtifactRatings.artifact_id, func.count(ArtifactRatings.id).label('num_ratings'), func.avg(ArtifactRatings.rating).label('avg_rating')).group_by("artifact_id").filter(ArtifactRatings.artifact_id == artifact_id).first()
             if res:
                 num_ratings = res.num_ratings if res.num_ratings else 0

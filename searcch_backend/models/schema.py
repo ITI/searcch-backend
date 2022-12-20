@@ -228,6 +228,57 @@ class ArtifactBadgeSchema(SQLAlchemyAutoSchema):
     badge = Nested(BadgeSchema, many=False)
 
 
+class RecurringVenueShallowSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = RecurringVenue
+        exclude = ('recurring_venue_tsv',)
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = False
+
+
+class VenueShallowSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = Venue
+        exclude = ('venue_tsv',)
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = False
+
+
+class RecurringVenueSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = RecurringVenue
+        exclude = ('recurring_venue_tsv',)
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    recurrences = Nested(VenueShallowSchema, many=True)
+
+
+class VenueSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = Venue
+        exclude = ('venue_tsv',)
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    recurring_venue = Nested(RecurringVenueShallowSchema, many=False)
+
+
+class ArtifactVenueSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactVenue
+        exclude = ('artifact_id', 'venue_id')
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    venue = Nested(VenueSchema, many=False)
+
+
 class AffiliationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Affiliation
@@ -395,6 +446,7 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     releases = Nested(ArtifactReleaseSchema, many=True)
     affiliations = Nested(ArtifactAffiliationSchema, many=True)
     badges = Nested(ArtifactBadgeSchema, many=True)
+    venues = Nested(ArtifactVenueSchema, many=True)
 
     view_count = fields.Method("get_views")
 
