@@ -6,6 +6,11 @@ from sqlalchemy.sql import func
 from sqlalchemy import event
 from sqlalchemy.sql import text
 import hashlib
+import logging
+
+import searcch_backend.api.common.sql
+
+LOG = logging.getLogger(__name__)
 
 metadata = MetaData()
 Base = declarative_base(metadata=metadata)
@@ -458,6 +463,105 @@ class PersonMetadata(db.Model):
             self.id, self.name)
 
 
+class RecurringVenue(db.Model):
+    __tablename__ = "recurring_venues"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    type = db.Column(
+        db.Enum(
+            "conference", "journal", "magazine", "newspaper", "periodical",
+            "event", "other",
+            name="recurring_venue_enum"),
+        nullable=False)
+    title = db.Column(db.String(1024), nullable=False)
+    abbrev = db.Column(db.String(64))
+    url = db.Column(db.String(1024), nullable=False)
+    description = db.Column(db.Text)
+    publisher_url = db.Column(db.String(1024), nullable=True)
+    verified = db.Column(db.Boolean, nullable=False, default=False)
+    recurring_venue_tsv = db.Column(TSVECTOR)
+
+    recurrences = db.relationship("Venue", uselist=True, viewonly=True)
+
+    @classmethod
+    def object_match(cls, session, skip_primary_keys=True, skip_foreign_keys=True,
+                     none_wild=True, **kwargs):
+        return searcch_backend.api.common.sql.object_match(
+            cls, session, skip_primary_keys=skip_primary_keys,
+            skip_foreign_keys=skip_foreign_keys, none_wild=none_wild,
+            **kwargs)
+
+    def __repr__(self):
+        return "<RecurringVenue(type=%r,title=%r,url=%r,verified=%r)>" % (
+            self.type, self.title, self.url, self.verified)
+
+
+class Venue(db.Model):
+    __tablename__ = "venues"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    type = db.Column(
+        db.Enum(
+            "conference", "journal", "magazine", "newspaper", "periodical",
+            "event", "other",
+            name="venue_enum"),
+        nullable=False)
+    title = db.Column(db.String(1024), nullable=False)
+    abbrev = db.Column(db.String(64))
+    url = db.Column(db.String(1024), nullable=False)
+    description = db.Column(db.Text)
+    location = db.Column(db.String(1024))
+    year = db.Column(db.Integer)
+    month = db.Column(db.Integer)
+    start_day = db.Column(db.Integer)
+    end_day = db.Column(db.Integer)
+    publisher = db.Column(db.String(1024))
+    publisher_location = db.Column(db.String(1024))
+    publisher_url = db.Column(db.String(1024))
+    isbn = db.Column(db.String(128))
+    issn = db.Column(db.String(128))
+    doi = db.Column(db.String(128))
+    volume = db.Column(db.Integer)
+    issue = db.Column(db.Integer)
+    verified = db.Column(db.Boolean, nullable=False, default=False)
+    venue_tsv = db.Column(TSVECTOR)
+    recurring_venue_id = db.Column(
+        db.Integer, db.ForeignKey("recurring_venues.id"), nullable=True)
+
+    recurring_venue = db.relationship("RecurringVenue", uselist=False)
+
+    @classmethod
+    def object_match(cls, session, skip_primary_keys=True, skip_foreign_keys=True,
+                     none_wild=True, **kwargs):
+        return searcch_backend.api.common.sql.object_match(
+            cls, session, skip_primary_keys=skip_primary_keys,
+            skip_foreign_keys=skip_foreign_keys, none_wild=none_wild,
+            **kwargs)
+
+    def __repr__(self):
+        return "<Venue(type=%r,title=%r,url=%r,verified=%r)>" % (
+            self.type, self.title, self.url, self.verified)
+
+
+class ArtifactVenue(db.Model):
+    __tablename__ = "artifact_venues"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    artifact_id = db.Column(
+        db.Integer, db.ForeignKey("artifacts.id"), nullable=False)
+    venue_id = db.Column(db.Integer, db.ForeignKey("venues.id"),
+                         nullable=False)
+
+    venue = db.relationship("Venue", uselist=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("artifact_id","venue_id"),)
+
+    def __repr__(self):
+        return "<ArtifactVenue(artifact_id=%r,venue_id=%r)>" % (
+            self.artifact_id, self.venue_id)
+
+
 class Badge(db.Model):
     __tablename__ = "badges"
 
@@ -659,6 +763,7 @@ class Artifact(db.Model):
     releases = db.relationship("ArtifactRelease", uselist=True)
     affiliations = db.relationship("ArtifactAffiliation")
     badges = db.relationship("ArtifactBadge", uselist=True)
+    venues = db.relationship("ArtifactVenue", uselist=True)
 
     # NB: all foreign keys are read-only, so not included here.
     __user_ro_fields__ = (

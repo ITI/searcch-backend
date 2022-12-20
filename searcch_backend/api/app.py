@@ -74,6 +74,8 @@ from searcch_backend.api.resources.importer import (
     ImporterResourceRoot, ImporterResource)
 from searcch_backend.api.resources.schema import (
     SchemaArtifactAPI, SchemaAffiliationAPI)
+from searcch_backend.api.resources.recurring_venue import RecurringVenueResourceRoot, RecurringVenueResource
+from searcch_backend.api.resources.venue import VenueResourceRoot, VenueResource
 from searcch_backend.api.resources.badge import BadgeResourceRoot, BadgeResource
 from searcch_backend.api.resources.license import LicenseResourceRoot, LicenseResource
 from searcch_backend.api.resources.admin import AdminUpdatePrivileges
@@ -128,6 +130,12 @@ api.add_resource(ImporterResource, approot + '/importer/<int:importer_instance_i
 
 api.add_resource(SchemaArtifactAPI, approot + "/schema/artifact", endpoint='api.schema_artifact')
 api.add_resource(SchemaAffiliationAPI, approot + "/schema/affiliation", endpoint='api.schema_affiliation')
+
+api.add_resource(RecurringVenueResourceRoot, approot + '/recurringvenues', endpoint='api.recurringvenues')
+api.add_resource(RecurringVenueResource, approot + '/recurringvenue/<int:recurring_venue_id>', endpoint='api.recurringvenue')
+
+api.add_resource(VenueResourceRoot, approot + '/venues', endpoint='api.venues')
+api.add_resource(VenueResource, approot + '/venue/<int:venue_id>', endpoint='api.venue')
 
 api.add_resource(BadgeResourceRoot, approot + '/badges', endpoint='api.badges')
 api.add_resource(BadgeResource, approot + '/badge/<int:badge_id>', endpoint='api.badge')
