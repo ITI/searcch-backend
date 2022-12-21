@@ -34,7 +34,8 @@ def notify_importer(artifact_import,importer_instance,importer_schedule,
     # object.
     try:
         ais = ArtifactImportSchema(
-            only=("id","type","url","importer_module_name","ctime"))
+            only=("id","type","url","importer_module_name","ctime",
+                  "nofetch","noextract","noremove"))
         aid = ais.dumps(artifact_import)
         LOG.debug("notifying importer %r of scheduled import %r (data=%r)" % (
             importer_instance, artifact_import,aid))
