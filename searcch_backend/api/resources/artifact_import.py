@@ -36,6 +36,15 @@ class ArtifactImportResourceRoot(Resource):
             name="importer_module_name", type=str, required=False,
             help="A specific importer name to use")
         self.postparse.add_argument(
+            name="nofetch", type=bool, required=False, default=False,
+            help="If True, do not fetch artifact files.")
+        self.postparse.add_argument(
+            name="noextract", type=bool, required=False, default=False,
+            help="If True, do not extract additional metadata (e.g. keywords) from artifact content and files.")
+        self.postparse.add_argument(
+            name="noremove", type=bool, required=False, default=False,
+            help="If True, do not removed fetched artifact content.")
+        self.postparse.add_argument(
             name="type", type=str, required=False,
             help="A specific type of artifact; defaults to `unknown`; one of (%s)" % (
                 ",".join(ARTIFACT_IMPORT_TYPES)))
