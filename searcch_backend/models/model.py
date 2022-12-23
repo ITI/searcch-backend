@@ -262,6 +262,8 @@ class ArtifactRelationship(db.Model):
     related_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     related_artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
 
+    artifact_group = db.relationship(
+        "ArtifactGroup", uselist=False, foreign_keys=[artifact_group_id], viewonly=True)
     related_artifact_group = db.relationship(
         "ArtifactGroup", uselist=False, foreign_keys=[related_artifact_group_id], viewonly=True)
 

@@ -1,7 +1,7 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema, auto_field
 from marshmallow_sqlalchemy.convert import ModelConverter as BaseModelConverter
 from marshmallow_sqlalchemy.fields import Nested
-from marshmallow import fields, ValidationError
+from marshmallow import fields, ValidationError, Schema
 import sqlalchemy
 import base64
 
@@ -98,12 +98,29 @@ class ArtifactFileSchema(SQLAlchemyAutoSchema):
 class ArtifactRelationshipSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactRelationship
-        #exclude = ('related_artifact_group',)
+        exclude = ('artifact_group', )
         model_converter = ModelConverter
         include_fk = True
         include_relationships = True
 
     related_artifact_group = Nested("ArtifactGroupShallowSchema", many=False)
+
+
+class ArtifactRelationshipReverseSchema(Schema):
+    id = fields.Integer(attribute="id")
+    artifact_id = fields.Integer(attribute="related_artifact_id")
+    artifact_group_id = fields.Integer(attribute="related_artifact_group_id")
+    relation = fields.String(attribute="relation")
+    related_artifact_id = fields.Integer(attribute="artifact_id")
+    related_artifact_group_id = fields.Integer(attribute="artifact_group_id")
+    class Meta:
+        model = ArtifactRelationship
+        #exclude = ('artifact_group',)
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+
+    related_artifact_group = Nested("ArtifactGroupShallowSchema", many=False, attribute="artifact_group")
 
 
 class ArtifactReleaseSchema(SQLAlchemyAutoSchema):
@@ -402,7 +419,7 @@ class ArtifactGroupSchema(SQLAlchemyAutoSchema):
     owner = Nested(UserPublicSchema)
     publication = Nested(ArtifactPublicationShallowSchema)
     relationships = Nested(ArtifactRelationshipSchema, many=True)
-    reverse_relationships = Nested(ArtifactRelationshipSchema, many=True)
+    reverse_relationships = Nested(ArtifactRelationshipReverseSchema, many=True)
     publications = Nested(ArtifactPublicationShallowSchema, many=True)
 
 
