@@ -766,6 +766,8 @@ class Artifact(db.Model):
     affiliations = db.relationship("ArtifactAffiliation")
     badges = db.relationship("ArtifactBadge", uselist=True)
     venues = db.relationship("ArtifactVenue", uselist=True)
+    candidate_relationships = db.relationship(
+        "CandidateArtifactRelationship", uselist=True)
 
     # NB: all foreign keys are read-only, so not included here.
     __user_ro_fields__ = (
@@ -787,6 +789,99 @@ class Artifact(db.Model):
         return "<Artifact(id=%r,title='%s',description='%s',type='%s',url='%s',owner='%r',files='%r',tags='%r',metadata='%r',publication='%r')>" % (
             self.id, self.title, self.description, self.type, self.url, self.owner, self.files, self.tags, self.meta, self.publication)
 
+
+class CandidateArtifactMetadata(db.Model):
+    __tablename__ = "candidate_artifact_metadata"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    candidate_artifact_id = db.Column(
+        db.Integer, db.ForeignKey('candidate_artifacts.id'))
+    name = db.Column(db.String(64), nullable=False)
+    value = db.Column(db.String(16384), nullable=False)
+    type = db.Column(db.String(256), nullable=True)
+    source = db.Column(db.String(256), nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("name", "candidate_artifact_id", "value", "type"),)
+
+    def __repr__(self):
+        return "<CandidateArtifactMetadata(candidate_artifact_id=%r,name=%r)>" % (
+            self.candidate_artifact_id, self.name)
+
+
+class CandidateArtifact(db.Model):
+    """The CandidateArtifact class allows possible/recommended ("candidate"), yet-to-be-imported Artifacts to be declared.  These have not been imported, so cannot be placed in the main Artifacts table.  We also need to model possible relationships between both candidates and existing artifacts."""
+    __tablename__ = "candidate_artifacts"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    url = db.Column(db.String(1024), nullable=False)
+    ctime = db.Column(db.DateTime, nullable=False)
+    mtime = db.Column(db.DateTime)
+    type = db.Column(db.Enum(*ARTIFACT_TYPES, name="candidate_artifact_enum"))
+    title = db.Column(db.Text())
+    name = db.Column(db.Text())
+    description = db.Column(db.Text())
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    artifact_import_id = db.Column(
+        db.Integer, db.ForeignKey("artifact_imports.id"))
+    meta = db.relationship("CandidateArtifactMetadata")
+    owner = db.relationship("User", uselist=False)
+    artifact_import = db.relationship(
+        "ArtifactImport", uselist=False, foreign_keys=[artifact_import_id])
+    candidate_artifact_relationships = db.relationship(
+        "CandidateArtifactRelationship", uselist=True, viewonly=True)
+
+    def __repr__(self):
+        return "<CandidateArtifact(id=%r,type=%r,url=%r,ctime=%r,owner=%r,artifact_import_id=%r)>" % (
+            self.id, self.type, self.url,
+            self.ctime.isoformat(), self.owner, self.artifact_import_id)
+
+class CandidateArtifactRelationship(db.Model):
+    """The CandidateArtifactRelationship class declares a relationship between an artifact and a candidate."""
+
+    __tablename__ = "candidate_artifact_relationships"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
+    relation = db.Column(db.Enum(
+        *RELATION_TYPES,
+        name="candidate_artifact_relationship_enum"))
+    related_candidate_id = db.Column(
+        db.Integer, db.ForeignKey("candidate_artifacts.id"))
+    artifact = db.relationship("Artifact", uselist=False, viewonly=True)
+    related_candidate = db.relationship(
+        "CandidateArtifact", uselist=False, foreign_keys=[related_candidate_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("artifact_id", "relation", "related_candidate_id"),)
+
+    def __repr__(self):
+        return "<ArtifactCandidateRelationship(id=%r,artifact_id=%r,relation=%r,related_candidate_id=%r)>" % (
+            self.id, self.artifact_id, self.relation, self.related_candidate_id)
+
+class CandidateRelationship(db.Model):
+    """The CandidateRelationship class declares a relationship between two candidate artifacts."""
+
+    __tablename__ = "candidate_relationships"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    candidate_artifact_id = db.Column(
+        db.Integer, db.ForeignKey("candidate_artifacts.id"))
+    relation = db.Column(db.Enum(
+        *RELATION_TYPES, name="candidate_relationship_enum"))
+    related_candidate_id = db.Column(
+        db.Integer, db.ForeignKey("candidate_artifacts.id"))
+    related_candidate = db.relationship(
+        "CandidateArtifact", uselist=False, foreign_keys=[related_candidate_id])
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "candidate_artifact_id", "relation", "related_candidate_id"),)
+
+    def __repr__(self):
+        return "<CandidateRelationship(id=%r,candidate_id=%r,relation=%r,related_candidate_id=%r)>" % (
+            self.id, self.candidate_id, self.relation,
+            self.related_candidate_id)
 
 class ArtifactSearchMaterializedView(db.Model):
     # The ArtifactSearchMaterializedView class provides an internal model of a SEARCCH artifact's searchable index.
@@ -823,6 +918,7 @@ class ArtifactImport(db.Model):
     nofetch = db.Column(db.Boolean(), default=False)
     noextract = db.Column(db.Boolean(), default=False)
     noremove = db.Column(db.Boolean(), default=False)
+    autofollow = db.Column(db.Boolean(), default=False)
     owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     ctime = db.Column(db.DateTime, nullable=False)
     mtime = db.Column(db.DateTime, nullable=True)
@@ -854,6 +950,8 @@ class ArtifactImport(db.Model):
     artifact_group = db.relationship("ArtifactGroup", uselist=False)
     artifact = db.relationship("Artifact", uselist=False,
         foreign_keys=[artifact_id])
+
+    candidate_artifact = db.relationship("CandidateArtifact", uselist=False)
 
     __table_args__ = (
         db.UniqueConstraint("owner_id","url","artifact_group_id","artifact_id"),

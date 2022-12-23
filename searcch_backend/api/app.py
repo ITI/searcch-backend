@@ -56,6 +56,7 @@ from searcch_backend.api.resources.artifact import (
     ArtifactRelationshipResourceRoot, ArtifactRelationshipResource, ArtifactOwnerRequestAPI, ArtifactOwnerRequestsAPI)
 from searcch_backend.api.resources.artifact_compare import ArtifactCompareAPI
 from searcch_backend.api.resources.artifact_search import ArtifactSearchIndexAPI, ArtifactRecommendationAPI
+from searcch_backend.api.resources.candidate_artifact import CandidateArtifactResource
 from searcch_backend.api.resources.organization import OrganizationAPI, OrganizationListAPI
 from searcch_backend.api.resources.login import LoginAPI
 from searcch_backend.api.resources.session import (
@@ -94,6 +95,8 @@ api.add_resource(ArtifactSearchIndexAPI, approot + '/artifact/search', endpoint=
 api.add_resource(ArtifactRelationshipResourceRoot, approot + '/artifact/relationships', endpoint='api.artifact_relationships')
 api.add_resource(ArtifactRelationshipResource, approot + '/artifact/relationship/<int:artifact_relationship_id>', endpoint='api.artifact_relationship')
 api.add_resource(ArtifactRecommendationAPI, approot + '/artifact/recommendation/<int:artifact_group_id>/<int:artifact_id>', endpoint='api.artifact_recommender')
+
+api.add_resource(CandidateArtifactResource, approot + '/candidate/artifact/<int:candidate_artifact_id>', endpoint='api.candidate_artifact')
 
 api.add_resource(ArtifactOwnerRequestAPI, approot + '/artifact/request/owner/<int:artifact_group_id>', endpoint='api.artifact_request_owner')
 api.add_resource(ArtifactOwnerRequestsAPI, approot + '/artifact/requests/owner', endpoint='api.artifact_requests_owner')
