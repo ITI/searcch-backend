@@ -1,5 +1,5 @@
 # <p style="text-align: center;">Merit Network, Inc. Dataset Acceptable Use and Data License Agreement</p><p style="text-align: center; font-weight: normal; font-size:20px">(ver 101818)</p>
-
+<hr /><br>
 The following terms comprise the Acceptable Use Policy (AUP) and Data License Agreement (collectively, the "AGREEMENT", or, "Acceptable Use Agreement (AUA)" for all datasets made available to You by Merit Network, Inc. (Merit), a non-profit, research and education network governed by Michigan’s public universities. Certain datasets may have additional Supplemental provisions. References to this AGREEMENT shall include any and all relevant Supplemental provisions.
 
 Merit has the authority and reserves the right, in its sole discretion, to refuse requests for dataset(s) or discontinue further access and use to anyone. If you feel your request is inappropriately denied please contact Merit by sending a message to research@merit.edu.

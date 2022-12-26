@@ -1,6 +1,6 @@
 # <p style="text-align: center;">USC Data Use Agreement</p><p style="text-align: center;">(USC/LANDER and Researcher Agreement 2016-08-16-ni)</p>
-
-
+<hr />
+<br>
 THIS AGREEMENT ("Agreement") is effective as of the date of the last signature below, by and between the University of Southern California, on behalf of its Information Technology Services department ("USC/ITS") and the party signing below as Researcher("Researcher").
 
 WHEREAS, USC/ITS is in possession of confidential and proprietary information, trade secrets and know-how, in written, oral and electronic form, regarding the handling and usage of scrambled and sensitive internet traffic trace measurements that have been collected by USC/ITS and Los Nettos, including data provided via secure download from USC's website containing the scrambled and sensitive internet traffic trace measurements (herein after collectively, the "Confidential Information").
