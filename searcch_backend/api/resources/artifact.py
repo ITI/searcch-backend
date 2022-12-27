@@ -556,7 +556,7 @@ class ArtifactAPI(Resource):
             db.session.delete(af)
         artifact.files = []
         many = [ "meta", "tags", "curations", "affiliations", "releases",
-                 "badges", "funding", "releases" ]
+                 "badges", "funding", "releases", "venues" ]
         for field in many:
             for x in getattr(artifact, field, []):
                 db.session.delete(x)
