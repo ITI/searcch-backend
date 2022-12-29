@@ -31,3 +31,103 @@ NOW, THEREFORE, the parties hereto, intending to be legally bound, hereby agree 
 14. This Agreement represents the ENTIRE AGREEMENT between the Researcher and USC/ITS. This Agreement contains the entire agreement of the Parties and supersedes any prior negotiations, proposals or understandings relating to this Data Use Agreement. No modification, amendment or alteration of this Agreement will be effective unless written and signed by both Parties, except for address changes provided by one Party to the other.
 
 Parties have each caused this Agreement to be executed by their duly authorized representative.
+
+<table style="width: 100%; vertical-align: top; text-align: left; padding: 0px;">
+  <tr>
+    <td>
+        <span style="font-weight: bold">Researcher Representative</span><br>
+        By: ____________________________<br> 
+        Name: ________________________<br>
+        Email: _________________________<br>
+        Title: __________________________<br>
+        Date: _________________________<br>
+    </td>
+    <td>
+        <span style="font-weight: bold">USC Representative</span><br>
+        By: ____________________________<br> 
+        Name: ________________________<br>
+        Email: _________________________<br>
+        Title: __________________________<br>
+        Date: _________________________<br>
+    </td>
+  </tr>
+</table>
+<br>
+<span style="font-weight: bold">Research Point-of-Contact</span> (for dataset delivery)<br>
+Name: ________________________<br>
+Email: _________________________<br>
+Request ID: ___________________<br>
+<br><br>
+<hr>
+<br>
+
+## <p style="text-align: center;">Attachment DUA-A</p>
+## <p style="text-align: center;">Researchers Permitted to Use Confidential Information</p>
+<br>
+<table style="width: 100%; text-align: center">
+    <tr>
+        <th> Name </th>
+        <th> Email </th>
+        <th> Contact Number </th>
+    </tr>
+    <tr id="dua_a_to_replicate">
+        <td>
+            <span id="dua_a_name" style="font-weight: normal">Name</span>
+        </td>
+        <td>
+            <span id="dua_a_email" style="font-weight: normal">Email</span>
+        </td>
+        <td>
+            <span id="dua_a_contact" style="font-weight: normal">Contact Number</span>
+        </td>
+    </tr>
+</table>
+<br><br>
+<hr>
+<br>
+
+## <p style="text-align: center;">Attachment DUA-B</p>
+## <p style="text-align: center;">Datasets Comprising Confidential Information Disclosed to Researcher</p>
+<br>
+<table style="width: 100%; text-align: center">
+    <tr>
+        <th> Category </th>
+        <th> Sub-category </th>
+        <th> Dataset Name </th>
+    </tr>
+    <tr id="dua_b_to_replicate">
+        <td>
+            <span id="dua_b_category" style="font-weight: normal">Category</span>
+        </td>
+        <td>
+            <span id="dua_b_sub_category" style="font-weight: normal">Sub-Category</span>
+        </td>
+        <td>
+            <span id="dua_b_dataset_name" style="font-weight: normal">Dataset Name</span>
+        </td>
+    </tr>
+</table>
+<br><br>
+<hr>
+<br>
+
+## <p style="text-align: center;">Attachment DUA-C</p>
+## <p style="text-align: center;">Research Project for this Data</p>
+<br>
+<table style="width: 100%; text-align: center">
+    <tr>
+        <th> Project Name(s) </th>
+        <th> Brief Description of Topic </th>
+    </tr>
+    <tr id="dua_c_to_replicate">
+        <td>
+            <span id="dua_c_project_name" style="font-weight: normal">Name</span>
+        </td>
+        <td>
+            <span id="dua_c_desc" style="font-weight: normal">Description</span>
+        </td>
+    </tr>
+</table>
+<br><br>
+<hr>
+<br>
