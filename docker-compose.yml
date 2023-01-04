@@ -5,6 +5,7 @@ services:
     image: searcch-backend-local-dev
     container_name: searcch-backend-local-dev
     hostname: searcch-backend-local-dev
+    restart: always
     build: .
     volumes:
       - ${DATADIR:-/data}/searcch-backend-local-dev/gunicorn_conf.py:/app/gunicorn_conf.py
