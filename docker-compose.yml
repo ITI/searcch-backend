@@ -21,6 +21,7 @@ services:
 
   searcch-local-dev-postgres:
     image: postgres:14
+    privileged: true
     container_name: searcch-local-dev-postgres
     hostname: searcch-local-dev-postgres
     restart: unless-stopped
