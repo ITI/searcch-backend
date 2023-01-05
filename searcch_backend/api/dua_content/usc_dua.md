@@ -36,11 +36,11 @@ Parties have each caused this Agreement to be executed by their duly authorized 
   <tr>
     <td>
         <span style="font-weight: bold">Researcher Representative</span><br>
-        By: ____________________________<br> 
-        Name: ________________________<br>
-        Email: _________________________<br>
-        Title: __________________________<br>
-        Date: _________________________<br>
+        By: <span id='rep_by' style='font-family: "Courier New", monospace;'></span><br> 
+        Name: <span id='rep_name'></span><br>
+        Email: <span id='rep_email'></span><br>
+        Title: <span id='rep_title'></span><br>
+        Date: <span id='rep_date'></span><br>
     </td>
     <td>
         <span style="font-weight: bold">USC Representative</span><br>
@@ -54,8 +54,8 @@ Parties have each caused this Agreement to be executed by their duly authorized 
 </table>
 <br>
 <span style="font-weight: bold">Research Point-of-Contact</span> (for dataset delivery)<br>
-Name: ________________________<br>
-Email: _________________________<br>
+Name: <span id='poc_name'></span><br>
+Email: <span id='poc_email'></span><br>
 Request ID: ___________________<br>
 <br><br>
 <hr>

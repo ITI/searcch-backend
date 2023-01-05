@@ -11,6 +11,7 @@ from searcch_backend.models.schema import *
 from bs4 import BeautifulSoup
 import copy
 import json
+from datetime import datetime
 
 LOG = logging.getLogger(__name__)
 
@@ -33,7 +34,15 @@ class DUAResource(Resource):
         self.reqparse.add_argument(name='dataset_name',
                                    type=str,
                                    required=True,
-                                   help='missing dataset name')                      
+                                   help='missing dataset name')
+        self.reqparse.add_argument(name='representative',
+                                   type=str,
+                                   required=True,
+                                   help='missing representative') 
+        self.reqparse.add_argument(name='poc',
+                                   type=str,
+                                   required=True,
+                                   help='missing poc')                          
         super(DUAResource, self).__init__()
 
     def get(self, artifact_group_id):
@@ -42,7 +51,11 @@ class DUAResource(Resource):
         research = args['research']
         project = args['project']
         dataset_name = args['dataset_name']
+        representative = args['representative']
+        poc = args['poc']
         researchers = json.loads(researchers)
+        representative = json.loads(representative)
+        poc = json.loads(poc)
         dua_name = db.session.query(DUA.dua_url).join(Artifact, Artifact.provider == DUA.provider).filter(artifact_group_id == Artifact.artifact_group_id).first()[0]
         dua_file = open(f'searcch_backend/api/dua_content/{dua_name}', mode='r')
         dua_content = dua_file.read()
@@ -66,6 +79,15 @@ class DUAResource(Resource):
 
             soup.find(id='dua_c_project_name').string = project
             soup.find(id='dua_c_desc').string = research
+
+            soup.find(id='rep_by').string = representative['name']
+            soup.find(id='rep_email').string = representative['email']
+            soup.find(id='rep_name').string = representative['name']
+            soup.find(id='rep_title').string = representative['title']
+            soup.find(id='rep_date').string = datetime.now().strftime("%m/%d/%Y")
+
+            soup.find(id='poc_name').string = poc['name']
+            soup.find(id='poc_email').string = poc['email']
 
         response = jsonify({"dua": str(soup)})
         response.status_code = 200
