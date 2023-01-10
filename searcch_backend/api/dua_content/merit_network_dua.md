@@ -66,3 +66,31 @@ This Acceptable Use Agreement has been adopted from the Agreement that is employ
 Permission to use, print, copy, and modify any copyrightable part of this UCSD CAIDA Data for educational, research and non-profit purposes, as set forth in the Researcher MOA without fee, and without a written agreement is hereby granted, provided that this paragraph and the following copyright notice and paragraphs appear in all copies: Copyright 2006-2014 The Regents of the University of California. All Rights Reserved.
 
 IN WITNESS WHEREOF, the Parties hereto have caused this Agreement to be executed and delivered as of the date signed below.
+
+<table style="width: 100%; vertical-align: top; text-align: left; padding: 0px;">
+  <tr>
+    <td>
+        Organisation Name:<br>
+        <span id='rep_org'></span><br><br>
+        Signed By:<br>
+        <span id='rep_by' style='font-family: "Courier New", monospace;'></span><br><br> 
+        Printed Name: <br>
+        <span id='rep_name'></span><br><br>
+        Title: <br>
+        <span id='rep_title'></span><br><br>
+        Date Signed: <br>
+        <span id='rep_date'></span><br><br>
+    </td>
+    <td>
+        <span>Merit Network, Inc.</span><br><br><br>
+        Signed By:<br>
+        <span id='merit_by' style='font-family: "Courier New", monospace;'></span><br><br>
+        Printed Name: <br>
+        <span id='merit_name'></span><br><br>
+        Title: <br>
+        <span id='merit_title'></span><br><br>
+        Date Signed: <br>
+        <span id='merit_date'></span><br><br>
+    </td>
+  </tr>
+</table>

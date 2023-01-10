@@ -42,7 +42,19 @@ class DUAResource(Resource):
         self.reqparse.add_argument(name='poc',
                                    type=str,
                                    required=True,
-                                   help='missing poc')                          
+                                   help='missing poc')
+        self.reqparse.add_argument(name='merit_org',
+                                    type=str,
+                                    required=True,
+                                    help='missing org')  
+        self.reqparse.add_argument(name='merit_researcher',
+                                    type=str,
+                                    required=True,
+                                    help='missing merit researcher')  
+        self.reqparse.add_argument(name='merit_researcher_title',
+                                    type=str,
+                                    required=True,
+                                    help='missing merit researcher title')                            
         super(DUAResource, self).__init__()
 
     def get(self, artifact_group_id):
@@ -53,6 +65,9 @@ class DUAResource(Resource):
         dataset_name = args['dataset_name']
         representative = args['representative']
         poc = args['poc']
+        merit_org = args['merit_org']
+        merit_researcher = args['merit_researcher']
+        merit_researcher_title = args['merit_researcher_title']
         researchers = json.loads(researchers)
         representative = json.loads(representative)
         poc = json.loads(poc)
@@ -88,6 +103,13 @@ class DUAResource(Resource):
 
             soup.find(id='poc_name').string = poc['name']
             soup.find(id='poc_email').string = poc['email']
+
+        elif dua_name == 'merit_network_dua.md':
+            soup.find(id='rep_org').string = merit_org
+            soup.find(id='rep_name').string = merit_researcher
+            soup.find(id='rep_by').string = merit_researcher
+            soup.find(id='rep_title').string = merit_researcher_title
+            soup.find(id='rep_date').string = datetime.now().strftime("%m/%d/%Y")
 
         response = jsonify({"dua": str(soup)})
         response.status_code = 200
