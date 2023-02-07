@@ -71,6 +71,9 @@ class DUAResource(Resource):
         researchers = json.loads(researchers)
         representative = json.loads(representative)
         poc = json.loads(poc)
+        
+        dataset_category = db.session.query(Artifact.datasetCategory).filter(artifact_group_id == Artifact.artifact_group_id).first()[0]
+        dataset_subcategory = db.session.query(Artifact.datasetSubCategory).filter(artifact_group_id == Artifact.artifact_group_id).first()[0]
         dua_name = db.session.query(DUA.dua_url).join(Artifact, Artifact.provider == DUA.provider).filter(artifact_group_id == Artifact.artifact_group_id).first()[0]
         dua_file = open(f'searcch_backend/api/dua_content/{dua_name}', mode='r')
         dua_content = dua_file.read()
@@ -89,7 +92,9 @@ class DUAResource(Resource):
                 to_replicate.find(id='dua_a_email').string = researcher['email']
                 to_replicate.find(id='dua_a_contact').string = researcher['number']
                 dua_a.append(to_replicate)
-            
+                        
+            soup.find(id='dua_b_category').string = dataset_category
+            soup.find(id='dua_b_sub_category').string = dataset_subcategory
             soup.find(id='dua_b_dataset_name').string = dataset_name
 
             soup.find(id='dua_c_project_name').string = project

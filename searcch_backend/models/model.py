@@ -692,6 +692,9 @@ class Artifact(db.Model):
     collection = db.Column(db.String(1024), nullable=False)
     provider = db.Column(db.String(1024), nullable=False)
     
+    datasetCategory = db.Column(db.Text, nullable=True)
+    datasetSubCategory = db.Column(db.Text, nullable=True)
+
     
     # NB: all foreign keys are read-only, so not included here.
     __user_ro_fields__ = (

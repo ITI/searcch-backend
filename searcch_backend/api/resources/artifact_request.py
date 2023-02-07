@@ -20,6 +20,7 @@ from searcch_backend.api.ticket_creation.antAPI.client.trac import (
 )
 from searcch_backend.api.ticket_creation.antapi_client_conf import AUTH
 import json
+import os
 
 
 LOG = logging.getLogger(__name__)
@@ -170,6 +171,18 @@ class ArtifactRequestAPI(Resource):
             if not agreement_file:
                 abort(400, description="missing agreement file")
             agreement_file = agreement_file.read()
+            
+            agreement_file_folder = './agreement_file_folder'
+            isExist = os.path.exists(agreement_file_folder)
+            if not isExist:
+                os.makedirs(agreement_file_folder)
+
+            # The filename below is unique since this else block can only be accessed once for a given (artifact_group_id,user_id) pair
+            filename = agreement_file_folder+'/signed_dua_artifact_group_id_'+str(artifact_group_id)+'_requester_user_id_'+str(user_id)+'.html'
+            f = open(filename, 'wb+')
+            f.write(agreement_file)
+            f.close()
+
             dataset = request.form.get('dataset')
             if not dataset:
                 abort(400, description="missing dataset")
@@ -194,15 +207,13 @@ class ArtifactRequestAPI(Resource):
                 ticket_fields = dict(
                     description='Artifact request for dataset',
                     researcher=researcher['name'],
-                    # email=researcher['email'],
-                    email='testing@comunda.ant.isi.edu',
+                    email=researcher['email'],
                     affiliation='none',
                     datasets=dataset,
                 )
 
                 ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
-
-
+                antapi_trac_ticket_attach(auth, ticket_id, [filename])
 
             response = jsonify({
                 "status": 0,
