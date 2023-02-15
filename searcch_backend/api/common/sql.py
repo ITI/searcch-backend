@@ -866,11 +866,11 @@ def object_from_json(session,obj_class,j,skip_primary_keys=True,skip_tsv=True,
         # objects, recurse and try to obtain one.
         if relprop.uselist:
             if k in j and not isinstance(j[k],list):
-                raise ValueError("key '%s' must be a list")
+                raise ValueError("key '%s' must be a list" % (k,))
             obj_kwargs[k] = []
 
         if len(relprop.local_columns) > 1:
-            raise TypeError("cannot handle relationship with multiple foreign keys")
+            raise TypeError("cannot handle relationship with multiple foreign keys (%s)" % (k,))
 
         # See if this is a relationship that has a foreign key into another
         # table; or if it's a relationship that uses our primary key into

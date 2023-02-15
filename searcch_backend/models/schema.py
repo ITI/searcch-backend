@@ -464,6 +464,8 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     affiliations = Nested(ArtifactAffiliationSchema, many=True)
     badges = Nested(ArtifactBadgeSchema, many=True)
     venues = Nested(ArtifactVenueSchema, many=True)
+    candidate_relationships = Nested(
+        "CandidateArtifactRelationshipShallowSchema", many=True)
 
     view_count = fields.Method("get_views")
 
@@ -472,6 +474,83 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
         if hasattr(result, "view_count"):
             return result.view_count
         return 0
+
+
+class ArtifactOnlyCandidatesSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = Artifact
+        model_converter = ModelConverter
+        exclude = ('license_id', 'owner_id', 'importer_id',
+                   'parent_id', 'exporter_id',
+                   'license', 'meta', 'tags', 'files', 'importer',
+                   'curations', 'publication', 'releases', 'affiliations',
+                   'badges', 'venues')
+        include_fk = True
+        include_relationships = True
+
+    artifact_group = Nested(ArtifactGroupSchema, many=False)
+    owner = Nested(UserPublicSchema)
+    candidate_relationships = Nested(
+        "CandidateArtifactRelationshipShallowSchema", many=True)
+
+
+class CandidateArtifactMetadataSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = CandidateArtifactMetadata
+        model_converter = ModelConverter
+        exclude = ('id',)
+        include_fk = False
+        include_relationships = False
+
+
+class CandidateArtifactShallowSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = CandidateArtifact
+        model_converter = ModelConverter
+        exclude = ('id','candidate_artifact_relationships')
+        include_fk = True
+        include_relationships = True
+
+    meta = Nested(CandidateArtifactMetadataSchema, many=True)
+    artifact_import = Nested("ArtifactImportShallowSchema")
+
+
+class CandidateArtifactSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = CandidateArtifact
+        model_converter = ModelConverter
+        exclude = ('id',)
+        include_fk = True
+        include_relationships = True
+
+    meta = Nested(CandidateArtifactMetadataSchema, many=True)
+    owner = Nested(UserSchema)
+    artifact_import = Nested("ArtifactImportSchema")
+    candidate_artifact_relationships = Nested(
+        "CandidateArtifactRelationshipSchema", many=True)
+
+
+class CandidateArtifactRelationshipSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = CandidateArtifactRelationship
+        model_converter = ModelConverter
+        exclude = ('id',)
+        include_fk = True
+        include_relationships = True
+
+    artifact = Nested(ArtifactSchema)
+    related_candidate = Nested(CandidateArtifactSchema)
+
+
+class CandidateArtifactRelationshipShallowSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = CandidateArtifactRelationship
+        model_converter = ModelConverter
+        exclude = ('id',)
+        include_fk = True
+        include_relationships = True
+
+    related_candidate = Nested(CandidateArtifactShallowSchema)
 
 
 class ArtifactSearchMaterializedViewSchema(SQLAlchemyAutoSchema):
@@ -486,13 +565,33 @@ class ArtifactImportSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = ArtifactImport
         model_converter = ModelConverter
-        exclude = ()
+        exclude = ('candidate_artifact',)
         include_fk = True
         include_relationships = True
 
     owner = Nested(UserSchema, many=False)
     #parent = Nested(ArtifactSchema, many=False)
     artifact = Nested(ArtifactSchema, many=False)
+
+class ArtifactImportShallowSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactImport
+        model_converter = ModelConverter
+        exclude = ('log', 'owner', 'artifact_group', 'artifact')
+        include_fk = True
+        include_relationships = True
+
+class ArtifactImportWithCandidatesSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = ArtifactImport
+        model_converter = ModelConverter
+        exclude = ()
+        include_fk = True
+        include_relationships = True
+
+    owner = Nested(UserSchema)
+    #parent = Nested(ArtifactSchema)
+    artifact = Nested(ArtifactOnlyCandidatesSchema)
 
 class ArtifactOwnerRequestSchema(SQLAlchemyAutoSchema):
     class Meta:

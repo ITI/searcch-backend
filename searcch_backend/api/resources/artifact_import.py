@@ -17,7 +17,8 @@ from searcch_backend.models.model import (
     ARTIFACT_IMPORT_TYPES,
     ARTIFACT_IMPORT_STATUSES, ARTIFACT_IMPORT_PHASES )
 from searcch_backend.models.schema import (
-    ArtifactImportSchema )
+    ArtifactImportSchema, ArtifactImportWithCandidatesSchema,
+    ArtifactRelationship, CandidateArtifact )
 from searcch_backend.api.app import db, config_name
 from searcch_backend.api.common.auth import (verify_api_key, verify_token, has_token)
 from searcch_backend.api.common.importer import schedule_import
@@ -30,8 +31,11 @@ class ArtifactImportResourceRoot(Resource):
     def __init__(self):
         self.postparse = reqparse.RequestParser()
         self.postparse.add_argument(
-            name="url", type=str, required=True, nullable=False,
-            help="Artifact source URL required")
+            name="url", type=str, required=False,
+            help="Artifact source URL")
+        self.postparse.add_argument(
+            name="candidate_artifact_id", type=int, required=False,
+            help="Candidate artifact source ID")
         self.postparse.add_argument(
             name="importer_module_name", type=str, required=False,
             help="A specific importer name to use")
@@ -44,6 +48,9 @@ class ArtifactImportResourceRoot(Resource):
         self.postparse.add_argument(
             name="noremove", type=bool, required=False, default=False,
             help="If True, do not removed fetched artifact content.")
+        self.postparse.add_argument(
+            name="autofollow", type=bool, required=False, default=True,
+            help="If True, automatically begin additional imports of recommended candidate artifacts suggested by the additional and following imports.")
         self.postparse.add_argument(
             name="type", type=str, required=False,
             help="A specific type of artifact; defaults to `unknown`; one of (%s)" % (
@@ -66,7 +73,7 @@ class ArtifactImportResourceRoot(Resource):
             name="page", type=int, required=False,
             help="page number for paginated results")
         self.getparse.add_argument(
-            name="items_per_page", type=int, required=False, default=20,
+            name="items_per_page", type=int, required=False, default=10,
             help="results per page if paginated")
         self.getparse.add_argument(
             name="sort", type=str, required=False, default="id",
@@ -127,8 +134,8 @@ class ArtifactImportResourceRoot(Resource):
             artifact_imports = artifact_imports.all()
 
         response_dict = {
-            "artifact_imports": ArtifactImportSchema(
-                many=True,exclude=("artifact",)).dump(artifact_imports)
+            "artifact_imports": ArtifactImportWithCandidatesSchema(
+                many=True).dump(artifact_imports)
         }
         if pagination:
             response_dict["page"] = pagination.page
@@ -148,12 +155,30 @@ class ArtifactImportResourceRoot(Resource):
         login_session = verify_token(request)
 
         args = self.postparse.parse_args()
-        if not args["url"]:
-            abort(400, description="must provide non-null URL")
+        if not args["url"] and not args["candidate_artifact_id"]:
+            abort(400, description="must provide either url or candidate_artifact_id")
+        elif args["url"] and args["candidate_artifact_id"]:
+            abort(400, description="must provide either url or candidate_artifact_id, but not both")
         if args["type"] and args["type"] not in ARTIFACT_IMPORT_TYPES:
             abort(400, description="invalid artifact type")
         elif not "type" in args or not args["type"]:
             args["type"] = "unknown"
+
+        # NB: we don't actually make use of the extra fields the
+        # CandidateArtifact suggests to the importer; only the url for now.
+        ca = None
+        if args["candidate_artifact_id"]:
+            ca = db.session.query(CandidateArtifact).\
+              filter(CandidateArtifact.id == args["candidate_artifact_id"]).\
+              filter(CandidateArtifact.owner_id == login_session.user_id).\
+              first()
+            if not ca:
+                abort(404, description="no such candidate_artifact_id")
+            if ca.artifact_import_id is not None:
+                abort(403, description="already importing this candidate_artifact_id")
+            args["url"] = ca.url
+        if "candidate_artifact_id" in args:
+            del args["candidate_artifact_id"]
 
         res = db.session.query(ArtifactImport).\
           filter(ArtifactImport.url == args["url"]).\
@@ -169,6 +194,8 @@ class ArtifactImportResourceRoot(Resource):
             **args,owner_id=login_session.user_id,ctime=dt,mtime=dt,status="pending",
             phase="start",archived=False)
         ims = ImporterSchedule(artifact_import=ai)
+        if ca:
+            ca.artifact_import = ai
         db.session.add(ai)
         db.session.add(ims)
         db.session.commit()
@@ -289,6 +316,11 @@ class ArtifactImportResource(Resource):
                     del artifact_json["owner"]
                 if "owner_id" in artifact_json:
                     del artifact_json["owner_id"]
+                for x in artifact_json.get("candidate_relationships", []):
+                    if "owner" in x.get("related_candidate", {}):
+                        del x["related_candidate"]["owner"]
+                    if "owner_id" in x.get("related_candidate", {}):
+                        del x["related_candidate"]["owner_id"]
                 artifact = None
                 try:
                     artifact = object_from_json(db.session,Artifact,artifact_json,skip_primary_keys=True)
@@ -329,6 +361,8 @@ class ArtifactImportResource(Resource):
                     artifact.artifact_group_id = artifact_import.artifact_group_id
 
                 artifact.owner_id = artifact_import.owner_id
+                for x in getattr(artifact, "candidate_relationships"):
+                    x.related_candidate.owner_id = artifact_import.owner_id
                 if artifact_import.parent_artifact_id:
                     artifact.parent_id = artifact_import.parent_artifact_id
                 db.session.add(artifact)
@@ -338,9 +372,6 @@ class ArtifactImportResource(Resource):
                     artifact_import.artifact = artifact
                     artifact_import.artifact_group_id = artifact.artifact_group_id
                     db.session.commit()
-                    response = jsonify(dict(id=artifact.id))
-                    response.status_code = 200
-                    return response
                 except sqlalchemy.exc.IntegrityError:
                     #psycopg2.errors.UniqueViolation:
                     ex = sys.exc_info()[1]
@@ -364,6 +395,46 @@ class ArtifactImportResource(Resource):
                     artifact_import.message = msg
                     db.session.commit()
                     abort(500,description=msg)
+
+                # Artifact inserted ok; see if this import was for a
+                # CandidateArtifact, maybe with CandidateArtifactRelationships.
+                # If so, add create real relationships from the original Artifact
+                # to the one just imported.
+                if artifact_import.candidate_artifact \
+                  and artifact_import.candidate_artifact.candidate_artifact_relationships:
+                    for car in artifact_import.candidate_artifact.candidate_artifact_relationships:
+                        nr = ArtifactRelationship(
+                            artifact_group_id=car.artifact.artifact_group_id, relation=car.relation,
+                            related_artifact_group_id=artifact.artifact_group_id)
+                        LOG.debug("promoted %r to %r", car, nr)
+                        db.session.add(nr)
+                    db.session.commit()
+
+                # Artifact inserted ok; kick off imports for the
+                # CandidateArtifacts pointed to by the CandidateArtifactRelationships.
+                if artifact_import.autofollow and artifact.candidate_relationships:
+                    need_sched = False
+                    for cr in artifact.candidate_relationships:
+                        c = cr.related_candidate
+                        now = datetime.datetime.now()
+                        nai = ArtifactImport(
+                            url=c.url, type=c.type or "unknown", ctime=now,
+                            status="pending", phase="start", owner_id=artifact.owner_id)
+                        ni = ImporterSchedule(artifact_import=nai)
+                        c.artifact_import = nai
+                        db.session.add(nai)
+                        db.session.add(ni)
+                        need_sched = True
+                    if need_sched:
+                        db.session.commit()
+                        db.session.refresh(artifact)
+                        LOG.debug("scheduling candidate imports")
+                        threading.Thread(target=schedule_import,name="schedule_import").start()
+
+                # Respond success.
+                response = jsonify(dict(id=artifact.id))
+                response.status_code = 200
+                return response
             else:
                 artifact_import.status = "failed"
                 artifact_import.message = "no artifact returned from importer"
