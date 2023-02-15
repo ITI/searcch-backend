@@ -16,13 +16,15 @@ services:
     networks:
       - searcch-frontend-prod-net
       - searcch-frontend-dev-net
+      - searcch-frontend-local-dev-net
 
   searcch-backend-prod:
     image: searcch-backend-prod
     container_name: searcch-backend-prod
     hostname: searcch-backend-prod
     restart: unless-stopped
-    build: "https://${TOKEN:-token-here}:@github.com/ITI/searcch-backend.git"
+    #build: "https://${TOKEN:-token-here}:@github.com/ITI/searcch-backend.git"
+    build: .
     volumes:
       - ${DATADIR:-/data}/searcch-backend-prod/gunicorn_conf.py:/app/gunicorn_conf.py
       - ${DATADIR:-/data}/searcch-backend-prod/config-production.py:/app/config-production.py
@@ -110,6 +112,7 @@ services:
   searcch-backend-postfix:
     image: searcch-backend-postfix
     container_name: searcch-backend-postfix
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile.postfix
