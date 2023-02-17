@@ -691,6 +691,7 @@ class Artifact(db.Model):
     anonymization = db.Column(db.Enum(*ANON_TYPES,name="anon_enum"))
     collection = db.Column(db.String(1024), nullable=False)
     provider = db.Column(db.String(1024), nullable=False)
+    irb = db.Column(db.Boolean,  nullable=False, default=False)
     
     datasetCategory = db.Column(db.Text, nullable=True)
     datasetSubCategory = db.Column(db.Text, nullable=True)
