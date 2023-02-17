@@ -913,6 +913,7 @@ class ArtifactRequests(db.Model):
     research_desc = db.Column(db.String(2048), nullable=False)
     research_that_interact = db.Column(db.String(2048), nullable=False)
     agreement_file = db.Column(db.LargeBinary, nullable=False)
+    ticket_id = db.Column(db.Integer, nullable=True)
 
     def __repr__(self):
         return "<ArtifactRequests(id=%r, artifact_group_id=%r, requester_user_id=%r, research_desc=%r, research_that_interacts=%r, agreement_file=%r)>" % (self.id, self.artifact_group_id, self.requester_user_id, self.research_desc, self.research_that_interacts, self.agreement_file)

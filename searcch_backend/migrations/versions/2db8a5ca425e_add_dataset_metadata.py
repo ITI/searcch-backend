@@ -1,7 +1,7 @@
 """add_dataset_metadata
 
 Revision ID: 2db8a5ca425e
-Revises: a14e700c0108
+Revises: 052603293888
 Create Date: 2023-01-28 08:18:58.085364
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = '2db8a5ca425e'
-down_revision = 'a14e700c0108'
+down_revision = '052603293888'
 branch_labels = None
 depends_on = None
 

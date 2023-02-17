@@ -21,6 +21,7 @@ from searcch_backend.api.ticket_creation.antAPI.client.trac import (
 from searcch_backend.api.ticket_creation.antapi_client_conf import AUTH
 import json
 import os
+import time
 
 
 LOG = logging.getLogger(__name__)
@@ -161,6 +162,8 @@ class ArtifactRequestAPI(Resource):
             })
         else:
             user_id = login_session.user_id
+            requester_ip_addr = request.headers.get('X-Forwarded-For', request.remote_addr)
+
             research_desc = request.form.get('research_desc')
             if not research_desc:
                 abort(400, description="missing research_desc")
@@ -198,22 +201,27 @@ class ArtifactRequestAPI(Resource):
             db.session.add(request_entry)
             db.session.commit()
 
-            auth = AntAPIClientAuthenticator(**AUTH)
-
             researchers = json.loads(research_that_interact)
-            
-            for researcher in researchers:
+            timestamp = str(time.time())
+            artifact_request_id = db.session.query(ArtifactRequests.id).filter(artifact_group_id == ArtifactRequests.artifact_group_id).filter(user_id == ArtifactRequests.requester_user_id).first()[0]
 
-                ticket_fields = dict(
-                    description='Artifact request for dataset',
-                    researcher=researcher['name'],
-                    email=researcher['email'],
-                    affiliation='none',
-                    datasets=dataset,
-                )
+            ticket_fields = dict(
+                description='Artifact request for dataset',
+                researcher=researchers[0]['name'],
+                email=researchers[0]['email'],
+                affiliation='none',
+                datasets=dataset,
+                artifact_request_id=artifact_request_id,
+                timestamp=timestamp,
+                requester_ip_addr=requester_ip_addr
+            )
 
-                ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
-                antapi_trac_ticket_attach(auth, ticket_id, [filename])
+            # LOG.error("Paul Kurian - ticket_fields:"+str(ticket_fields))
+            auth = AntAPIClientAuthenticator(**AUTH)
+            ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
+
+            db.session.query(ArtifactRequests).filter(artifact_request_id == ArtifactRequests.id).update({'ticket_id': ticket_id})
+            db.session.commit()
 
             response = jsonify({
                 "status": 0,
