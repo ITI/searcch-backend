@@ -162,6 +162,8 @@ class ArtifactRequestAPI(Resource):
             })
         else:
             user_id = login_session.user_id
+            requester_ip_addr = request.headers.get('X-Forwarded-For', request.remote_addr)
+
             research_desc = request.form.get('research_desc')
             if not research_desc:
                 abort(400, description="missing research_desc")
@@ -179,10 +181,10 @@ class ArtifactRequestAPI(Resource):
                 os.makedirs(agreement_file_folder)
 
             # The filename below is unique since this else block can only be accessed once for a given (artifact_group_id,user_id) pair
-            # filename = agreement_file_folder+'/signed_dua_artifact_group_id_'+str(artifact_group_id)+'_requester_user_id_'+str(user_id)+'.html'
-            # f = open(filename, 'wb+')
-            # f.write(agreement_file)
-            # f.close()
+            filename = agreement_file_folder+'/signed_dua_artifact_group_id_'+str(artifact_group_id)+'_requester_user_id_'+str(user_id)+'.html'
+            f = open(filename, 'wb+')
+            f.write(agreement_file)
+            f.close()
 
             dataset = request.form.get('dataset')
             if not dataset:
@@ -203,8 +205,6 @@ class ArtifactRequestAPI(Resource):
             timestamp = str(time.time())
             artifact_request_id = db.session.query(ArtifactRequests.id).filter(artifact_group_id == ArtifactRequests.artifact_group_id).filter(user_id == ArtifactRequests.requester_user_id).first()[0]
 
-            # for researcher in researchers:
-
             ticket_fields = dict(
                 description='Artifact request for dataset',
                 researcher=researchers[0]['name'],
@@ -212,16 +212,17 @@ class ArtifactRequestAPI(Resource):
                 affiliation='none',
                 datasets=dataset,
                 artifact_request_id=artifact_request_id,
-                timestamp=timestamp
+                timestamp=timestamp,
+                requester_ip_addr=requester_ip_addr
             )
 
+            # LOG.error("Paul Kurian - ticket_fields:"+str(ticket_fields))
             auth = AntAPIClientAuthenticator(**AUTH)
             ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
-            # antapi_trac_ticket_attach(auth, ticket_id, [filename])
-            LOG.error("Paul Kurian 1 ticket_id: "+str(ticket_id))
+
             db.session.query(ArtifactRequests).filter(artifact_request_id == ArtifactRequests.id).update({'ticket_id': ticket_id})
             db.session.commit()
-            LOG.error("Paul Kurian 2 ticket_id: "+str(ticket_id))
+
             response = jsonify({
                 "status": 0,
                 "message": "Request submitted successfully",
