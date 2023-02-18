@@ -323,7 +323,7 @@ class ArtifactAPI(Resource):
             ArtifactRatings.artifact_group_id == ArtifactReviews.artifact_group_id
         )).filter(ArtifactRatings.artifact_group_id == artifact_group.id).all()
 
-        dua = db.session.query(DUA).filter(DUA.collection == artifact.collection).filter(DUA.provider == artifact.provider).first()
+        dua = db.session.query(DUA).filter(DUA.collection == artifact.collection).first()
         # Record Artifact view in database
         # XXX: need to handle API-only case.
         session_id = request.cookies.get('session_id')
