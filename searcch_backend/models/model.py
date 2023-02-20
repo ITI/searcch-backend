@@ -365,6 +365,21 @@ class User(db.Model):
         return "<User(id=%r,person_id=%r,can_admin=%r)>" % (
             self.id, self.person_id, self.can_admin)
 
+class UserIdPCredential(db.Model):
+    __tablename__ = "user_idp_credentials"
+
+    user_id = db.Column(db.Integer, db.ForeignKey(
+        "users.id"), primary_key=True)
+    github_id = db.Column(db.Integer, nullable=True)
+    google_id = db.Column(db.String(256), nullable=True)
+    cilogon_id = db.Column(db.String(256), nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint("github_id", "google_id", "cilogon_id"),)
+
+    def __repr__(self) -> str:
+        return "<UserIdPCredential(user_id=%r,github_id=%r,google_id=%r,cilogon_id=%r)>" % (
+            self.user_id, self.github_id, self.google_id, self.cilogon_id)
 
 class License(db.Model):
     __tablename__ = "licenses"

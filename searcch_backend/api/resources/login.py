@@ -93,7 +93,7 @@ class LoginAPI(Resource):
         if response.status_code != requests.codes.ok:
             abort(response.status_code, description="invalid SSO token")
         response_json = response.json()
-        return (response_json["email"], response_json.get("name", response_json["login"]))
+        return (response_json["email"], response_json.get("name", response_json["login"]), response_json["id"])
 
     @property
     def google_userinfo_endpoint(self):
@@ -121,7 +121,7 @@ class LoginAPI(Resource):
         if response.status_code != requests.codes.ok:
             abort(response.status_code, description="invalid SSO token")
         response_json = response.json()
-        return (response_json["email"], response_json.get("displayName", None))
+        return (response_json["email"], response_json.get("displayName", None), response_json["sub"])
 
     @property
     def cilogon_userinfo_endpoint(self):
@@ -149,7 +149,7 @@ class LoginAPI(Resource):
         if response.status_code != requests.codes.ok:
             abort(response.status_code, description="invalid SSO token")
         response_json = response.json()
-        return (response_json["email"], response_json.get("name", None))
+        return (response_json["email"], response_json.get("name", None), response_json["sub"])
 
     def _validate_token(self, strategy, sso_token):
         if strategy == "github":
@@ -159,6 +159,7 @@ class LoginAPI(Resource):
         elif strategy == "cilogon":
             return self._validate_cilogon(sso_token)
         abort(405, description="invalid IDP strategy")
+
 
     def post(self):
         args = self.reqparse.parse_args(strict=True)
@@ -171,7 +172,7 @@ class LoginAPI(Resource):
         sso_token = args.get('token')
         login_session = lookup_token(sso_token)
         if not login_session:
-            (user_email, user_name) = self._validate_token(strategy, sso_token)
+            (user_email, user_name, idp_uid) = self._validate_token(strategy, sso_token)
 
             if not user_email or user_email.find("@") <= 0:
                 abort(403, description="Identity provider did not share your email address; check your profile's security settings at your provider")
@@ -181,6 +182,24 @@ class LoginAPI(Resource):
               join(Person, Person.id == User.person_id).\
               filter(Person.email == user_email).\
               first()
+
+            if user:
+                # check if User entity has a UserIdPCredential with this strategy
+                idp_credential = db.session.query(UserIdPCredential).\
+                    filter(UserIdPCredential.user_id == user.id).\
+                    first()
+                setattr(idp_credential, strategy + '_id', idp_uid)
+
+            else:
+                user = db.session.query(User).\
+                    join(UserIdPCredential, UserIdPCredential.user_id == User.id).\
+                    filter(getattr(UserIdPCredential, strategy + '_id') == idp_uid).\
+                    first()
+                # update user email if it has changed
+                if user:
+                    person = user.person
+                    if person.email != user_email:
+                        person.email = user_email
 
             if user:  # create new session
                 (login_session, is_new) = create_new_session(user, sso_token)
@@ -201,7 +220,7 @@ class LoginAPI(Resource):
                 response.headers.add('Access-Control-Allow-Origin', '*')
                 response.status_code = 200
                 return response
-            else:  # create new user
+            else: 
                 # create database entities
                 #
                 # Handle race condition due to not locking this table where
@@ -217,7 +236,9 @@ class LoginAPI(Resource):
                 #
                 new_person = Person(name=user_name, email=user_email)
                 new_user = User(person=new_person)
+                new_user_idp_cred = UserIdPCredential(user=new_user, **{strategy + '_id': idp_uid})
                 db.session.add(new_user)
+                db.session.add(new_user_idp_cred)
 
                 (login_session, is_new) = create_new_session(new_user, sso_token)
                 if not is_new:
