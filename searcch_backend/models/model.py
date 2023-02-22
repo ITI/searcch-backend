@@ -693,7 +693,7 @@ class Artifact(db.Model):
     provider = db.Column(db.String(1024), nullable=False)
     irb = db.Column(db.Boolean,  nullable=False, default=False)
     
-    datasetCategory = db.Column(db.Text, nullable=True)
+    category = db.Column(db.Text, nullable=True)
     datasetSubCategory = db.Column(db.Text, nullable=True)
 
     

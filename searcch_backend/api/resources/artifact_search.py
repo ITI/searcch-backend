@@ -126,7 +126,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
 
 
     dua_query = db.session.query(DUA).subquery()
-    query = query.join(DUA, Artifact.collection == DUA.collection and Artifact.provider == DUA.provider)
+    query = query.join(DUA, Artifact.collection == DUA.collection)
     
     pagination = query.paginate(page=page_num, error_out=False, max_per_page=items_per_page)
     result = pagination.items
@@ -134,7 +134,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
     artifacts = []
     for row in result:
         artifact, _, num_ratings, avg_rating, num_reviews, view_count, dua_url = row
-        print("Dua url ", dua_url)
+
         abstract = {
             "id": artifact.id,
             "artifact_group_id": artifact.artifact_group_id,
