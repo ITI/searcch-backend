@@ -479,3 +479,11 @@ class ArtifactRequestSchema(SQLAlchemyAutoSchema):
         exclude = ()
         include_fk = True
         include_relationships = True
+
+class LabelSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = Labels
+        model_converter = ModelConverter
+        exclude = ()
+        include_fk = True
+        include_relationships = True

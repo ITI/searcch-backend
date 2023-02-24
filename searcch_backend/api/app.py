@@ -80,6 +80,7 @@ from searcch_backend.api.resources.badge import BadgeResourceRoot, BadgeResource
 from searcch_backend.api.resources.license import LicenseResourceRoot, LicenseResource
 from searcch_backend.api.common.scheduled_tasks import UpdateStatsViews
 from searcch_backend.api.resources.dua import DUAResource
+from searcch_backend.api.resources.label import LabelsResource
 
 approot = app.config['APPLICATION_ROOT']
 
@@ -141,3 +142,5 @@ api.add_resource(LicenseResourceRoot, approot + '/licenses', endpoint='api.licen
 api.add_resource(LicenseResource, approot + '/license/<int:org_id>', endpoint='api.license')
 
 api.add_resource(DUAResource, approot + '/dua/<int:artifact_group_id>', endpoint='api.dua')
+
+api.add_resource(LabelsResource, approot + '/labels', endpoint='api.label')
