@@ -173,6 +173,7 @@ class LoginAPI(Resource):
         login_session = lookup_token(sso_token)
         if not login_session:
             (user_email, user_name, idp_uid) = self._validate_token(strategy, sso_token)
+            idp_uid = str(idp_uid) if idp_uid else None
 
             if not user_email or user_email.find("@") <= 0:
                 abort(403, description="Identity provider did not share your email address; check your profile's security settings at your provider")
@@ -197,6 +198,7 @@ class LoginAPI(Resource):
                     first()
                 # update user email if it has changed
                 if user:
+                    LOG.debug("updating user email from %s to %s", user.person.email, user_email)
                     person = user.person
                     if person.email != user_email:
                         person.email = user_email
@@ -220,7 +222,7 @@ class LoginAPI(Resource):
                 response.headers.add('Access-Control-Allow-Origin', '*')
                 response.status_code = 200
                 return response
-            else: 
+            else: # create new user
                 # create database entities
                 #
                 # Handle race condition due to not locking this table where
