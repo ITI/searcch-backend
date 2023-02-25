@@ -22,60 +22,41 @@ class DUAResource(Resource):
         self.reqparse.add_argument(name='researchers',
                                    type=str,
                                    required=True,
-                                   help='missing researchers')
-        self.reqparse.add_argument(name='research',
-                                   type=str,
-                                   required=True,
-                                   help='missing research')  
+                                   help='missing researchers') 
         self.reqparse.add_argument(name='project',
                                    type=str,
                                    required=True,
                                    help='missing project name')    
+        self.reqparse.add_argument(name='project_description',
+                                   type=str,
+                                   required=True,
+                                   help='missing project description') 
         self.reqparse.add_argument(name='dataset_name',
                                    type=str,
                                    required=True,
                                    help='missing dataset name')
-        self.reqparse.add_argument(name='representative',
+        self.reqparse.add_argument(name='representative_researcher',
                                    type=str,
                                    required=True,
-                                   help='missing representative') 
-        self.reqparse.add_argument(name='poc',
-                                   type=str,
-                                   required=True,
-                                   help='missing poc')
-        self.reqparse.add_argument(name='merit_org',
-                                    type=str,
-                                    required=True,
-                                    help='missing org')  
-        self.reqparse.add_argument(name='merit_researcher',
-                                    type=str,
-                                    required=True,
-                                    help='missing merit researcher')  
-        self.reqparse.add_argument(name='merit_researcher_title',
-                                    type=str,
-                                    required=True,
-                                    help='missing merit researcher title')                            
+                                   help='missing representative_researcher') 
+                         
         super(DUAResource, self).__init__()
 
     def get(self, artifact_group_id):
         args = self.reqparse.parse_args()
         researchers = args['researchers']
-        research = args['research']
         project = args['project']
+        project_description = args['project_description']
         dataset_name = args['dataset_name']
-        representative = args['representative']
-        poc = args['poc']
-        merit_org = args['merit_org']
-        merit_researcher = args['merit_researcher']
-        merit_researcher_title = args['merit_researcher_title']
+        representative_researcher = args['representative_researcher']
         researchers = json.loads(researchers)
-        representative = json.loads(representative)
-        poc = json.loads(poc)
+        representative_researcher = json.loads(representative_researcher)
         
         dataset_category = db.session.query(Artifact.category).filter(artifact_group_id == Artifact.artifact_group_id).first()[0]
         dataset_category = "" if dataset_category is None else dataset_category  
         dataset_subcategory = db.session.query(Artifact.datasetSubCategory).filter(artifact_group_id == Artifact.artifact_group_id).first()[0]
         dataset_subcategory = "" if dataset_subcategory is None else dataset_subcategory  
+        
         dua_name = db.session.query(DUA.dua_url).join(Artifact, Artifact.provider == DUA.provider).filter(artifact_group_id == Artifact.artifact_group_id).first()[0]
         dua_file = open(f'searcch_backend/api/dua_content/{dua_name}', mode='r')
         dua_content = dua_file.read()
@@ -100,22 +81,22 @@ class DUAResource(Resource):
             soup.find(id='dua_b_dataset_name').string = dataset_name
 
             soup.find(id='dua_c_project_name').string = project
-            soup.find(id='dua_c_desc').string = research
+            soup.find(id='dua_c_desc').string = project_description
 
-            soup.find(id='rep_by').string = representative['name']
-            soup.find(id='rep_email').string = representative['email']
-            soup.find(id='rep_name').string = representative['name']
-            soup.find(id='rep_title').string = representative['title']
+            soup.find(id='rep_by').string = representative_researcher['name']
+            soup.find(id='rep_email').string = representative_researcher['email']
+            soup.find(id='rep_name').string = representative_researcher['name']
+            soup.find(id='rep_title').string = representative_researcher['title']
             soup.find(id='rep_date').string = datetime.now().strftime("%m/%d/%Y")
 
-            soup.find(id='poc_name').string = poc['name']
-            soup.find(id='poc_email').string = poc['email']
+            soup.find(id='poc_name').string = representative_researcher['name']
+            soup.find(id='poc_email').string = representative_researcher['email']
 
-        elif dua_name == 'merit_network_dua.md':
-            soup.find(id='rep_org').string = merit_org
-            soup.find(id='rep_name').string = merit_researcher
-            soup.find(id='rep_by').string = merit_researcher
-            soup.find(id='rep_title').string = merit_researcher_title
+        elif dua_name == 'merit_dua.md':
+            soup.find(id='rep_org').string = representative_researcher['organization']
+            soup.find(id='rep_name').string = representative_researcher['name']
+            soup.find(id='rep_by').string = representative_researcher['name']
+            soup.find(id='rep_title').string = representative_researcher['title']
             soup.find(id='rep_date').string = datetime.now().strftime("%m/%d/%Y")
 
         response = jsonify({"dua": str(soup)})
