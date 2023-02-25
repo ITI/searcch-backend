@@ -143,4 +143,4 @@ api.add_resource(LicenseResource, approot + '/license/<int:org_id>', endpoint='a
 
 api.add_resource(DUAResource, approot + '/dua/<int:artifact_group_id>', endpoint='api.dua')
 
-api.add_resource(LabelsResource, approot + '/labels', endpoint='api.label')
+api.add_resource(LabelsResource, approot + '/labels/<int:artifact_id>', endpoint='api.label')

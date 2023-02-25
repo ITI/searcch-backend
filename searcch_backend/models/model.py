@@ -921,7 +921,7 @@ class ArtifactRequests(db.Model):
 class Labels(db.Model):
     __tablename__ = "labels"
     
-    label_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    label_id = db.Column(db.String(128),primary_key=True, nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
     label_url = db.Column(db.String(2048), nullable=False)
 
