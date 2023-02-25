@@ -189,8 +189,12 @@ class LoginAPI(Resource):
                 idp_credential = db.session.query(UserIdPCredential).\
                     filter(UserIdPCredential.user_id == user.id).\
                     first()
-                setattr(idp_credential, strategy + '_id', idp_uid)
-
+                if idp_credential:
+                    setattr(idp_credential, strategy + '_id', idp_uid)
+                else:
+                    idp_credential = UserIdPCredential(
+                        user=user, **{strategy + '_id': idp_uid})
+                    db.session.add(idp_credential)
             else:
                 user = db.session.query(User).\
                     join(UserIdPCredential, UserIdPCredential.user_id == User.id).\

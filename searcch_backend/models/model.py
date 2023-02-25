@@ -374,6 +374,8 @@ class UserIdPCredential(db.Model):
     google_id = db.Column(db.String(256), nullable=True)
     cilogon_id = db.Column(db.String(256), nullable=True)
 
+    user = db.relationship("User", uselist=False)
+
     __table_args__ = (
         db.UniqueConstraint("github_id", "google_id", "cilogon_id"),)
 
