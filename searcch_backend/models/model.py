@@ -910,8 +910,10 @@ class ArtifactRequests(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
     requester_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    research_desc = db.Column(db.String(2048), nullable=False)
-    research_that_interact = db.Column(db.String(2048), nullable=False)
+    project = db.Column(db.String(2048), nullable=False)
+    project_description = db.Column(db.String(2048), nullable=False)
+    researchers = db.Column(db.String(2048), nullable=False)
+    representative_researcher_email = db.Column(db.String(2048), nullable=False)
     agreement_file = db.Column(db.LargeBinary, nullable=False)
     ticket_id = db.Column(db.Integer, nullable=True)
 
