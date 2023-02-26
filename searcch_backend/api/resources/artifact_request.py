@@ -164,15 +164,22 @@ class ArtifactRequestAPI(Resource):
             user_id = login_session.user_id
             requester_ip_addr = request.headers.get('X-Forwarded-For', request.remote_addr)
 
-            research_desc = request.form.get('research_desc')
-            if not research_desc:
-                abort(400, description="missing research_desc")
-            research_that_interact = request.form.get('research_that_interact')
-            if not research_that_interact:
-                abort(400, description="missing researchers that interact")
+            project = request.form.get('project')
+            if not project:
+                abort(400, description="missing project")
+            project_description = request.form.get('project_description')
+            if not project_description:
+                abort(400, description="missing project_description")
+            researchers = request.form.get('researchers')
+            if not researchers:
+                abort(400, description="missing researchers object")
+            representative_researcher_email = request.form.get('representative_researcher_email')
+            if not representative_researcher_email:
+                abort(400, description="missing representative researcher email")
             agreement_file = request.files.get('file')
             if not agreement_file:
                 abort(400, description="missing agreement file")
+            
             agreement_file = agreement_file.read()
             
             agreement_file_folder = './agreement_file_folder'
@@ -193,22 +200,28 @@ class ArtifactRequestAPI(Resource):
             request_entry = ArtifactRequests(
                 artifact_group_id=artifact_group_id,
                 requester_user_id=user_id,
-                research_desc=research_desc,
-                research_that_interact=research_that_interact,
+                project=project,
+                project_description=project_description,
+                researchers=researchers,
+                representative_researcher_email=representative_researcher_email,
                 agreement_file=agreement_file
             )
 
             db.session.add(request_entry)
             db.session.commit()
 
-            researchers = json.loads(research_that_interact)
+            researchers = json.loads(researchers)
             timestamp = str(time.time())
             artifact_request_id = db.session.query(ArtifactRequests.id).filter(artifact_group_id == ArtifactRequests.artifact_group_id).filter(user_id == ArtifactRequests.requester_user_id).first()[0]
-
+            representative_researcher = researchers[0]
+            for researcher in researchers:
+                if (researcher['email'] == representative_researcher_email):
+                    representative_researcher = researcher       
+               
             ticket_fields = dict(
                 description='Artifact request for dataset',
-                researcher=researchers[0]['name'],
-                email=researchers[0]['email'],
+                researcher=representative_researcher['name'],
+                email=representative_researcher['email'],
                 affiliation='none',
                 datasets=dataset,
                 artifact_request_id=artifact_request_id,
@@ -216,7 +229,6 @@ class ArtifactRequestAPI(Resource):
                 requester_ip_addr=requester_ip_addr
             )
 
-            # LOG.error("Paul Kurian - ticket_fields:"+str(ticket_fields))
             auth = AntAPIClientAuthenticator(**AUTH)
             ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
 

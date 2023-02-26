@@ -910,10 +910,12 @@ class ArtifactRequests(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
     requester_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    research_desc = db.Column(db.String(2048), nullable=False)
-    research_that_interact = db.Column(db.String(2048), nullable=False)
+    project = db.Column(db.String(2048), nullable=False)
+    project_description = db.Column(db.String(2048), nullable=False)
+    researchers = db.Column(db.String(2048), nullable=False)
+    representative_researcher_email = db.Column(db.String(2048), nullable=False)
     agreement_file = db.Column(db.LargeBinary, nullable=False)
     ticket_id = db.Column(db.Integer, nullable=True)
 
     def __repr__(self):
-        return "<ArtifactRequests(id=%r, artifact_group_id=%r, requester_user_id=%r, research_desc=%r, research_that_interacts=%r, agreement_file=%r)>" % (self.id, self.artifact_group_id, self.requester_user_id, self.research_desc, self.research_that_interacts, self.agreement_file)
+        return "<ArtifactRequests(id=%r, artifact_group_id=%r, requester_user_id=%r, project_description=%r, researchers=%r, agreement_file=%r)>" % (self.id, self.artifact_group_id, self.requester_user_id, self.research_desc, self.research_that_interacts, self.agreement_file)
