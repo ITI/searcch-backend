@@ -918,4 +918,15 @@ class ArtifactRequests(db.Model):
     ticket_id = db.Column(db.Integer, nullable=True)
 
     def __repr__(self):
-        return "<ArtifactRequests(id=%r, artifact_group_id=%r, requester_user_id=%r, project_description=%r, researchers=%r, agreement_file=%r)>" % (self.id, self.artifact_group_id, self.requester_user_id, self.research_desc, self.research_that_interacts, self.agreement_file)
+        return "<ArtifactRequests(id=%r, artifact_group_id=%r, requester_user_id=%r, research_desc=%r, research_that_interacts=%r, agreement_file=%r)>" % (self.id, self.artifact_group_id, self.requester_user_id, self.research_desc, self.research_that_interacts, self.agreement_file)
+
+class Labels(db.Model):
+    __tablename__ = "labels"
+    
+    label_id = db.Column(db.String(128),primary_key=True, nullable=False)
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
+    label_url = db.Column(db.String(2048), nullable=False)
+
+    def __repr__(self):
+        return "<Labels(label_id=%r, artifact_id=%r, label_url=%r)>" % (self.label_id, self.artifact_id, self.label_url)
+
