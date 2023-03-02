@@ -211,22 +211,49 @@ class ArtifactRequestAPI(Resource):
             db.session.commit()
 
             researchers = json.loads(researchers)
-            timestamp = str(time.time())
+            artifact_timestamp = str(time.time())
             artifact_request_id = db.session.query(ArtifactRequests.id).filter(artifact_group_id == ArtifactRequests.artifact_group_id).filter(user_id == ArtifactRequests.requester_user_id).first()[0]
             representative_researcher = researchers[0]
             for researcher in researchers:
                 if (researcher['email'] == representative_researcher_email):
                     representative_researcher = researcher       
-               
+
+            params = dict(
+                project=project,
+                datasets=dataset,
+                researcher = representative_researcher['name'],
+                email=representative_researcher_email,
+                affiliation=representative_researcher['organization'],
+                artifact_request_id=artifact_request_id,
+                artifact_timestamp=artifact_timestamp,
+                requester_ip_addr=requester_ip_addr
+            )
+
+            ticket_description = '''
+                            == What Datasets
+                            {datasets}
+
+                            == What Project
+                            {project}
+
+                            == Researcher
+                            {researcher} (@{email})
+
+                            == Researcher Affiliation
+                            {affiliation}
+
+                            == Comunda Info
+                            ||= request_id =|| {artifact_request_id} ||
+                            ||= timestamp  =|| {artifact_timestamp} ||
+                            ||= ip address =|| {requester_ip_addr} ||
+                            '''.format(**params)
+
             ticket_fields = dict(
-                description='Artifact request for dataset',
+                description=ticket_description,
                 researcher=representative_researcher['name'],
                 email=representative_researcher['email'],
                 affiliation='none',
-                datasets=dataset,
-                artifact_request_id=artifact_request_id,
-                timestamp=timestamp,
-                requester_ip_addr=requester_ip_addr
+                datasets=dataset
             )
 
             auth = AntAPIClientAuthenticator(**AUTH)
