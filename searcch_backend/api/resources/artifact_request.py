@@ -218,43 +218,39 @@ class ArtifactRequestAPI(Resource):
                 if (researcher['email'] == representative_researcher_email):
                     representative_researcher = researcher       
 
+            project_justification = request.form.get('project_justification')
+            if not project_justification:
+                project_justification = "" 
             params = dict(
                 project=project,
+                project_description=project_description,
+                project_justification=project_justification,
                 datasets=dataset,
-                researcher = representative_researcher['name'],
-                email=representative_researcher_email,
                 affiliation=representative_researcher['organization'],
                 artifact_request_id=artifact_request_id,
                 artifact_timestamp=artifact_timestamp,
                 requester_ip_addr=requester_ip_addr
             )
+            for index,researcher in enumerate(researchers):
+                params['researcher_'+str(index+1)] = researcher['name']
+                params['researcher_email_'+str(index+1)] = researcher['email']
 
-            ticket_description = '''
-                            == What Datasets
-                            {datasets}
-
-                            == What Project
-                            {project}
-
-                            == Researcher
-                            {researcher} (@{email})
-
-                            == Researcher Affiliation
-                            {affiliation}
-
-                            == Comunda Info
-                            ||= request_id =|| {artifact_request_id} ||
-                            ||= timestamp  =|| {artifact_timestamp} ||
-                            ||= ip address =|| {requester_ip_addr} ||
-                            '''.format(**params)
-
+            ticket_description = "==== What Datasets\n{datasets}\n\n==== Why these Datasets\n{project_justification}\n\n==== What Project\n{project}\n\n==== Project Description\n{project_description}\n\n==== Researchers\n"
+            for index,researcher in enumerate(researchers):
+                 ticket_description+="{researcher_"+str(index+1)+"} (@{researcher_email_"+str(index+1)+"})\n"
+            
+            ticket_description+="\n==== Researcher Affiliation\n{affiliation}\n\n==== Comunda Info\n||= request_id =|| {artifact_request_id} ||\n||= timestamp  =|| {artifact_timestamp} ||\n||= ip address =|| {requester_ip_addr} ||"
+            ticket_description=ticket_description.format(**params)
             ticket_fields = dict(
                 description=ticket_description,
                 researcher=representative_researcher['name'],
                 email=representative_researcher['email'],
-                affiliation='none',
+                affiliation=representative_researcher['organization'],
                 datasets=dataset
             )
+            LOG.error("Paul Kurian!!")
+
+            LOG.error(ticket_description)
 
             auth = AntAPIClientAuthenticator(**AUTH)
             ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
