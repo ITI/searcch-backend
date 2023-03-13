@@ -147,3 +147,64 @@ api.add_resource(LicenseResourceRoot, approot + '/licenses', endpoint='api.licen
 api.add_resource(LicenseResource, approot + '/license/<int:org_id>', endpoint='api.license')
 
 api.add_resource(AdminUpdatePrivileges, approot + '/admin/user/<int:user_id>', endpoint='api.admin')
+
+
+
+from searcch_backend.models.model import OwnershipEmailInvitations, ArtifactGroup, OwnershipEmailInvitationKeys
+import secrets
+from datetime import datetime, timedelta
+class OwnershipEmailInvitationTask():
+    def __init__(self, interval_duration):
+        self.interval_duration = interval_duration
+        # self.setup_scheduled_task()
+
+    def setup_scheduled_task(self):
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(func=self.do_job, trigger="interval", seconds=self.interval_duration)
+        scheduler.start()
+        
+        # Shut down the scheduler when exiting the app
+        atexit.register(lambda: scheduler.shutdown())
+
+    def create_key(self, email):
+        key = secrets.token_urlsafe(64)[:64]
+        date = datetime.today() + timedelta(days=30)
+        existing = OwnershipEmailInvitationKeys.query.filter_by(email=email).first()
+        if not existing:
+            new_record = OwnershipEmailInvitationKeys(key=key, email=email, valid_until=date)
+            query = db.session.add(new_record)
+        else:
+            existing.key = key
+            existing.valid_util = date
+        db.session.commit()
+        return key
+
+    def create_email(self, email, person, artifact_groups):
+        pass
+
+    def do_job(self):
+        query = ArtifactGroup.query.filter_by(owner_id=1).all()
+
+        person_name_email_tuples = []
+        for artifact_group in query:
+            if artifact_group.publication:
+                for aaf in artifact_group.publication.artifact.affiliations:
+                    email = aaf.affiliation.person.email
+                    if email:
+                        person_name_email_tuples.append((aaf.affiliation.person, artifact_group))
+        # group by email in case of duplicates
+        persons_by_email = {}
+        groups_by_email = {}
+        for person, artifact_group in person_name_email_tuples:
+            names = persons_by_email.get(person.email, set())
+            names.add(person)
+            persons_by_email[person.email] = names
+            group = groups_by_email.get(person.email, set())
+            group.add(artifact_group)
+            groups_by_email[person.email] = group
+        print(persons_by_email)
+        for email, artifact_group in groups_by_email.items():
+            key = self.create_key(email)
+
+
+OwnershipEmailInvitationTask(10000).do_job()

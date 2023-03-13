@@ -1,8 +1,10 @@
 import atexit
 from searcch_backend.api.app import db
-from searcch_backend.models.model import Sessions, StatsRecentViews, StatsArtifactViews
+from searcch_backend.models.model import Sessions, StatsRecentViews, StatsArtifactViews, OwnershipEmailInvitationKeys, OwnershipEmailInvitations
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import func
+
+LOG = logging.getLogger(__name__)
 
 # Garbage Collector used to empty recent_views database table and update the stats_views table periodically
 class UpdateStatsViews():
@@ -42,3 +44,4 @@ class UpdateStatsViews():
                 )
             db.session.add(stats_views_entry)
             db.session.commit()
+

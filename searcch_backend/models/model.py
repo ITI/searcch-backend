@@ -1106,8 +1106,8 @@ class OwnershipEmailInvitations(db.Model):
 class OwnershipEmailInvitationKeys(db.Model):
     __tablename__ = "ownership_invitation_keys"
 
-    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), primary_key=True)
+    email = db.Column(db.String(256), primary_key=True)
     key = db.Column(db.String(64), nullable=False)
-    valid_util = db.Column(db.DateTime, nullable=False)
+    valid_until = db.Column(db.DateTime, nullable=False)
     def __repr__(self):
-        return "<OwnershipEmailInvitationKeys(person_id=%r, key=%r, valid_util=%r)" % (self.person_id, self.key, self.valid_util)
+        return "<OwnershipEmailInvitationKeys(person_id=%r, key=%r, valid_until=%r)" % (self.person_id, self.key, self.valid_util)
