@@ -65,6 +65,7 @@ services:
       - ${DATADIR:-/data}/searcch-backend-local-dev/gunicorn_conf.py:/app/gunicorn_conf.py
       - ${DATADIR:-/data}/searcch-backend-local-dev/config-local-dev.py:/app/config-local-dev.py
       - ${DATADIR:-/data}/searcch-backend-local-dev/logs:/app/logs
+      - ./searcch_backend:/app/searcch_backend
     env_file:
       - env/searcch-backend-local-dev.env
     networks:
@@ -72,6 +73,8 @@ services:
       - searcch-frontend-local-dev-net
     depends_on:
       - searcch-local-dev-postgres
+    ports:
+      - 5678:5678
 
   searcch-prod-postgres:
     image: postgres

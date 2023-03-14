@@ -7,3 +7,5 @@ models/backup/
 
 *.pyc
 __pycache__/
+.idea/
+.vscode/
