@@ -153,6 +153,7 @@ api.add_resource(AdminUpdatePrivileges, approot + '/admin/user/<int:user_id>', e
 from searcch_backend.models.model import OwnershipEmailInvitations, ArtifactGroup, OwnershipEmailInvitationKeys
 import secrets
 from datetime import datetime, timedelta
+
 class OwnershipEmailInvitationTask():
     def __init__(self, interval_duration):
         self.interval_duration = interval_duration
@@ -168,7 +169,7 @@ class OwnershipEmailInvitationTask():
 
     def create_key(self, email):
         key = secrets.token_urlsafe(64)[:64]
-        date = datetime.today() + timedelta(days=30)
+        date = datetime.today() + timedelta(days=app.config["EMAIL_INTERVAL_DAYS"])
         existing = OwnershipEmailInvitationKeys.query.filter_by(email=email).first()
         if not existing:
             new_record = OwnershipEmailInvitationKeys(key=key, email=email, valid_until=date)

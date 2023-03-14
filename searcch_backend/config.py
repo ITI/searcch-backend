@@ -22,6 +22,7 @@ class DevelopmentConfig(Config):
     MAIL_SUPPRESS_SEND = False
     ADMIN_MAILING_RECIPIENTS = []
     MAIL_SERVER = "searcch-backend-postfix"
+    EMAIL_INTERVAL_DAYS = 30
 
 class ProductionConfig(Config):
     """
@@ -37,6 +38,7 @@ class ProductionConfig(Config):
     MAIL_SUPPRESS_SEND = False
     ADMIN_MAILING_RECIPIENTS = []
     MAIL_SERVER = "searcch-backend-postfix"
+    EMAIL_INTERVAL_DAYS = 30
 
 app_config = {
     'development': DevelopmentConfig,
