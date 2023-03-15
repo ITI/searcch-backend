@@ -75,7 +75,7 @@ class SearcchBackgroundTasks():
             if artifact_group.publication:
                 for aaf in artifact_group.publication.artifact.affiliations:
                     email = aaf.affiliation.person.email
-                    if email:
+                    if email and not aaf.affiliation.person.opt_out:
                         person_name_email_tuples.append((aaf.affiliation.person, artifact_group))
         # group by email in case of duplicates
         persons_by_email = {}
