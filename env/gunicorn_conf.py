@@ -34,10 +34,10 @@ if worker_class == "gevent":
 def on_starting(server):
     from searcch_backend.api.app import (app, db, migrate)
     from searcch_backend.api.common.alembic import maybe_auto_upgrade_db
-    from searcch_backend.api.common.scheduled_tasks import UpdateStatsViews
+    from searcch_backend.api.common.scheduled_tasks import SearcchBackgroundTasks
 
     # Run DB migrations
     maybe_auto_upgrade_db(app, db, migrate)
 
     #Run Scheduler
-    UpdateStatsViews(app.config['STATS_GARBAGE_COLLECTOR_INTERVAL'])
+    SearcchBackgroundTasks(app, db)
