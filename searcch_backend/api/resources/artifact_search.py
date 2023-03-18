@@ -81,14 +81,14 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             rank_list.append(
                 func.ts_rank_cd(Organization.org_tsv, func.websearch_to_tsquery("english", organization)).label("orank"))
         author_org_query = db.session.query(
-            Artifact.id, *rank_list
-        ).join(ArtifactAffiliation, ArtifactAffiliation.artifact_id == Artifact.id
-        ).join(Affiliation, Affiliation.id == ArtifactAffiliation.affiliation_id
-        )
+            Artifact.id, Artifact.provider, *rank_list
+        )#.join(ArtifactAffiliation, ArtifactAffiliation.artifact_id == Artifact.id
+        # ).join(Affiliation, Affiliation.id == ArtifactAffiliation.affiliation_id
+        # )
         if author_keywords:
             author_org_query = author_org_query.join(Person, Person.id == Affiliation.person_id)
         if organization:
-            author_org_query = author_org_query.join(Organization, Organization.id == Affiliation.org_id)
+            author_org_query = author_org_query.filter(organization == Artifact.provider)
         if author_keywords:
             author_org_query = author_org_query.filter(
                 Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", author_keywords))).order_by(desc("arank"))
