@@ -674,6 +674,7 @@ class Artifact(db.Model):
     license = db.relationship("License", uselist=False)
     meta = db.relationship("ArtifactMetadata")
     tags = db.relationship("ArtifactTag")
+    labels = db.relationship("Labels")
     files = db.relationship("ArtifactFile")
     # This is "root" -- we need a permissions/role table?
     owner = db.relationship("User", uselist=False)

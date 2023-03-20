@@ -62,6 +62,13 @@ class ArtifactTagSchema(SQLAlchemyAutoSchema):
         include_relationships = True
         exclude = ('artifact_id',)
 
+class ArtifactLabelSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = Labels
+        model_converter = ModelConverter
+        include_fk = True
+        include_relationships = True
+        exclude = ('artifact_id',)
 
 class FileContentSchema(SQLAlchemyAutoSchema):
     class Meta:
@@ -394,6 +401,7 @@ class ArtifactSchema(SQLAlchemyAutoSchema):
     license = Nested(LicenseSchema, many=False)
     meta = Nested(ArtifactMetadataSchema, many=True)
     tags = Nested(ArtifactTagSchema, many=True)
+    labels = Nested(ArtifactLabelSchema, many=True)
     files = Nested(ArtifactFileSchema, many=True)
     owner = Nested(UserPublicSchema)
     importer = Nested(ImporterSchema, many=False)
@@ -487,3 +495,4 @@ class LabelSchema(SQLAlchemyAutoSchema):
         exclude = ()
         include_fk = True
         include_relationships = True
+
