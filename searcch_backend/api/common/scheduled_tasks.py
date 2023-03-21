@@ -1,7 +1,7 @@
 import atexit, secrets, logging
-from searcch_backend.models.model import Sessions, StatsRecentViews, StatsArtifactViews, OwnershipEmailInvitationKeys, OwnershipEmailInvitations, ArtifactGroup
+from searcch_backend.models.model import Sessions, StatsRecentViews, StatsArtifactViews, OwnershipEmailInvitationKeys, OwnershipEmailInvitations, ArtifactGroup, User, Person
 from apscheduler.schedulers.background import BackgroundScheduler
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from datetime import datetime, timedelta
 
 LOG = logging.getLogger(__name__)
@@ -68,24 +68,35 @@ class SearcchBackgroundTasks():
 
     def email_invitations_task(self):
         LOG.debug('starting email invitations task')
-        query = ArtifactGroup.query.filter_by(owner_id=1).all()
+        # query all artifact groups owned by an admin or by automatic-imports
+        query = ArtifactGroup.query.join(ArtifactGroup.owner).join(User.person).filter(or_(User.can_admin==True, Person.email=="automatic-imports@cyberexperimentation.org")).all()
 
-        person_name_email_tuples = []
+        # build association of potential owners and artifact groups
+        person_to_artifact_group = []
         for artifact_group in query:
             if artifact_group.publication:
+                emails = []
                 for aaf in artifact_group.publication.artifact.affiliations:
-                    email = aaf.affiliation.person.email
-                    if email and not aaf.affiliation.person.opt_out:
-                        person_name_email_tuples.append((aaf.affiliation.person, artifact_group))
-        # group by email in case of duplicates
+                    emails.append(aaf.affiliation.person.email)
+                # filter out artifact groups where admin is one of the authors
+                if artifact_group.owner.person.email not in emails:
+                    for aaf in artifact_group.publication.artifact.affiliations:
+                        # remove those who have opted_out
+                        if aaf.affiliation.person.email and not aaf.affiliation.person.opt_out:
+                            person_to_artifact_group.append((aaf.affiliation.person, artifact_group))
+                else:
+                    LOG.debug("Author is admin")
+        # group owners by email in case of duplicates
         persons_by_email = {}
+        # group artifacts by email in case of multiple artifacts per owner
         groups_by_email = {}
-        for person, artifact_group in person_name_email_tuples:
+        for person, artifact_group in person_to_artifact_group:
             names = persons_by_email.get(person.email, set())
             names.add(person)
             persons_by_email[person.email] = names
             group = groups_by_email.get(person.email, set())
             group.add(artifact_group)
             groups_by_email[person.email] = group
+        # create secure keys for all emails
         for email, artifact_group in groups_by_email.items():
             key = self.create_key(email)
