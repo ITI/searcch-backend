@@ -916,6 +916,7 @@ class ArtifactRequests(db.Model):
     researchers = db.Column(db.String(2048), nullable=False)
     representative_researcher_email = db.Column(db.String(2048), nullable=False)
     agreement_file = db.Column(db.LargeBinary, nullable=False)
+    irb = db.Column(db.LargeBinary, nullable=True)
     ticket_id = db.Column(db.Integer, nullable=True)
 
     def __repr__(self):

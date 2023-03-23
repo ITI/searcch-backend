@@ -179,8 +179,14 @@ class ArtifactRequestAPI(Resource):
             agreement_file = request.files.get('file')
             if not agreement_file:
                 abort(400, description="missing agreement file")
-            
             agreement_file = agreement_file.read()
+
+            irb_file = request.files.get('pdf_file')
+            if not irb_file:
+                irb_file = None
+            else:
+                irb_file = irb_file.read()
+
             
             agreement_file_folder = './agreement_file_folder'
             isExist = os.path.exists(agreement_file_folder)
@@ -204,7 +210,8 @@ class ArtifactRequestAPI(Resource):
                 project_description=project_description,
                 researchers=researchers,
                 representative_researcher_email=representative_researcher_email,
-                agreement_file=agreement_file
+                agreement_file=agreement_file,
+                irb=irb_file
             )
 
             db.session.add(request_entry)
@@ -248,9 +255,6 @@ class ArtifactRequestAPI(Resource):
                 affiliation=representative_researcher['organization'],
                 datasets=dataset
             )
-            LOG.error("Paul Kurian!!")
-
-            LOG.error(ticket_description)
 
             auth = AntAPIClientAuthenticator(**AUTH)
             ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
