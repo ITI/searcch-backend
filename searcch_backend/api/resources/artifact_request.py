@@ -181,9 +181,9 @@ class ArtifactRequestAPI(Resource):
                 abort(400, description="missing agreement file")
             agreement_file = agreement_file.read()
 
-            irb_file = request.files.get('irb_file')
+            irb_file = request.files.get('pdf_file')
             if not irb_file:
-                irb_file = ""
+                irb_file = None
             else:
                 irb_file = irb_file.read()
 
