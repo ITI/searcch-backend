@@ -319,7 +319,6 @@ class Person(db.Model):
     research_interests = db.Column(db.Text, nullable=True)
     website = db.Column(db.Text, nullable=True)
     person_tsv = db.Column(TSVECTOR)
-    opt_out = db.Column(db.Boolean, nullable=False, default=False)
 
     def __repr__(self):
         return "<Person(id=%r,name=%r, email=%r)>" % (
@@ -1093,21 +1092,22 @@ class StatsRecentViews(db.Model):
     def __repr__(self):
         return "<StatsRecentViews(id=%r, session_id=%r, artifact_group_id=%r, user_id=%r,view_count=%r)>" % (self.id, self.session_id, self.artifact_group_id, self.user_id, self.view_count)
 
-class OwnershipEmailInvitations(db.Model):
+class OwnershipInvitation(db.Model):
     __tablename__ = "ownership_invitations"
 
-    person_id = db.Column(db.Integer, db.ForeignKey("persons.id"), primary_key=True)
+    email = db.Column(db.String(256), db.ForeignKey("ownership_emails.email"), primary_key=True)
     artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), primary_key=True)
     attempts = db.Column(db.Integer, default=0, nullable=False)
     last_attempt = db.Column(db.DateTime, nullable=True)
     def __repr__(self):
         return "<OwnershipEmailInvitations(person_id=%r, artifact_group_id=%r, attempts=%r, last_attempt=%r)>" % (self.person_id, self.artifact_group_id, self.attempts, self.last_attempt)
 
-class OwnershipEmailInvitationKeys(db.Model):
-    __tablename__ = "ownership_invitation_keys"
+class OwnershipEmail(db.Model):
+    __tablename__ = "ownership_emails"
 
     email = db.Column(db.String(256), primary_key=True)
     key = db.Column(db.String(64), nullable=False)
     valid_until = db.Column(db.DateTime, nullable=False)
+    opt_out = db.Column(db.Boolean, nullable=False, default=False)
     def __repr__(self):
-        return "<OwnershipEmailInvitationKeys(person_id=%r, key=%r, valid_until=%r)" % (self.person_id, self.key, self.valid_util)
+        return "<OwnershipEmailInvitationKeys(email=%r, key=%r, opt_out=%r, valid_until=%r)" % (self.person_id, self.key, self.opt_out, self.valid_util)

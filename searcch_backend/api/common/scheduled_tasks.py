@@ -1,5 +1,7 @@
 import atexit, secrets, logging
-from searcch_backend.models.model import Sessions, StatsRecentViews, StatsArtifactViews, OwnershipEmailInvitationKeys, OwnershipEmailInvitations, ArtifactGroup, User, Person
+
+from gevent import config
+from searcch_backend.models.model import OwnershipEmail, OwnershipInvitation, Sessions, StatsRecentViews, StatsArtifactViews, ArtifactGroup, User, Person
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import func, or_
 from datetime import datetime, timedelta
@@ -8,15 +10,15 @@ LOG = logging.getLogger(__name__)
 # Garbage Collector used to empty recent_views database table and update the stats_views table periodically
 class SearcchBackgroundTasks():
 
-    def __init__(self, app, db):
-        self.app = app
+    def __init__(self, config, db):
+        self.config = config
         self.db = db
         self.setupScheduledTask()
 
     def setupScheduledTask(self):
         scheduler = BackgroundScheduler()
-        scheduler.add_job(func=self.collectRecentViews, trigger="interval", seconds=self.app.config['STATS_GARBAGE_COLLECTOR_INTERVAL'])
-        scheduler.add_job(func=self.email_invitations_task, trigger="interval", days=self.app.config["EMAIL_INTERVAL_DAYS"])
+        scheduler.add_job(func=self.collectRecentViews, trigger="interval", seconds=self.config['STATS_GARBAGE_COLLECTOR_INTERVAL'])
+        scheduler.add_job(func=self.email_invitations_task, trigger="interval", days=self.config["EMAIL_INTERVAL_DAYS"])
         scheduler.start()
         self.email_invitations_task()
         
@@ -50,21 +52,37 @@ class SearcchBackgroundTasks():
             db.session.add(stats_views_entry)
             db.session.commit()
 
-    def create_key(self, email):
+    def create_key(self):
         key = secrets.token_urlsafe(64)[:64]
-        date = datetime.today() + timedelta(days=self.app.config["EMAIL_INTERVAL_DAYS"])
-        existing = OwnershipEmailInvitationKeys.query.filter_by(email=email).first()
-        if not existing:
-            new_record = OwnershipEmailInvitationKeys(key=key, email=email, valid_until=date)
-            query = self.db.session.add(new_record)
-        else:
-            existing.key = key
-            existing.valid_util = date
-        self.db.session.commit()
         return key
 
     def create_email(self, email, person, artifact_groups):
         pass
+
+
+    def send_invitation(self, email, artifact_groups: set):
+        ownership_email = OwnershipEmail.query.filter_by(email=email).first()
+        valid_until = datetime.today() + timedelta(days=self.config['EMAIL_INTERVAL_DAYS'])
+        if not ownership_email:
+            ownership_email = OwnershipEmail(email=email, key=self.create_key(), valid_until=valid_until, opt_out=False)
+            query = self.db.session.add(ownership_email)
+            self.db.session.commit()
+            
+        valid_artifacts = []
+        for artifact_group in artifact_groups:
+            exists = OwnershipInvitation.query.filter_by(email=email, artifact_group_id=artifact_group.id).first()
+            if not exists:
+                exists = OwnershipInvitation(email=email, artifact_group_id=artifact_group.id, attempts=0, last_attempt=datetime.today())
+                self.db.session.add(exists)
+                valid_artifacts.append(artifact_group)
+            elif exists.attempts <= self.config['MAX_INVITATION_ATTEMPTS']:
+                exists.attempts += 1
+                exists.last_attempt = datetime.today()
+                valid_artifacts.append(artifact_group)
+        self.db.session.commit()
+        #email_msg = self.compose_email(valid_artifacts)
+        #self.send_email(email, email_msg)
+            
 
     def email_invitations_task(self):
         LOG.debug('starting email invitations task')
@@ -82,7 +100,7 @@ class SearcchBackgroundTasks():
                 if artifact_group.owner.person.email not in emails:
                     for aaf in artifact_group.publication.artifact.affiliations:
                         # remove those who have opted_out
-                        if aaf.affiliation.person.email and not aaf.affiliation.person.opt_out:
+                        if aaf.affiliation.person.email:
                             person_to_artifact_group.append((aaf.affiliation.person, artifact_group))
                 else:
                     LOG.debug("Author is admin")
@@ -98,5 +116,5 @@ class SearcchBackgroundTasks():
             group.add(artifact_group)
             groups_by_email[person.email] = group
         # create secure keys for all emails
-        for email, artifact_group in groups_by_email.items():
-            key = self.create_key(email)
+        for email, artifact_groups in groups_by_email.items():
+            self.send_invitation(email, artifact_groups)
