@@ -1,13 +1,13 @@
 # logic for /rating
 
-from searcch_backend.api.app import db, config_name
+from searcch_backend.api.app import db, config, config_name
 from searcch_backend.api.common.auth import (verify_api_key, verify_token)
 from searcch_backend.api.common.sql import object_from_json
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, url_for, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
-from sqlalchemy import func, desc, asc, sql, or_, and_
+from sqlalchemy import func, desc, asc, sql, or_, and_, true
 import sqlalchemy
 import sys
 import logging
@@ -15,6 +15,9 @@ import math
 
 import base64
 import werkzeug
+
+# import for ease of testing
+from searcch_backend.api.common.scheduled_tasks import SearcchBackgroundTasks
 
 LOG = logging.getLogger(__name__)
 
@@ -379,3 +382,34 @@ class UserAffiliationResource(Resource):
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
+
+class EmailOptOutResource(Resource):
+    def post(self):
+        """
+        Opt out of email communications
+        """
+        email = request.args.get('email', '')
+        key = request.args.get('key', '')
+        record: OwnershipEmail = OwnershipEmail.query.filter_by(email=email, key=key).first()        
+        if not record:
+            response = jsonify({'message': 'email or key not found'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.status_code = 404
+            return response
+        else:
+            record.opt_out = True
+            db.session.commit()
+            response = jsonify({'message': 'opted out of future communication'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.status_code = 200
+            return response
+    
+    def get(self):
+        SearcchBackgroundTasks(config, db).email_invitations_task()
+
+    def delete(self):
+        for record in OwnershipInvitation.query.all():
+            db.session.delete(record)
+        for record in OwnershipEmail.query.all():
+            db.session.delete(record)
+        db.session.commit()
