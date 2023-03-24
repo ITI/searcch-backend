@@ -26,7 +26,15 @@ if [ -n "$RELAYHOST" ]; then
     fi
 fi
 
-/usr/lib/postfix/configure.sh - || (echo "ERROR: failed to configure postfix chroots, aborting"; exit 1)
+CONFIGUREPATH=/usr/lib/postfix/configure.sh
+if [ ! -x $CONFIGUREPATH ]; then
+    CONFIGUREPATH=/usr/lib/postfix/configure-instance.sh
+fi
+$CONFIGUREPATH -
+if [ ! $? -eq 0 ]; then
+    echo "ERROR: failed to configure postfix chroots, aborting"
+    exit 1
+fi
 
 /usr/sbin/postmap hash:/etc/postfix/sasl/sasl_passwd
 
