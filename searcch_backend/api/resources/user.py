@@ -1,5 +1,6 @@
 # logic for /rating
 
+from datetime import datetime
 from searcch_backend.api.app import db, config_name
 from searcch_backend.api.common.auth import (verify_api_key, verify_token)
 from searcch_backend.api.common.sql import object_from_json
@@ -391,10 +392,10 @@ class EmailOptOutResource(Resource):
         email = request.args.get('email', '')
         key = request.args.get('key', '')
         record: OwnershipEmail = OwnershipEmail.query.filter_by(email=email, key=key).first()        
-        if not record:
+        if not record or record.valid_until > datetime.today():
             response = jsonify({'message': 'email or key not found'})
             response.headers.add('Access-Control-Allow-Origin', '*')
-            response.status_code = 404
+            response.status_code = 401
             return response
         else:
             record.opt_out = True
