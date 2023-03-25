@@ -1,18 +1,21 @@
 import atexit, secrets, logging
 
-from gevent import config
+from flask_sqlalchemy import SQLAlchemy
 from searcch_backend.models.model import OwnershipEmail, OwnershipInvitation, Sessions, StatsRecentViews, StatsArtifactViews, ArtifactGroup, User, Person
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import func, or_
 from datetime import datetime, timedelta
+from flask_mail import Message, Mail
+from flask import render_template
 
 LOG = logging.getLogger(__name__)
 # Garbage Collector used to empty recent_views database table and update the stats_views table periodically
 class SearcchBackgroundTasks():
 
-    def __init__(self, config, db):
+    def __init__(self, config, db: SQLAlchemy, mail: Mail):
         self.config = config
         self.db = db
+        self.mail = mail
         self.setupScheduledTask()
 
     def setupScheduledTask(self):
@@ -56,11 +59,7 @@ class SearcchBackgroundTasks():
         key = secrets.token_urlsafe(64)[:64]
         return key
 
-    def create_email(self, email, person, artifact_groups):
-        pass
-
-
-    def send_invitation(self, email, artifact_groups: set):
+    def create_email(self, email, artifact_groups: set):
         ownership_email = OwnershipEmail.query.filter_by(email=email).first()
         valid_until = datetime.today() + timedelta(days=self.config['EMAIL_INTERVAL_DAYS'])
         if not ownership_email:
@@ -72,16 +71,17 @@ class SearcchBackgroundTasks():
         for artifact_group in artifact_groups:
             exists = OwnershipInvitation.query.filter_by(email=email, artifact_group_id=artifact_group.id).first()
             if not exists:
-                exists = OwnershipInvitation(email=email, artifact_group_id=artifact_group.id, attempts=0, last_attempt=datetime.today())
+                exists = OwnershipInvitation(email=email, artifact_group_id=artifact_group.id, attempts=1, last_attempt=datetime.today())
                 self.db.session.add(exists)
                 valid_artifacts.append(artifact_group)
             elif exists.attempts <= self.config['MAX_INVITATION_ATTEMPTS']:
-                exists.attempts += 1
+                # exists.attempts += 1
                 exists.last_attempt = datetime.today()
                 valid_artifacts.append(artifact_group)
         self.db.session.commit()
-        #email_msg = self.compose_email(valid_artifacts)
-        #self.send_email(email, email_msg)
+        html = render_template("ownership_invitation_email.html", artifact_groups=artifact_groups, frontend_url=self.config['FRONTEND_URL'])
+        msg = Message('SEARCCH Artifact Ownership Request', [email], html=html)
+        return msg
             
 
     def email_invitations_task(self):
@@ -115,6 +115,13 @@ class SearcchBackgroundTasks():
             group = groups_by_email.get(person.email, set())
             group.add(artifact_group)
             groups_by_email[person.email] = group
-        # create secure keys for all emails
-        for email, artifact_groups in groups_by_email.items():
-            self.send_invitation(email, artifact_groups)
+
+        email_msgs = [self.create_email(email, artifact_groups) for email, artifact_groups in groups_by_email.items()]
+        with self.mail.connect() as conn:
+            for email_msg in email_msgs:
+                if not self.config['TESTING'] and not self.config['DEBUG']:
+                    # conn.send(email_msg) # Do not go live until we have the email templates
+                    pass
+                else:
+                    LOG.debug(email_msg)
+

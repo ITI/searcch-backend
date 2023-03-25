@@ -1,6 +1,6 @@
 # logic for /rating
 
-from searcch_backend.api.app import db, config, config_name
+from searcch_backend.api.app import db, config_name
 from searcch_backend.api.common.auth import (verify_api_key, verify_token)
 from searcch_backend.api.common.sql import object_from_json
 from searcch_backend.models.model import *
@@ -404,12 +404,3 @@ class EmailOptOutResource(Resource):
             response.status_code = 200
             return response
     
-    def get(self):
-        SearcchBackgroundTasks(config, db).email_invitations_task()
-
-    def delete(self):
-        for record in OwnershipInvitation.query.all():
-            db.session.delete(record)
-        for record in OwnershipEmail.query.all():
-            db.session.delete(record)
-        db.session.commit()
