@@ -32,7 +32,7 @@ if worker_class == "gevent":
 #preload_app = True
 
 def on_starting(server):
-    from searcch_backend.api.app import (app, db, mail, migrate)
+    from searcch_backend.api.app import (app, config, db, mail, migrate)
     from searcch_backend.api.common.alembic import maybe_auto_upgrade_db
     from searcch_backend.api.common.scheduled_tasks import SearcchBackgroundTasks
 
@@ -40,4 +40,4 @@ def on_starting(server):
     maybe_auto_upgrade_db(app, db, migrate)
 
     #Run Scheduler
-    SearcchBackgroundTasks(app, db, mail)
+    SearcchBackgroundTasks(config, db, mail)
