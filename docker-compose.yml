@@ -117,6 +117,7 @@ services:
       - 5432:5432
 
   searcch-pgadmin:
+    profiles: ["dev"]
     image: dpage/pgadmin4
     container_name: searcch-pgadmin
     hostname: searcch-pgadmin
