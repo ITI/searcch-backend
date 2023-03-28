@@ -59,7 +59,7 @@ class SearcchBackgroundTasks():
         key = secrets.token_urlsafe(64)[:64]
         return key
 
-    def create_email(self, email, artifact_groups: set):
+    def create_email(self, email, author_name, artifact_groups: set):
         ownership_email = OwnershipEmail.query.filter_by(email=email).first()
         valid_until = datetime.today() + timedelta(days=self.config['EMAIL_INTERVAL_DAYS'])
         if not ownership_email:
@@ -79,10 +79,20 @@ class SearcchBackgroundTasks():
                 exists.last_attempt = datetime.today()
                 valid_artifacts.append(artifact_group)
         self.db.session.commit()
-        html = render_template("ownership_invitation_email.html", artifact_groups=artifact_groups, frontend_url=self.config['FRONTEND_URL'])
-        msg = Message('SEARCCH Artifact Ownership Request', [email], html=html)
+        html = render_template("ownership_invitation_attempt_1.html", artifact_groups=valid_artifacts, author_name=author_name, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
+        msg = Message('The SEARCCH Invitation: Help Us Help Others Find and Reuse Your Research Artifacts', ['brian.blonski@sri.com'], html=html)
         return msg
             
+    def find_author_name(self, persons):
+        best = ''
+        for person in persons:
+            if not person.name or not person.name.strip():
+                continue
+            elif len(person.name.split(' ')) > len(best.split(' ')):
+                best = person.name
+        if not best:
+            best = "Artifact Author"
+        return best
 
     def email_invitations_task(self):
         LOG.debug('starting email invitations task')
@@ -115,8 +125,12 @@ class SearcchBackgroundTasks():
             group = groups_by_email.get(person.email, set())
             group.add(artifact_group)
             groups_by_email[person.email] = group
+        
 
-        email_msgs = [self.create_email(email, artifact_groups) for email, artifact_groups in groups_by_email.items()]
+        for email, persons in persons_by_email.items():
+            persons_by_email[email] = self.find_author_name(persons)
+
+        email_msgs = [self.create_email(email, persons_by_email[email], artifact_groups) for email, artifact_groups in filter(lambda x: len(x[1]) > 1, groups_by_email.items())]
         with self.mail.connect() as conn:
             for email_msg in email_msgs:
                 if not self.config['TESTING'] and not self.config['DEBUG']:
