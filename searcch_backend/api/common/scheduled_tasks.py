@@ -10,6 +10,8 @@ from flask import render_template
 
 LOG = logging.getLogger(__name__)
 # Garbage Collector used to empty recent_views database table and update the stats_views table periodically
+
+SUBJECT = 'The SEARCCH Invitation: Help Us Help Others Find and Reuse Your Research Artifacts'
 class SearcchBackgroundTasks():
 
     def __init__(self, config, db: SQLAlchemy, mail: Mail):
@@ -23,7 +25,6 @@ class SearcchBackgroundTasks():
         scheduler.add_job(func=self.collectRecentViews, trigger="interval", seconds=self.config['STATS_GARBAGE_COLLECTOR_INTERVAL'])
         scheduler.add_job(func=self.email_invitations_task, trigger="interval", days=self.config["EMAIL_INTERVAL_DAYS"])
         scheduler.start()
-        self.email_invitations_task()
         
         # Shut down the scheduler when exiting the app
         atexit.register(lambda: scheduler.shutdown())
@@ -59,7 +60,7 @@ class SearcchBackgroundTasks():
         key = secrets.token_urlsafe(64)[:64]
         return key
 
-    def create_email(self, email, author_name, artifact_groups: set):
+    def create_email(self, email, author_name, artifact_groups: set) -> tuple:
         ownership_email = OwnershipEmail.query.filter_by(email=email).first()
         valid_until = datetime.today() + timedelta(days=self.config['EMAIL_INTERVAL_DAYS'])
         if not ownership_email:
@@ -67,21 +68,35 @@ class SearcchBackgroundTasks():
             query = self.db.session.add(ownership_email)
             self.db.session.commit()
             
-        valid_artifacts = []
+        first_artifacts = []
+        reminder_artifacts = []
+        final_artifacts = []
         for artifact_group in artifact_groups:
             exists = OwnershipInvitation.query.filter_by(email=email, artifact_group_id=artifact_group.id).first()
             if not exists:
-                exists = OwnershipInvitation(email=email, artifact_group_id=artifact_group.id, attempts=1, last_attempt=datetime.today())
+                exists = OwnershipInvitation(email=email, artifact_group_id=artifact_group.id, attempts=0, last_attempt=datetime.today())
                 self.db.session.add(exists)
-                valid_artifacts.append(artifact_group)
-            elif exists.attempts <= self.config['MAX_INVITATION_ATTEMPTS']:
-                # exists.attempts += 1
-                exists.last_attempt = datetime.today()
-                valid_artifacts.append(artifact_group)
+                first_artifacts.append(artifact_group)
+            elif exists.attempts < self.config['MAX_INVITATION_ATTEMPTS'] - 1:
+                reminder_artifacts.append(artifact_group)
+            elif exists.attempts == self.config['MAX_INVITATION_ATTEMPTS'] - 1:
+                final_artifacts.append(artifact_group)
+            else:
+                continue
+            exists.attempts += 1
+            exists.last_attempt = datetime.today()
         self.db.session.commit()
-        html = render_template("ownership_invitation_attempt_1.html", artifact_groups=valid_artifacts, author_name=author_name, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
-        msg = Message('The SEARCCH Invitation: Help Us Help Others Find and Reuse Your Research Artifacts', ['brian.blonski@sri.com'], html=html)
-        return msg
+        msgs = []
+        if len(first_artifacts) > 0:
+            html = render_template("ownership_invitation_attempt_1.html", artifact_groups=first_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
+            msgs.append(Message(SUBJECT, [email], html=html))
+        if len(reminder_artifacts) > 0:
+            html = render_template("ownership_invitation_attempt_2.html", artifact_groups=reminder_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
+            msgs.append(Message(SUBJECT, [email], html=html))
+        if len(final_artifacts) > 0:
+            html = render_template("ownership_invitation_attempt_3.html", artifact_groups=final_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
+            msgs.append(Message(SUBJECT, [email], html=html))
+        return msgs
             
     def find_author_name(self, persons):
         best = ''
@@ -130,12 +145,17 @@ class SearcchBackgroundTasks():
         for email, persons in persons_by_email.items():
             persons_by_email[email] = self.find_author_name(persons)
 
-        email_msgs = [self.create_email(email, persons_by_email[email], artifact_groups) for email, artifact_groups in filter(lambda x: len(x[1]) > 1, groups_by_email.items())]
-        with self.mail.connect() as conn:
-            for email_msg in email_msgs:
-                if not self.config['TESTING'] and not self.config['DEBUG']:
-                    # conn.send(email_msg) # Do not go live until we have the email templates
-                    pass
-                else:
-                    LOG.debug(email_msg)
+        email_msgs = [msg for email, artifact_groups in groups_by_email.items() for msg in self.create_email(email, persons_by_email[email], artifact_groups)]
+        try:
+
+            with self.mail.connect() as conn:
+                for email_msg in email_msgs:
+                    if not self.config['TESTING'] and not self.config['DEBUG']:
+                        # conn.send(email_msg) # Do not go live until we have the email templates
+                        pass
+                    else:
+                        LOG.debug(email_msg)
+        except:
+            LOG.warning("could not connect to email service")
+
 

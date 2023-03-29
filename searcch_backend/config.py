@@ -23,7 +23,7 @@ class DevelopmentConfig(Config):
     ADMIN_MAILING_RECIPIENTS = []
     MAIL_SERVER = "searcch-backend-postfix"
     EMAIL_INTERVAL_DAYS = 30
-    MAX_INVITATION_ATTEMPTS = 5
+    MAX_INVITATION_ATTEMPTS = 3
 
 class ProductionConfig(Config):
     """
@@ -40,7 +40,7 @@ class ProductionConfig(Config):
     ADMIN_MAILING_RECIPIENTS = []
     MAIL_SERVER = "searcch-backend-postfix"
     EMAIL_INTERVAL_DAYS = 30
-    MAX_INVITATION_ATTEMPTS = 5
+    MAX_INVITATION_ATTEMPTS = 3
 
 app_config = {
     'development': DevelopmentConfig,
