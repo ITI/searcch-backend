@@ -29,4 +29,4 @@ EXPOSE 80 5678
 
 CMD ["gunicorn","--config","gunicorn_conf.py","run:app"]
 # CMD ["flask","run","--host=0.0.0.0","--port=80"]
-# CMD ["pypy", "-m", "debugpy", "--listen", "0.0.0.0:5678", "--wait-for-client", "-m", "flask","run","--host=0.0.0.0","--port=80", "--debug"]
+# CMD ["pypy", "-m", "debugpy", "--listen", "0.0.0.0:5678", "--wait-for-client", "-m", "flask","run","--host=0.0.0.0","--port=80", "--debugger"]
