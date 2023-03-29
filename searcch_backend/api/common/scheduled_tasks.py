@@ -9,8 +9,8 @@ from flask_mail import Message, Mail
 from flask import render_template
 
 LOG = logging.getLogger(__name__)
-# Garbage Collector used to empty recent_views database table and update the stats_views table periodically
 
+# Subject line for email invitations
 SUBJECT = 'The SEARCCH Invitation: Help Us Help Others Find and Reuse Your Research Artifacts'
 class SearcchBackgroundTasks():
 
@@ -30,6 +30,7 @@ class SearcchBackgroundTasks():
         atexit.register(lambda: scheduler.shutdown())
 
     def collectRecentViews(self):
+        # Garbage Collector used to empty recent_views database table and update the stats_views table periodically
         LOG.debug('starting collect recent views task')
         db = self.db
         query = db.session.query(StatsRecentViews.artifact_group_id.label('artifact_group_id'), StatsRecentViews.user_id.label('user_id'), StatsRecentViews.view_count.label('view_count')).all()
@@ -60,7 +61,11 @@ class SearcchBackgroundTasks():
         key = secrets.token_urlsafe(64)[:64]
         return key
 
-    def create_email(self, email, author_name, artifact_groups: set) -> tuple:
+    def create_email(self, email, author_name, artifact_groups: set):
+        """ Generate emails for the given artifact set.
+        Artifacts are grouped by first, reminder, and final notice.
+        Multiple emails may be generated if the email has artifacts that fit in multiple groups.
+        """
         ownership_email = OwnershipEmail.query.filter_by(email=email).first()
         valid_until = datetime.today() + timedelta(days=self.config['EMAIL_INTERVAL_DAYS'])
         if not ownership_email:
@@ -82,6 +87,7 @@ class SearcchBackgroundTasks():
             elif exists.attempts == self.config['MAX_INVITATION_ATTEMPTS'] - 1:
                 final_artifacts.append(artifact_group)
             else:
+                # skip if max attempts reached
                 continue
             exists.attempts += 1
             exists.last_attempt = datetime.today()
@@ -99,6 +105,10 @@ class SearcchBackgroundTasks():
         return msgs
             
     def find_author_name(self, persons):
+        """ Simple algorithm to take the name with the most tokens in it. 
+        The assumption is that usernames will be one token while real names will be 2 or 3.
+        Defaults to Artifact Author if no name is found.
+        """
         best = ''
         for person in persons:
             if not person.name or not person.name.strip():
@@ -110,6 +120,8 @@ class SearcchBackgroundTasks():
         return best
 
     def email_invitations_task(self):
+        """ Sends artifact ownership invitation emails """
+
         LOG.debug('starting email invitations task')
         # query all artifact groups owned by an admin or by automatic-imports
         query = ArtifactGroup.query.join(ArtifactGroup.owner).join(User.person).filter(or_(User.can_admin==True, Person.email=="automatic-imports@cyberexperimentation.org")).all()
@@ -151,7 +163,7 @@ class SearcchBackgroundTasks():
             with self.mail.connect() as conn:
                 for email_msg in email_msgs:
                     if not self.config['TESTING'] and not self.config['DEBUG']:
-                        # conn.send(email_msg) # Do not go live until we have the email templates
+                        # conn.send(email_msg) # Do not go live until frontend urls in place
                         pass
                     else:
                         LOG.debug(email_msg)
