@@ -1,6 +1,3 @@
-from env.searcch-backend-local-dev-config import MAX_INVITATION_ATTEMPTS
-
-
 TESTING = False
 DEBUG = False
 SQLALCHEMY_ECHO = True
