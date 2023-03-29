@@ -8,7 +8,7 @@ from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, url_for, Blueprint
 from flask_restful import reqparse, Resource, fields, marshal
-from sqlalchemy import func, desc, asc, sql, or_, and_, true
+from sqlalchemy import func, desc, asc, sql, or_, and_
 import sqlalchemy
 import sys
 import logging
@@ -17,8 +17,6 @@ import math
 import base64
 import werkzeug
 
-# import for ease of testing
-from searcch_backend.api.common.scheduled_tasks import SearcchBackgroundTasks
 
 LOG = logging.getLogger(__name__)
 
