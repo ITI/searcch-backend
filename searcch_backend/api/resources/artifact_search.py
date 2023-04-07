@@ -18,7 +18,7 @@ def generate_artifact_uri(artifact_group_id, artifact_id=None):
     return url_for('api.artifact', artifact_group_id=artifact_group_id,
                    artifact_id=artifact_id)
 
-def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page):
+def search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page, category):
     """ search for artifacts based on keywords, with optional filters by owner and affiliation """
     sqratings = db.session.query(
         ArtifactRatings.artifact_group_id,
@@ -68,7 +68,7 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
                         ).join(sqreviews, Artifact.artifact_group_id == sqreviews.c.artifact_group_id, isouter=True
                         ).order_by(desc(search_query.c.rank))
 
-    if author_keywords or organization:
+    if author_keywords or organization or category:
         rank_list = []
         if author_keywords:
             if type(author_keywords) is list:
@@ -89,6 +89,10 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             author_org_query = author_org_query.join(Person, Person.id == Affiliation.person_id)
         if organization:
             author_org_query = author_org_query.filter(organization == Artifact.provider)
+        if category:
+            if type(category) is list:
+                category = ' or '.join(category)
+            author_org_query = author_org_query.filter(category == Artifact.category)
         if author_keywords:
             author_org_query = author_org_query.filter(
                 Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", author_keywords))).order_by(desc("arank"))
@@ -152,7 +156,8 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             "num_reviews": num_reviews if num_reviews else 0,
             "owner": { "id": artifact.owner.id },
             "views": view_count if view_count else 0,
-            "dua_url": dua_url
+            "dua_url": dua_url,
+            "category": artifact.category
         }
 
         artifacts.append(abstract)
@@ -207,6 +212,12 @@ class ArtifactSearchIndexAPI(Resource):
                                    required=False,
                                    action='append',
                                    help='badge IDs to search for')
+        self.reqparse.add_argument(name='category',
+                                   type=str,
+                                   required=False,
+                                   default='',
+                                   action='append',
+                                   help='missing category to filter results')
 
         super(ArtifactSearchIndexAPI, self).__init__()
 
@@ -227,7 +238,7 @@ class ArtifactSearchIndexAPI(Resource):
         organization = args['organization']
         owner_keywords = args['owner']
         badge_id_list = args['badge_id']
-
+        category = args['category']
         # sanity checks
         if artifact_types:
             for a_type in artifact_types:
@@ -244,7 +255,7 @@ class ArtifactSearchIndexAPI(Resource):
         except exc.SQLAlchemyError as error:
             LOG.exception(f'Failed to log search term in the database. Error: {error}')
 
-        result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page)
+        result = search_artifacts(keywords, artifact_types, author_keywords, organization, owner_keywords, badge_id_list, page_num, items_per_page, category)
         response = jsonify(result)
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200

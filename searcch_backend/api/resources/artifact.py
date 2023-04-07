@@ -1181,3 +1181,17 @@ class ArtifactOwnerRequestsAPI(Resource):
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
         return response
+
+class ArtifactCategoryAPI(Resource):
+
+    def __init__(self):
+        
+        super(ArtifactCategoryAPI, self).__init__()
+    
+    def get(self):
+        categories = []
+        for category in Artifact.query.distinct(Artifact.category):
+            categories.append(category.category)
+        # categories = db.session.query(Artifact).options(load_only(category)).distinct()
+        respone = jsonify({"categories": categories})
+        return respone
