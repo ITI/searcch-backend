@@ -16,7 +16,7 @@ import werkzeug
 from searcch_backend.api.ticket_creation.antAPI.client.auth import AntAPIClientAuthenticator
 from searcch_backend.api.ticket_creation.antAPI.client.trac import (
        antapi_trac_ticket_new,
-       antapi_trac_ticket_attach,
+       antapi_trac_ticket_status,
 )
 from searcch_backend.api.ticket_creation.antapi_client_conf import AUTH
 import json
