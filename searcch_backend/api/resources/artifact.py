@@ -1193,5 +1193,5 @@ class ArtifactCategoryAPI(Resource):
         for category in Artifact.query.distinct(Artifact.category):
             categories.append(category.category)
         # categories = db.session.query(Artifact).options(load_only(category)).distinct()
-        respone = jsonify({"categories": categories})
-        return respone
+        response = jsonify({"categories": categories})
+        return response
