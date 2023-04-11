@@ -103,3 +103,39 @@ def antapi_trac_ticket_attach(auth: AntAPIClientAuthenticator,
         msg = json_reply.get('message', 'None')
         raise AntAPIClientTracError(
             f"Can't create ticket: status={req.status_code}, error={msg}")
+
+
+def antapi_trac_ticket_status(auth: AntAPIClientAuthenticator,
+                              ticket_id: str) -> str: 
+    '''Get the status of the ticket, referred to by `ticket_id`.
+
+    :param auth:        An instance of AntAPIClientAuthenticator
+    :type auth:         AntAPIClientAuthenticator
+    :param ticket_id:   Ticket ID to add attachments to
+    :type ticket_id:    str
+
+    :raises: AntAPIClientTracError
+    '''
+
+    ticket_status_url = auth.base_url + f'/trac/ticket/{ticket_id}/status'
+    try:
+        req = requests.get(ticket_status_url, headers=auth.auth_header())
+
+        json_reply = req.json()
+
+    except requests.exceptions.JSONDecodeError as ex:
+        raise AntAPIClientTracError(
+            f"Can't submit request: status={req.status_code}, error parsing JSON"
+        ) from ex
+
+    except requests.exceptions.RequestException as ex:
+        raise AntAPIClientTracError(ex) from ex
+
+    if not req.ok:
+        msg = json_reply.get('message', 'None')
+        raise AntAPIClientTracError(
+            f"Can't get ticket status: code is {req.status_code}, error={msg}")
+    if 'status' not in json_reply:
+        raise AntAPIClientTracError(
+            f"Can't get ticket status: status is missing from reply, reply={json_reply}")
+    return json_reply['status']

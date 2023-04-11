@@ -127,9 +127,32 @@ Similarly, you can use the access token to add attachments:
         -F dua_file.pdf=@/path/to/dua_file.pdf
         -F ssh_key.pub=@/path/to/ssh_key.pub
 
-   {"message":"OK"}
+   { "message": "OK" }
 ```
  
+## Getting status of existing tickets
+
+Use the access token to inquire about the status of the `ticket_id` you've created:
+
+```
+    curl -X GET http://localhost:5000/trac/ticket/1234/status \
+        -H 'x-access-token: eyJh...'
+```
+
+Successful query returns with status 201 and JSON containing "status" field:
+```
+    { "message": "OK", "status": "released" } or
+    { "message": "OK", "status": "new" }
+```
+
+On error, 401 is returned with an error message:
+```
+    {
+        "message": "ERROR cannot obtain ticket status: exception -  Ticket 13099 does not exist."
+    }
+```
+
+
 # Administration
 
 Administration is done by users who have access to `admin` realm.  At present it's limited to
