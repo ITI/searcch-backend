@@ -28,7 +28,6 @@ class ArtifactRequestStatusAPI(Resource):
 
     def get(self, artifact_group_id):
         # args = self.reqparse.parse_args()
-        LOG.error("PaulKurian!!!!")
         if has_api_key(request):
             verify_api_key(request)
         
@@ -39,17 +38,19 @@ class ArtifactRequestStatusAPI(Resource):
 
         ticket_status = "unrequested"
 
-        if (artifact_group_id == 1475):
-            ticket_status = "new"
-        # if artifact_group_id and user_id:
-        #     db_response = db.session.query(ArtifactRequests.ticket_id).filter(artifact_group_id == ArtifactRequests.artifact_group_id).filter(user_id == ArtifactRequests.requester_user_id).first()
+        if artifact_group_id and user_id:
+            db_response = db.session.query(ArtifactRequests.ticket_id).filter(artifact_group_id == ArtifactRequests.artifact_group_id).filter(user_id == ArtifactRequests.requester_user_id).first()
 
-        #     if db_response:
-        #         ticket_id = db_response[0]
+            if db_response:
+                ticket_id = db_response[0]
 
-        #         auth = AntAPIClientAuthenticator(**AUTH)
-        #         ticket_status = antapi_trac_ticket_status(auth, ticket_id)
-       
+                if ticket_id == -1: # -1 is the dummy ticket_id value used when testing the requested and released flow(see artifact_request.py and the code block where the ticket is filed)
+                    ticket_status = "released"
+                elif ticket_id == -2: # -2 is the dummy ticket_id value used when testing the requested but not released flow (see artifact_request.py and the code block where the ticket is filed)
+                    ticket_status = "new"
+                else : # regular user flow
+                    auth = AntAPIClientAuthenticator(**AUTH)
+                    ticket_status = antapi_trac_ticket_status(auth, ticket_id)
 
         response = jsonify({
             "ticket_status": ticket_status

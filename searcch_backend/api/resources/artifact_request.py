@@ -25,6 +25,7 @@ import time
 
 
 LOG = logging.getLogger(__name__)
+TEST_PROJECT_NAME = "Test-Nosubmit"
 
 class ArtifactRequestAPI(Resource):
     def __init__(self):
@@ -235,28 +236,39 @@ class ArtifactRequestAPI(Resource):
                 params['researcher_'+str(index+1)] = researcher['name']
                 params['researcher_email_'+str(index+1)] = researcher['email']
 
-            ticket_description = "==== What Datasets\n{datasets}\n\n==== Why these Datasets\n{project_justification}\n\n==== What Project\n{project}\n\n==== Project Description\n{project_description}\n\n==== Researchers\n"
-            for index,researcher in enumerate(researchers):
-                 ticket_description+="{researcher_"+str(index+1)+"} (@{researcher_email_"+str(index+1)+"})\n"
-            
-            ticket_description+="\n==== Researcher Affiliation\n{affiliation}\n\n==== Comunda Info\n||= request_id =|| {artifact_request_id} ||\n||= timestamp  =|| {artifact_timestamp} ||\n||= ip address =|| {requester_ip_addr} ||"
-            ticket_description=ticket_description.format(**params)
-            ticket_fields = dict(
-                description=ticket_description,
-                researcher=representative_researcher['name'],
-                email=representative_researcher['email'],
-                affiliation=representative_researcher['organization'],
-                datasets=dataset
-            )
-            LOG.error("Paul Kurian!!")
+            # Create a ticket for the artifact request
 
-            LOG.error(ticket_description)
+            # For testing purposes we do not create a request to the ANT backend if project name is TEST_PROJECT_NAME
+            if project == TEST_PROJECT_NAME:
+                # We know that ticket_id cannot be -1 so we use that as the dummy ticket_id value in the case where we want to test the requested and released ticket flow
+                db.session.query(ArtifactRequests).filter(artifact_request_id == ArtifactRequests.id).update({'ticket_id': -1})
+                db.session.commit()
+            elif project == TEST_PROJECT_NAME+"-2":
+                 # We know that ticket_id cannot be -2 so we use that as the dummy ticket_id value in the case where we want to test the requested but not released ticket flow
+                db.session.query(ArtifactRequests).filter(artifact_request_id == ArtifactRequests.id).update({'ticket_id': -2})
+                db.session.commit()
 
-            auth = AntAPIClientAuthenticator(**AUTH)
-            ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
+            # Regular user flow
+            else:    
+                ticket_description = "==== What Datasets\n{datasets}\n\n==== Why these Datasets\n{project_justification}\n\n==== What Project\n{project}\n\n==== Project Description\n{project_description}\n\n==== Researchers\n"
+                for index,researcher in enumerate(researchers):
+                    ticket_description+="{researcher_"+str(index+1)+"} (@{researcher_email_"+str(index+1)+"})\n"
+                
+                ticket_description+="\n==== Researcher Affiliation\n{affiliation}\n\n==== Comunda Info\n||= request_id =|| {artifact_request_id} ||\n||= timestamp  =|| {artifact_timestamp} ||\n||= ip address =|| {requester_ip_addr} ||"
+                ticket_description=ticket_description.format(**params)
+                ticket_fields = dict(
+                    description=ticket_description,
+                    researcher=representative_researcher['name'],
+                    email=representative_researcher['email'],
+                    affiliation=representative_researcher['organization'],
+                    datasets=dataset
+                )
 
-            db.session.query(ArtifactRequests).filter(artifact_request_id == ArtifactRequests.id).update({'ticket_id': ticket_id})
-            db.session.commit()
+                auth = AntAPIClientAuthenticator(**AUTH)
+                ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
+
+                db.session.query(ArtifactRequests).filter(artifact_request_id == ArtifactRequests.id).update({'ticket_id': ticket_id})
+                db.session.commit()
 
             response = jsonify({
                 "status": 0,
