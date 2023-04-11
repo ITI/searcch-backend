@@ -23,7 +23,7 @@ class SearcchBackgroundTasks():
     def setupScheduledTask(self):
         scheduler = BackgroundScheduler()
         scheduler.add_job(func=self.collectRecentViews, trigger="interval", seconds=self.config['STATS_GARBAGE_COLLECTOR_INTERVAL'])
-        scheduler.add_job(func=self.email_invitations_task, trigger="interval", days=self.config["EMAIL_INTERVAL_DAYS"])
+        scheduler.add_job(func=self.email_invitations_task, trigger="interval", days=1)
         scheduler.start()
         
         # Shut down the scheduler when exiting the app
@@ -71,8 +71,8 @@ class SearcchBackgroundTasks():
         if not ownership_email:
             ownership_email = OwnershipEmail(email=email, key=self.create_key(), valid_until=valid_until, opt_out=False)
             query = self.db.session.add(ownership_email)
-            self.db.session.commit()
             
+        # divide artifacts into 3 types of notices
         first_artifacts = []
         reminder_artifacts = []
         final_artifacts = []
@@ -82,6 +82,9 @@ class SearcchBackgroundTasks():
                 exists = OwnershipInvitation(email=email, artifact_group_id=artifact_group.id, attempts=0, last_attempt=datetime.today())
                 self.db.session.add(exists)
                 first_artifacts.append(artifact_group)
+            elif datetime.today() - exists.last_attempt < timedelta(days=self.config['EMAIL_INTERVAL_DAYS']):
+                # skip if we already notified the user recently
+                continue
             elif exists.attempts < self.config['MAX_INVITATION_ATTEMPTS'] - 1:
                 reminder_artifacts.append(artifact_group)
             elif exists.attempts == self.config['MAX_INVITATION_ATTEMPTS'] - 1:
@@ -91,17 +94,16 @@ class SearcchBackgroundTasks():
                 continue
             exists.attempts += 1
             exists.last_attempt = datetime.today()
-        self.db.session.commit()
         msgs = []
         if len(first_artifacts) > 0:
             html = render_template("ownership_invitation_attempt_1.html", artifact_groups=first_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
-            msgs.append(Message(SUBJECT, [email], html=html))
+            msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_MAILING_RECIPIENTS']))
         if len(reminder_artifacts) > 0:
             html = render_template("ownership_invitation_attempt_2.html", artifact_groups=reminder_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
-            msgs.append(Message(SUBJECT, [email], html=html))
+            msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_MAILING_RECIPIENTS']))
         if len(final_artifacts) > 0:
             html = render_template("ownership_invitation_attempt_3.html", artifact_groups=final_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
-            msgs.append(Message(SUBJECT, [email], html=html))
+            msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_MAILING_RECIPIENTS']))
         return msgs
             
     def find_author_name(self, persons):
@@ -169,5 +171,6 @@ class SearcchBackgroundTasks():
                         LOG.debug(email_msg)
         except:
             LOG.warning("could not connect to email service")
+        self.db.session.commit()
 
 
