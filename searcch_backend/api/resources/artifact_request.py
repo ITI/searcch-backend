@@ -180,8 +180,14 @@ class ArtifactRequestAPI(Resource):
             agreement_file = request.files.get('file')
             if not agreement_file:
                 abort(400, description="missing agreement file")
-            
             agreement_file = agreement_file.read()
+
+            irb_file = request.files.get('pdf_file')
+            if not irb_file:
+                irb_file = None
+            else:
+                irb_file = irb_file.read()
+
             
             agreement_file_folder = './agreement_file_folder'
             isExist = os.path.exists(agreement_file_folder)
@@ -205,7 +211,8 @@ class ArtifactRequestAPI(Resource):
                 project_description=project_description,
                 researchers=researchers,
                 representative_researcher_email=representative_researcher_email,
-                agreement_file=agreement_file
+                agreement_file=agreement_file,
+                irb=irb_file
             )
 
             db.session.add(request_entry)
@@ -236,6 +243,7 @@ class ArtifactRequestAPI(Resource):
                 params['researcher_'+str(index+1)] = researcher['name']
                 params['researcher_email_'+str(index+1)] = researcher['email']
 
+
             # Create a ticket for the artifact request
 
             # For testing purposes we do not create a request to the ANT backend if project name is TEST_PROJECT_NAME
@@ -247,7 +255,6 @@ class ArtifactRequestAPI(Resource):
                  # We know that ticket_id cannot be -2 so we use that as the dummy ticket_id value in the case where we want to test the requested but not released ticket flow
                 db.session.query(ArtifactRequests).filter(artifact_request_id == ArtifactRequests.id).update({'ticket_id': -2})
                 db.session.commit()
-
             # Regular user flow
             else:    
                 ticket_description = "==== What Datasets\n{datasets}\n\n==== Why these Datasets\n{project_justification}\n\n==== What Project\n{project}\n\n==== Project Description\n{project_description}\n\n==== Researchers\n"
