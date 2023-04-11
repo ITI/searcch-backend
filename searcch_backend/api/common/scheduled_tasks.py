@@ -104,6 +104,8 @@ class SearcchBackgroundTasks():
         if len(final_artifacts) > 0:
             html = render_template("ownership_invitation_attempt_3.html", artifact_groups=final_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
             msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_MAILING_RECIPIENTS']))
+        if len(msgs) > 0:
+            ownership_email.valid_until = valid_until
         return msgs
             
     def find_author_name(self, persons):
