@@ -24,3 +24,8 @@ tomli==2.0.1
 tomlkit==0.11.5
 Werkzeug==2.2.2
 wrapt==1.14.1
+#assume trac is installed somewhere locally and the path to libs (of a venv is added in apache config)
+#Trac @ file:///var/www/html/antAPI/trac_modules/trac
+#TracAdvancedTicketWorkflow @ file:///var/www/html/antAPI/trac_modules/advancedticketworkflowplugin/1.2
+#TracCustomFieldAdmin @ file:///var/www/html/antAPI/trac_modules/customfieldadminplugin/1.2
+

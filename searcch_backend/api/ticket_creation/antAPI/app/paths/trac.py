@@ -15,6 +15,9 @@ from werkzeug.utils import secure_filename
 from werkzeug.exceptions import (
     BadRequestKeyError,
 )
+from trac.env import Environment
+from trac.ticket.model import Ticket
+
 from ..tokens import validate_token
 from ..flask_conf import (
     SECRET_KEY,
@@ -191,3 +194,23 @@ def ticket_attach(current_user, ticket_id):
         return jsonify({'message': error_message}), 401
 
     return jsonify({'message': 'OK'})
+
+
+@TRAC.route('/trac/ticket/<ticket_id>/status', methods=['GET'])
+@validate_token(secret_key=SECRET_KEY, realm='trac')
+def ticket_status(current_user, ticket_id):
+    '''Return the string with the status of the ticket <ticket_id>'''
+
+    LOG.info('Calling %s::ticket_status by %s to %s',
+             current_user.realm, current_user.email, ticket_id)
+
+    env = Environment(TRAC_HOME + '/trac-env')
+    try:
+        ticket = Ticket(env, ticket_id)
+    except Exception as ex: # pylint: disable=broad-except
+        LOG.exception('ERROR: ticket_status - exception: %s', ex)
+        return jsonify({
+            'message':
+                f'ERROR cannot obtain ticket status: exception -  {str(ex)}'
+        }), 401
+    return jsonify({'message': 'OK', 'status': ticket['status']})
