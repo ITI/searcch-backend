@@ -36,10 +36,6 @@ class ArtifactRequestListAPI(Resource):
         if user_id:
             list_of_requests_tuples = db.session.query(ArtifactRequests).with_entities(ArtifactRequests.artifact_group_id,ArtifactRequests.ticket_id).filter(user_id == ArtifactRequests.requester_user_id).all()
 
-        LOG.error("Paul Kurian!")
-        LOG.error(list_of_requests_tuples)
-        LOG.error(user_id)
-
         requestToTicketIDObj = {}
         for requestTuple in list_of_requests_tuples:
             requestToTicketIDObj[requestTuple[0]] = requestTuple[1]
