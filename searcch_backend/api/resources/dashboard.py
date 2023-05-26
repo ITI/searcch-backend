@@ -8,7 +8,9 @@ from searcch_backend.models.schema import *
 from flask import abort, jsonify, request, url_for
 from flask_restful import reqparse, Resource
 from sqlalchemy import func, desc, sql, or_, nullslast
+import logging
 
+LOG = logging.getLogger(__name__)
 
 class UserDashboardAPI(Resource):
     """ 
@@ -51,6 +53,13 @@ class UserDashboardAPI(Resource):
             .join(Artifact, Artifact.id == ArtifactPublication.artifact_id)\
             .filter(ArtifactFavorites.user_id == login_session.user_id)\
             .all()
+        artifact_requests = db.session.query(ArtifactRequests.artifact_group_id, ArtifactRequests.ticket_id, Artifact.title, Artifact.type)\
+            .join(ArtifactGroup, ArtifactGroup.id == ArtifactRequests.artifact_group_id)\
+            .join(ArtifactPublication, ArtifactPublication.id == ArtifactGroup.publication_id)\
+            .join(Artifact, Artifact.id == ArtifactPublication.artifact_id)\
+            .filter(ArtifactRequests.requester_user_id == login_session.user_id)\
+            .all()
+        
 
         fav_artifacts = []
         for (favorite, artifact) in favorite_artifacts:
@@ -72,9 +81,19 @@ class UserDashboardAPI(Resource):
             }
             rated_artifacts.append(result)
 
+        requested_artifacts = [] 
+        for artifact in artifact_requests:
+            result = {
+                "artifact_group_id": artifact.artifact_group_id,
+                "ticket_id": artifact.ticket_id,
+                "title": artifact.title,
+                "type": artifact.type
+            }
+            requested_artifacts.append(result)
 
         response = jsonify({
             "owned_artifacts": artifact_schema.dump(owned_artifacts),
+            "requested_artifacts": requested_artifacts,
             "given_ratings": rated_artifacts,
             "favorite_artifacts": fav_artifacts
         })
