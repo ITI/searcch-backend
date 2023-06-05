@@ -93,7 +93,7 @@ class LoginAPI(Resource):
         if response.status_code != requests.codes.ok:
             abort(response.status_code, description="invalid SSO token")
         response_json = response.json()
-        return (response_json["email"], response_json.get("name", response_json["login"]))
+        return ("github_"+str(response_json["id"]), response_json["email"], response_json.get("name", response_json["login"]))
 
     @property
     def google_userinfo_endpoint(self):
@@ -121,7 +121,8 @@ class LoginAPI(Resource):
         if response.status_code != requests.codes.ok:
             abort(response.status_code, description="invalid SSO token")
         response_json = response.json()
-        return (response_json["email"], response_json.get("displayName", None))
+
+        return (None, response_json["email"], response_json.get("displayName", None))
 
     @property
     def cilogon_userinfo_endpoint(self):
@@ -149,7 +150,7 @@ class LoginAPI(Resource):
         if response.status_code != requests.codes.ok:
             abort(response.status_code, description="invalid SSO token")
         response_json = response.json()
-        return (response_json["email"], response_json.get("name", None))
+        return (None, response_json["email"], response_json.get("name", None))
 
     def _validate_token(self, strategy, sso_token):
         if strategy == "github":
@@ -171,16 +172,15 @@ class LoginAPI(Resource):
         sso_token = args.get('token')
         login_session = lookup_token(sso_token)
         if not login_session:
-            (user_email, user_name) = self._validate_token(strategy, sso_token)
-
-            if not user_email or user_email.find("@") <= 0:
-                abort(403, description="Identity provider did not share your email address; check your profile's security settings at your provider")
-
-            # check if User entity with that email exists
-            user = db.session.query(User).\
-              join(Person, Person.id == User.person_id).\
-              filter(Person.email == user_email).\
-              first()
+            (login_id, user_email, user_name) = self._validate_token(strategy, sso_token)
+            
+            user = None
+            if login_id:
+                # check if User entity with that email exists
+                user = db.session.query(User).\
+                join(Person, Person.id == User.person_id).\
+                filter(Person.login_id == login_id).\
+                first()
 
             if user:  # create new session
                 (login_session, is_new) = create_new_session(user, sso_token)
@@ -215,7 +215,7 @@ class LoginAPI(Resource):
                 # So after a call to create_new_session, only use the returned
                 # login_session object.
                 #
-                new_person = Person(name=user_name, email=user_email)
+                new_person = Person(name=user_name, email=user_email, login_id=login_id)
                 new_user = User(person=new_person)
                 db.session.add(new_user)
 
