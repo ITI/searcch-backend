@@ -199,7 +199,16 @@ class UserProfileAPI(Resource):
         position = args['position']
         user = login_session.user
         person = db.session.query(Person).filter(Person.id == user.person_id).first()
-        
+
+        if email is not None:
+            email_not_unique = db.session.query(Person).filter(Person.email == email.strip(), Person.id != user.person_id).first() is not None
+            if email_not_unique:
+                response = jsonify({"message": "Another user has been registered with the same email",
+                                    "error": "true"})
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.status_code = 200
+                return response
+            
         if name is not None:
             person.name = name
         if research_interests is not None:
