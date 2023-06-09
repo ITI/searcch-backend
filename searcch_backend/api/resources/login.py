@@ -122,6 +122,7 @@ class LoginAPI(Resource):
             abort(response.status_code, description="invalid SSO token")
         response_json = response.json()
 
+        # login_id value (the first return value) should be unique and we know that the email for the google OAuth flow is unique
         return ("google_"+str(response_json["email"]), response_json["email"], response_json.get("displayName", None))
 
     @property
@@ -150,6 +151,7 @@ class LoginAPI(Resource):
         if response.status_code != requests.codes.ok:
             abort(response.status_code, description="invalid SSO token")
         response_json = response.json()
+        # According to ORCID documentation response_json["sub"] is unique for each user as is required for the login_id parameter
         return ("cilogon_"+str(response_json["sub"]), response_json["email"], response_json.get("name", None))
 
     def _validate_token(self, strategy, sso_token):
