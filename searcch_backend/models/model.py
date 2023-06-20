@@ -84,11 +84,11 @@ class ArtifactFile(db.Model):
     __tablename__ = "artifact_files"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id", ondelete='CASCADE'))
     url = db.Column(db.String(512), nullable=False)
     name = db.Column(db.String(512))
     filetype = db.Column(db.String(128), nullable=False)
-    file_content_id = db.Column(db.Integer, db.ForeignKey("file_content.id"))
+    file_content_id = db.Column(db.Integer, db.ForeignKey("file_content.id", ondelete='CASCADE'))
     size = db.Column(db.BigInteger)
     mtime = db.Column(db.DateTime)
     
@@ -108,13 +108,13 @@ class ArtifactFileMember(db.Model):
     __tablename__ = "artifact_file_members"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    parent_file_id = db.Column(db.Integer, db.ForeignKey("artifact_files.id"),nullable=False)
+    parent_file_id = db.Column(db.Integer, db.ForeignKey("artifact_files.id", ondelete='CASCADE'),nullable=False)
     pathname = db.Column(db.String(512), nullable=False)
     html_url = db.Column(db.String(512))
     download_url = db.Column(db.String(512))
     name = db.Column(db.String(512))
     filetype = db.Column(db.String(128), nullable=False)
-    file_content_id = db.Column(db.Integer, db.ForeignKey("file_content.id"))
+    file_content_id = db.Column(db.Integer, db.ForeignKey("file_content.id", ondelete='CASCADE'))
     size = db.Column(db.Integer)
     mtime = db.Column(db.DateTime)
 
@@ -134,9 +134,9 @@ class ArtifactFunding(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=False)
+        "artifacts.id", ondelete='CASCADE'), nullable=False)
     funding_org_id = db.Column(db.Integer, db.ForeignKey(
-        "organizations.id"), nullable=False)
+        "organizations.id", ondelete='CASCADE'), nullable=False)
     grant_number = db.Column(db.String(128), nullable=False)
     grant_url = db.Column(db.String(256), nullable=True)
     grant_title = db.Column(db.String(1024), nullable=True)
@@ -149,7 +149,7 @@ class ArtifactMetadata(db.Model):
     __tablename__ = "artifact_metadata"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    artifact_id = db.Column(db.Integer, db.ForeignKey('artifacts.id'))
+    artifact_id = db.Column(db.Integer, db.ForeignKey('artifacts.id', ondelete='CASCADE'))
     name = db.Column(db.String(64), nullable=False)
     value = db.Column(db.Text, nullable=False)
     type = db.Column(db.String(256), nullable=True)
@@ -165,11 +165,11 @@ class ArtifactPublication(db.Model):
     __tablename__ = "artifact_publications"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id", ondelete='CASCADE'))
     time = db.Column(db.DateTime, nullable=False)
     notes = db.Column(db.Text)
     publisher_id = db.Column(
-        db.Integer, db.ForeignKey("users.id"), nullable=False)
+        db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
     version = db.Column(db.Integer, nullable=False)
 
     artifact = db.relationship("Artifact", uselist=False)
@@ -198,7 +198,7 @@ class ArtifactTag(db.Model):
     __tablename__ = "artifact_tags"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    artifact_id = db.Column(db.Integer, db.ForeignKey('artifacts.id'))
+    artifact_id = db.Column(db.Integer, db.ForeignKey('artifacts.id', ondelete='CASCADE'))
     tag = db.Column(db.String(256), nullable=False)
     source = db.Column(db.String(256), nullable=False, default="")
 
@@ -214,12 +214,12 @@ class ArtifactCuration(db.Model):
     __tablename__ = "artifact_curations"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id", ondelete='CASCADE'))
     time = db.Column(db.DateTime, nullable=False)
     notes = db.Column(db.Text)
     opdata = db.Column(db.Text,nullable=False)
     curator_id = db.Column(
-        db.Integer, db.ForeignKey("users.id"), nullable=False)
+        db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
 
     curator = db.relationship("User")
 
@@ -234,9 +234,9 @@ class ArtifactAffiliation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=False)
+        "artifacts.id", ondelete='CASCADE'), nullable=False)
     affiliation_id = db.Column(db.Integer, db.ForeignKey(
-        "affiliations.id"), nullable=False)
+        "affiliations.id", ondelete='CASCADE'), nullable=False)
     roles = db.Column(
         db.Enum("Author", "ContactPerson", "Other",
                 name="artifact_affiliation_enum"),
@@ -258,13 +258,13 @@ class ArtifactRelationship(db.Model):
     __tablename__ = "artifact_relationships"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
-    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id", ondelete='CASCADE'))
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id", ondelete='CASCADE'), nullable=False)
     relation = db.Column(db.Enum(
         *RELATION_TYPES,
         name="artifact_relationship_enum"))
-    related_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
-    related_artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
+    related_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id", ondelete='CASCADE'))
+    related_artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id", ondelete='CASCADE'), nullable=False)
 
     related_artifact_group = db.relationship(
         "ArtifactGroup", uselist=False, foreign_keys=[related_artifact_group_id], viewonly=True)
@@ -281,7 +281,7 @@ class ArtifactRelease(db.Model):
     __tablename__ = "artifact_releases"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id", ondelete='CASCADE'))
     url = db.Column(db.String(512))
     author_login = db.Column(db.String(128))
     author_email = db.Column(db.String(128))
@@ -333,7 +333,7 @@ class UserAuthorization(db.Model):
     __tablename__ = "user_authorizations"
 
     user_id = db.Column(db.Integer, db.ForeignKey(
-        "users.id"), primary_key=True)
+        "users.id", ondelete='CASCADE'), primary_key=True)
     roles = db.Column(
         db.Enum("Uploader", "Editor", "Curator",
                 name="user_authorization_role_enum"),
@@ -358,7 +358,7 @@ class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     person_id = db.Column(db.Integer, db.ForeignKey(
-        "persons.id"), nullable=False)
+        "persons.id", ondelete='CASCADE'), nullable=False)
     person = db.relationship("Person", uselist=False)
     can_admin = db.Column(db.Boolean, nullable=False, default=False)
 
@@ -417,9 +417,9 @@ class Affiliation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     person_id = db.Column(db.Integer, db.ForeignKey(
-        "persons.id"), nullable=False)
+        "persons.id", ondelete='CASCADE'), nullable=False)
     org_id = db.Column(db.Integer, db.ForeignKey(
-        "organizations.id"))
+        "organizations.id", ondelete='CASCADE'))
 
     person = db.relationship("Person", uselist=False)
     org = db.relationship("Organization", uselist=False)
@@ -437,9 +437,9 @@ class UserAffiliation(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey(
-        "users.id"), nullable=False)
+        "users.id", ondelete='CASCADE'), nullable=False)
     org_id = db.Column(db.Integer, db.ForeignKey(
-        "organizations.id"))
+        "organizations.id", ondelete='CASCADE'))
 
     user = db.relationship("User", uselist=False)
     org = db.relationship("Organization", uselist=False)
@@ -457,7 +457,7 @@ class PersonMetadata(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     person_id = db.Column(db.Integer, db.ForeignKey(
-        "persons.id"), nullable=False)
+        "persons.id", ondelete='CASCADE'), nullable=False)
     name = db.Column(db.String(64), nullable=False)
     value = db.Column(db.String(1024), nullable=False)
 
@@ -514,9 +514,9 @@ class ArtifactBadge(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=False)
+        "artifacts.id", ondelete='CASCADE'), nullable=False)
     badge_id = db.Column(db.Integer, db.ForeignKey(
-        "badges.id"), nullable=False)
+        "badges.id", ondelete='CASCADE'), nullable=False)
 
     badge = db.relationship("Badge", uselist=False)
 
@@ -539,11 +539,11 @@ class ArtifactRatings(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=True)
+        "artifacts.id", ondelete='CASCADE'), nullable=True)
     artifact_group_id = db.Column(db.Integer, db.ForeignKey(
-        "artifact_groups.id"), nullable=False)
+        "artifact_groups.id", ondelete='CASCADE'), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
 
     def __repr__(self):
@@ -555,11 +555,11 @@ class ArtifactReviews(db.Model):
     __tablename__ = "artifact_reviews"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=True)
+        "artifacts.id", ondelete='CASCADE'), nullable=True)
     artifact_group_id = db.Column(db.Integer, db.ForeignKey(
-        "artifact_groups.id"), nullable=False)
+        "artifact_groups.id", ondelete='CASCADE'), nullable=False)
     review = db.Column(db.Text, nullable=False)
     review_time = db.Column(db.DateTime, nullable=False)
 
@@ -577,11 +577,11 @@ class ArtifactFavorites(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
     artifact_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=True)
+        "artifacts.id", ondelete='CASCADE'), nullable=True)
     artifact_group_id = db.Column(db.Integer, db.ForeignKey(
-        "artifact_groups.id"), nullable=False)
+        "artifact_groups.id", ondelete='CASCADE'), nullable=False)
 
     def __repr__(self):
         return "<ArtifactFavorites(id=%r, user_id=%r,artifact_group_id=%r)>" % (
@@ -595,7 +595,7 @@ class Sessions(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
     sso_token = db.Column(db.String(64), nullable=False)
     expires_on = db.Column(db.DateTime, nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
@@ -610,8 +610,8 @@ class ArtifactGroup(db.Model):
     __tablename__ = "artifact_groups"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    publication_id = db.Column(db.Integer, db.ForeignKey("artifact_publications.id"))
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
+    publication_id = db.Column(db.Integer, db.ForeignKey("artifact_publications.id", ondelete='CASCADE'), nullable=True)
     next_version = db.Column(db.Integer, nullable=False)
 
     owner = db.relationship("User", uselist=False)
@@ -624,12 +624,12 @@ class ArtifactGroup(db.Model):
         foreign_keys=[ArtifactRelationship.related_artifact_group_id])
     publications = db.relationship(
         "ArtifactPublication", uselist=True, viewonly=True,
-        #secondary="join(Artifact, ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id)",
-        #secondaryjoin="Artifact.artifact_group_id == ArtifactGroup.id",
         secondary="join(Artifact, ArtifactPublication, Artifact.id == ArtifactPublication.artifact_id)",
         secondaryjoin="Artifact.id == ArtifactPublication.artifact_id",
         primaryjoin="ArtifactGroup.id == Artifact.artifact_group_id")
 
+    #secondary="join(Artifact, ArtifactGroup, Artifact.artifact_group_id == ArtifactGroup.id)",
+    #secondaryjoin="Artifact.artifact_group_id == ArtifactGroup.id",
     __user_ro_fields__ = (
         "owner_id",
     )
@@ -650,7 +650,7 @@ class Artifact(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_group_id = db.Column(
-        db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
+        db.Integer, db.ForeignKey("artifact_groups.id", ondelete='CASCADE'), nullable=False)
     type = db.Column(db.Enum(*ARTIFACT_TYPES,name="artifact_enum"))
     url = db.Column(db.String(1024), nullable=False)
     ext_id = db.Column(db.String(512))
@@ -660,14 +660,14 @@ class Artifact(db.Model):
     mtime = db.Column(db.DateTime, nullable=True)
     description = db.Column(db.Text, nullable=True)
     license_id = db.Column(db.Integer, db.ForeignKey(
-        "licenses.id"), nullable=True)
-    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+        "licenses.id", ondelete='CASCADE'), nullable=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=True)
     importer_id = db.Column(db.Integer, db.ForeignKey(
-        "importers.id"), nullable=True)
+        "importers.id", ondelete='CASCADE'), nullable=True)
     exporter_id = db.Column(db.Integer, db.ForeignKey(
-        "exporters.id"), nullable=True)
+        "exporters.id", ondelete='CASCADE'), nullable=True)
     parent_id = db.Column(db.Integer, db.ForeignKey(
-        "artifacts.id"), nullable=True)
+        "artifacts.id", ondelete='CASCADE'), nullable=True)
 
     artifact_group = db.relationship("ArtifactGroup", uselist=False)
     exporter = db.relationship("Exporter", uselist=False)
@@ -723,8 +723,8 @@ class Artifact(db.Model):
 class ArtifactSearchMaterializedView(db.Model):
     # The ArtifactSearchMaterializedView class provides an internal model of a SEARCCH artifact's searchable index.
     __tablename__ = "artifact_search_view"
-
     dummy_id = db.Column(db.Integer, primary_key=True)  # this id does not actually exist in the database
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id", ondelete='CASCADE'), nullable=False)
     artifact_id = db.Column(db.Integer)
     doc_vector = db.Column(TSVECTOR)
     
@@ -752,7 +752,7 @@ class ArtifactImport(db.Model):
         nullable=False)
     url = db.Column(db.String(1024), nullable=False)
     importer_module_name = db.Column(db.String(256), nullable=True)
-    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
     ctime = db.Column(db.DateTime, nullable=False)
     mtime = db.Column(db.DateTime, nullable=True)
     # Status of the import from back end's perspective
@@ -774,9 +774,9 @@ class ArtifactImport(db.Model):
     # new artifact_group_id and artifact_id until the import succeeds (once
     # status=complete and phase=done).
     #
-    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=True)
-    parent_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"), nullable=True)
-    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"), nullable=True)
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id", ondelete='CASCADE'), nullable=True)
+    parent_artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id", ondelete='CASCADE'), nullable=True)
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id", ondelete='CASCADE'), nullable=True)
     archived = db.Column(db.Boolean, nullable=False, default=False)
 
     owner = db.relationship("User", uselist=False)
@@ -806,14 +806,14 @@ class ArtifactOwnerRequest(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id", ondelete='CASCADE'), nullable=False)
     message = db.Column(db.Text, nullable=False)
     ctime = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.Enum(*ARTIFACT_OWNER_REQUEST_STATUS,name="artifact_owner_request_status_enum"), nullable=False)
     action_message = db.Column(db.Text, nullable=True)
     action_time = db.Column(db.DateTime, nullable=True)
-    action_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    action_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=True)
 
     user = db.relationship("User", uselist=False, foreign_keys=[user_id])
     action_by_user = db.relationship("User", uselist=False, foreign_keys=[action_by_user_id])
@@ -856,9 +856,9 @@ class ImporterSchedule(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     artifact_import_id = db.Column(
-        db.Integer, db.ForeignKey("artifact_imports.id"), nullable=False)
+        db.Integer, db.ForeignKey("artifact_imports.id", ondelete='CASCADE'), nullable=False)
     importer_instance_id = db.Column(
-        db.Integer, db.ForeignKey("importer_instances.id"), nullable=True)
+        db.Integer, db.ForeignKey("importer_instances.id", ondelete='CASCADE'), nullable=True)
     schedule_time = db.Column(db.DateTime, nullable=True)
     # NB: this is the ID of the artifact import in the importer instance
     remote_id = db.Column(db.Integer, nullable=True)
@@ -881,8 +881,8 @@ class StatsArtifactViews(db.Model):
     __tablename__ = "stats_views"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id", ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=True)
     view_count = db.Column(db.Integer, nullable=False)
     def __repr__(self):
         return "<StatsArtifactViews(id=%r, artifact_group_id=%r, user_id=%r,view_count=%r)>" % (self.id, self.artifact_group_id, self.user_id, self.view_count)
@@ -900,8 +900,8 @@ class StatsRecentViews(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     session_id = db.Column(db.Integer, nullable=False)
-    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id", ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=True)
     view_count = db.Column(db.Integer, nullable=False)
     def __repr__(self):
         return "<StatsRecentViews(id=%r, session_id=%r, artifact_group_id=%r, user_id=%r,view_count=%r)>" % (self.id, self.session_id, self.artifact_group_id, self.user_id, self.view_count)
@@ -910,8 +910,8 @@ class ArtifactRequests(db.Model):
     __tablename__ = "artifact_requests"
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id"), nullable=False)
-    requester_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    artifact_group_id = db.Column(db.Integer, db.ForeignKey("artifact_groups.id", ondelete='CASCADE'), nullable=False)
+    requester_user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete='CASCADE'), nullable=False)
     project = db.Column(db.String(2048), nullable=False)
     project_description = db.Column(db.String(2048), nullable=False)
     researchers = db.Column(db.String(2048), nullable=False)
@@ -927,7 +927,7 @@ class Labels(db.Model):
     __tablename__ = "labels"
     
     label_id = db.Column(db.String(128),primary_key=True, nullable=False)
-    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id"))
+    artifact_id = db.Column(db.Integer, db.ForeignKey("artifacts.id", ondelete='CASCADE'))
     label_url = db.Column(db.String(2048), nullable=False)
 
     def __repr__(self):
