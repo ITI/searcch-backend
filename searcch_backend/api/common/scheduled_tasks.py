@@ -14,20 +14,25 @@ LOG = logging.getLogger(__name__)
 SUBJECT = 'The SEARCCH Invitation: Help Us Help Others Find and Reuse Your Research Artifacts'
 class SearcchBackgroundTasks():
 
-    def __init__(self, config, db: SQLAlchemy, mail: Mail):
+    def __init__(self, config, app, db: SQLAlchemy, mail: Mail):
         self.config = config
+        self.app = app
         self.db = db
         self.mail = mail
+        self.scheduler = None
         self.setupScheduledTask()
 
     def setupScheduledTask(self):
-        scheduler = BackgroundScheduler()
-        scheduler.add_job(func=self.collectRecentViews, trigger="interval", seconds=self.config['STATS_GARBAGE_COLLECTOR_INTERVAL'])
-        scheduler.add_job(func=self.email_invitations_task, trigger="interval", days=1)
-        scheduler.start()
+        self.scheduler = BackgroundScheduler()
+        self.scheduler.add_job(func=self.collectRecentViews, trigger="interval", seconds=self.config['STATS_GARBAGE_COLLECTOR_INTERVAL'])
+        self.scheduler.add_job(func=self.email_invitations_task, trigger="interval", seconds=self.config['EMAIL_INVITATIONS_INTERVAL'])
+        self.scheduler.start()
         
         # Shut down the scheduler when exiting the app
-        atexit.register(lambda: scheduler.shutdown())
+        atexit.register(lambda: self.scheduler.shutdown())
+
+    def stopScheduledTask(self):
+        self.scheduler.shutdown()
 
     def collectRecentViews(self):
         # Garbage Collector used to empty recent_views database table and update the stats_views table periodically

@@ -6,6 +6,8 @@ class Config(object):
     APPLICATION_ROOT = '/v{}'.format(API_VERSION)
     # Run garbage collector once every day to move data from recent_views table to stats_views table
     STATS_GARBAGE_COLLECTOR_INTERVAL = 24*60*60
+    # Run email invitations processor hourly.
+    EMAIL_INVITATIONS_INTERVAL = 60 * 60
 
 
 class DevelopmentConfig(Config):
@@ -22,6 +24,7 @@ class DevelopmentConfig(Config):
     MAIL_SUPPRESS_SEND = False
     ADMIN_MAILING_RECIPIENTS = []
     MAIL_SERVER = "searcch-backend-postfix"
+    EMAIL_INVITATIONS_INTERVAL = 120
     EMAIL_INTERVAL_DAYS = 30
     MAX_INVITATION_ATTEMPTS = 3
 

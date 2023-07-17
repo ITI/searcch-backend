@@ -31,7 +31,10 @@ if worker_class == "gevent":
 
 #preload_app = True
 
+global sbt
 def on_starting(server):
+    global sbt
+
     from searcch_backend.api.app import (app, config, db, mail, migrate)
     from searcch_backend.api.common.alembic import maybe_auto_upgrade_db
     from searcch_backend.api.common.scheduled_tasks import SearcchBackgroundTasks
@@ -39,5 +42,13 @@ def on_starting(server):
     # Run DB migrations
     maybe_auto_upgrade_db(app, db, migrate)
 
-    #Run Scheduler
-    SearcchBackgroundTasks(config, db, mail)
+    # Run Scheduler
+    sbt = SearcchBackgroundTasks(config, app, db, mail)
+
+#
+# Brutal hack.  We only want to run the background tasks in the arbiter, but to
+# do that, the only hook we have is on_starting.  Therefore, we must stop the
+# scheduler in the workers after they fork.
+#
+def post_fork(server, worker):
+    sbt.stopScheduledTask()
