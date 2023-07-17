@@ -12,6 +12,7 @@ from searcch_backend.api.common.auth import (
     verify_api_key, lookup_token, verify_token)
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
+from random import * 
 
 LOG = logging.getLogger(__name__)
 
@@ -23,9 +24,8 @@ def verify_strategy(strategy):
 def create_new_session(user, sso_token):
     expiry_timestamp = datetime.datetime.now() + \
       datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
-    new_session = Sessions(
-        user=user, sso_token=sso_token, expires_on=expiry_timestamp,
-        is_admin=False)
+    otp = randint(100000, 999999)
+    new_session = Sessions(user=user, sso_token=sso_token, expires_on=expiry_timestamp,is_admin=False, otp=otp)
     db.session.add(new_session)
     #
     # Handle race condition caused by the choice not to lock this table; hit

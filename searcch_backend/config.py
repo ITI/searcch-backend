@@ -21,7 +21,9 @@ class DevelopmentConfig(Config):
     JSON_SORT_KEYS = False
     MAIL_SUPPRESS_SEND = False
     ADMIN_MAILING_RECIPIENTS = []
-    MAIL_SERVER = "searcch-backend-postfix"
+    MAIL_SERVER = "ant.isi.edu"
+    MAIL_PORT = 25
+    MAIL_USE_TLS = False
 
 class ProductionConfig(Config):
     """
@@ -36,7 +38,9 @@ class ProductionConfig(Config):
     JSON_SORT_KEYS = False
     MAIL_SUPPRESS_SEND = False
     ADMIN_MAILING_RECIPIENTS = []
-    MAIL_SERVER = "searcch-backend-postfix"
+    MAIL_SERVER = "ant.isi.edu"
+    MAIL_PORT = 25
+    MAIL_USE_TLS = False
 
 app_config = {
     'development': DevelopmentConfig,
