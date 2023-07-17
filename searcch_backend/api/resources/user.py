@@ -1,11 +1,11 @@
 # logic for /rating
 
-from searcch_backend.api.app import db, config_name
+from searcch_backend.api.app import db, config_name, mail
 from searcch_backend.api.common.auth import (verify_api_key, verify_token)
 from searcch_backend.api.common.sql import object_from_json
 from searcch_backend.models.model import *
 from searcch_backend.models.schema import *
-from flask import abort, jsonify, request, url_for, Blueprint
+from flask import abort, jsonify, request
 from flask_restful import reqparse, Resource, fields, marshal
 from sqlalchemy import func, desc, asc, sql, or_
 import sqlalchemy
@@ -15,9 +15,10 @@ import math
 
 import base64
 import werkzeug
+from flask_mail import Message  
+from random import * 
 
 LOG = logging.getLogger(__name__)
-
 class UsersIndexAPI(Resource):
 
     def __init__(self):
@@ -129,6 +130,8 @@ class UserProfileAPI(Resource):
                                    type=str, required=False)
         self.reqparse.add_argument(name='email', 
                                    type=str, required=False)
+        self.reqparse.add_argument(name='userOTP', 
+                                   type=str, required=False)
         self.reqparse.add_argument(name='position', 
                                    type=str, required=False)
 
@@ -196,18 +199,70 @@ class UserProfileAPI(Resource):
         research_interests = args['research_interests']
         website = args['website']
         email = args['email']
+        userOTP = args['userOTP']
         position = args['position']
         user = login_session.user
         person = db.session.query(Person).filter(Person.id == user.person_id).first()
+
+        # The email field is not empty, thus we must consider the following cases:
+        # 1. The user is trying to register an email that has already been registered under a different personID. 
+        # In this case we do not allow registration and let the user know the same. 
+        # 2. The user is trying to update another field other than the email ID, i.e. the email provided and the email present in the DB are the same.
+        # In this case we do nothing and we fall-through the block and allow the rest of the details to be updated
+        # 3. The user is registering a unique email for the first time.
+        # In this case we send an email to the user that contains an OTP that has been recorded at the time the user creates a session in the DB
+        # 4. The user is registering the unique email with a non-empty OTP field.
+        # If the OTP matches the one in the DB we allow for the email to be registered. If not we prevent registration and update the OTP field in the DB.
 
         if email is not None:
             email_not_unique = db.session.query(Person).filter(Person.email == email.strip(), Person.id != user.person_id).first() is not None
             if email_not_unique:
                 response = jsonify({"message": "Another user has been registered with the same email",
-                                    "error": "true"})
+                                    "action": "NON_UNIQUE_EMAIL"})
                 response.headers.add('Access-Control-Allow-Origin', '*')
                 response.status_code = 200
                 return response
+            
+            # If person.email == email then the email field is the same as before and thus we dont need to send an OTP again
+            elif person.email!=email: 
+                # If no OTP is provided, the user is starting the verification process
+                if userOTP is None or len(userOTP) == 0:
+
+                    # Update the OTP since we don't want to use an old one
+                    login_session.otp = randint(100000, 999999)
+                    db.session.commit()
+
+                    #send email with OTP
+                    msg = Message('COMUNDA | Email Verification', recipients=[email])  
+                    msg.body = 'Please use this One-time Password (OTP) to verify your email with COMUNDA: ' + str(login_session.otp)  
+                    mail.send(msg)
+
+                    #return response with message
+                    response = jsonify({"message": "Check email for OTP",
+                                    "action": "OTP_SENT"})
+                    response.headers.add('Access-Control-Allow-Origin', '*')
+                    response.status_code = 200
+                    return response
+                else:
+                    LOG.error("User otp:")
+                    LOG.error(userOTP)
+
+                    #verify OTP and then proceed. If they are unequal we return without updating the DB.
+                    LOG.error("Original otp:")
+                    saved_otp = login_session.otp
+                    LOG.error(saved_otp)
+
+                    if str(saved_otp) != userOTP:
+
+                        # Change the OTP since the user OTP is invalid
+                        login_session.otp = randint(100000, 999999)
+                        db.session.commit()
+
+                        response = jsonify({"message": "Invalid OTP submitted. Click 'Verify Email' to get a new one.",
+                                     "action": "OTP_INVALID"})
+                        response.headers.add('Access-Control-Allow-Origin', '*')
+                        response.status_code = 200
+                        return response  
             
         if name is not None:
             person.name = name

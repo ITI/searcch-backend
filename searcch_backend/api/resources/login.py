@@ -24,7 +24,7 @@ def verify_strategy(strategy):
 def create_new_session(user, sso_token):
     expiry_timestamp = datetime.datetime.now() + \
       datetime.timedelta(minutes=app.config['SESSION_TIMEOUT_IN_MINUTES'])
-    otp = randint(100000, 999999)
+    otp = randint(100000, 999999) # Set an OTP to be used for email verification if required
     new_session = Sessions(user=user, sso_token=sso_token, expires_on=expiry_timestamp,is_admin=False, otp=otp)
     db.session.add(new_session)
     #
