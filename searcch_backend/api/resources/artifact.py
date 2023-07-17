@@ -584,7 +584,8 @@ class ArtifactAPI(Resource):
 
         # Update Artifact "member" tables that are primarily related to the
         # group, but index the related artifact version specifically.
-        tables = [ ArtifactRatings, ArtifactReviews, ArtifactFavorites, StatsRecentViews, StatsArtifactViews ]
+        tables = [ ArtifactRatings, ArtifactReviews, ArtifactFavorites,
+                   StatsRecentViews, StatsArtifactViews, OwnershipInvitation ]
         for table in tables:
             records = db.session.query(table).\
               filter(getattr(table, "artifact_group_id") == artifact_group_id).\
