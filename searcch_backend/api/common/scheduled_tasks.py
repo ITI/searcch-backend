@@ -6,7 +6,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import func, or_
 from datetime import datetime, timedelta
 from flask_mail import Message, Mail
-from flask import render_template
+import jinja2
 
 LOG = logging.getLogger(__name__)
 
@@ -100,14 +100,19 @@ class SearcchBackgroundTasks():
             exists.attempts += 1
             exists.last_attempt = datetime.today()
         msgs = []
+        env = jinja2.Environment(
+            loader=jinja2.PackageLoader('searcch_backend.api', 'templates'))
         if len(first_artifacts) > 0:
-            html = render_template("ownership_invitation_attempt_1.html", artifact_groups=first_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
+            template = env.get_template("ownership_invitation_attempt_1.html")
+            html = template.render(artifact_groups=first_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
             msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_MAILING_RECIPIENTS']))
         if len(reminder_artifacts) > 0:
-            html = render_template("ownership_invitation_attempt_2.html", artifact_groups=reminder_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
+            template = env.get_template("ownership_invitation_attempt_2.html")
+            html = template.render(artifact_groups=reminder_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
             msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_MAILING_RECIPIENTS']))
         if len(final_artifacts) > 0:
-            html = render_template("ownership_invitation_attempt_3.html", artifact_groups=final_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
+            template = env.get_template("ownership_invitation_attempt_3.html")
+            html = template.render(artifact_groups=final_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
             msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_MAILING_RECIPIENTS']))
         if len(msgs) > 0:
             ownership_email.valid_until = valid_until
@@ -162,22 +167,16 @@ class SearcchBackgroundTasks():
             group.add(artifact_group)
             groups_by_email[person.email] = group
         
-
         for email, persons in persons_by_email.items():
             persons_by_email[email] = self.find_author_name(persons)
 
-        email_msgs = [msg for email, artifact_groups in groups_by_email.items() for msg in self.create_email(email, persons_by_email[email], artifact_groups)]
-        try:
-
-            with self.mail.connect() as conn:
-                for email_msg in email_msgs:
-                    if not self.config['TESTING'] and not self.config['DEBUG']:
-                        # conn.send(email_msg) # Do not go live until frontend urls in place
-                        pass
-                    else:
+        with self.app.app_context() as ctx:
+            email_msgs = [msg for email, artifact_groups in groups_by_email.items() for msg in self.create_email(email, persons_by_email[email], artifact_groups)]
+            try:
+                with self.mail.connect() as conn:
+                    for email_msg in email_msgs:
                         LOG.debug(email_msg)
-        except:
-            LOG.warning("could not connect to email service")
-        self.db.session.commit()
-
-
+                        conn.send(email_msg) # Do not go live until frontend urls in place
+            except:
+                LOG.warning("could not connect to email service")
+            self.db.session.commit()
