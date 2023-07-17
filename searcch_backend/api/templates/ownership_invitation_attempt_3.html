@@ -65,7 +65,7 @@ artifacts to the SEARCCH hub.&nbsp;</span></p>
 <ul style='margin-top:0in' type=disc>
  {% for artifact in artifact_groups %}
  <li class=MsoNormal style='margin-bottom:0in;line-height:normal;vertical-align:
-     baseline'><a href="{{ frontend_url }}/artifact/request/owner/{{ artifact.id }}?email={{email}}&key={{key}}"><span style='font-family:"Arial",sans-serif'>{{ artifact.publications[0].artifact.title }}</span></a></li>
+     baseline'><a href="{{ frontend_url }}/artifact/{{ artifact.id }}?email={{email}}&key={{key}}"><span style='font-family:"Arial",sans-serif'>{{ artifact.publications[0].artifact.title }}</span></a></li>
  {% endfor %}
 </ul>
 
