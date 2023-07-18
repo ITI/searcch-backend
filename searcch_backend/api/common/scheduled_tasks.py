@@ -105,15 +105,15 @@ class SearcchBackgroundTasks():
         if len(first_artifacts) > 0:
             template = env.get_template("ownership_invitation_attempt_1.html")
             html = template.render(artifact_groups=first_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
-            msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_MAILING_RECIPIENTS']))
+            msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_LOG_RECIPIENTS']))
         if len(reminder_artifacts) > 0:
             template = env.get_template("ownership_invitation_attempt_2.html")
             html = template.render(artifact_groups=reminder_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
-            msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_MAILING_RECIPIENTS']))
+            msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_LOG_RECIPIENTS']))
         if len(final_artifacts) > 0:
             template = env.get_template("ownership_invitation_attempt_3.html")
             html = template.render(artifact_groups=final_artifacts, author_name=author_name, email=email, key=ownership_email.key, frontend_url=self.config['FRONTEND_URL'])
-            msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_MAILING_RECIPIENTS']))
+            msgs.append(Message(SUBJECT, [email], html=html, bcc=self.config['ADMIN_LOG_RECIPIENTS']))
         if len(msgs) > 0:
             ownership_email.valid_until = valid_until
         return msgs
@@ -146,13 +146,28 @@ class SearcchBackgroundTasks():
             if artifact_group.publication:
                 emails = []
                 for aaf in artifact_group.publication.artifact.affiliations:
-                    emails.append(aaf.affiliation.person.email)
+                    if aaf.affiliation.person.email:
+                        emails.append(aaf.affiliation.person.email)
                 # filter out artifact groups where admin is one of the authors
                 if artifact_group.owner.person.email not in emails:
                     for aaf in artifact_group.publication.artifact.affiliations:
-                        # remove those who have opted_out
-                        if aaf.affiliation.person.email:
-                            person_to_artifact_group.append((aaf.affiliation.person, artifact_group))
+                        if not aaf.affiliation.person.email:
+                            continue
+
+                        # Remove those who have opted_out
+                        ownership_email = OwnershipEmail.query.filter_by(email=aaf.affiliation.person.email).first()
+                        if ownership_email and ownership_email.opt_out == True:
+                            LOG.info("skipping email to opted-out recipient %r", aaf.affiliation.person.email)
+                            continue
+
+                        # Remove those who are not on the RECIPIENT_ALLOW_FILTER list, if any.
+                        if not self.config['RECIPIENT_ALLOW_FILTER'] \
+                          or aaf.affiliation.person.email not in self.config['RECIPIENT_ALLOW_FILTER']:
+                            LOG.info("skipping email to filtered recipient %r", aaf.affiliation.person.email)
+                            continue
+
+                        # Else, continue to email this person.
+                        person_to_artifact_group.append((aaf.affiliation.person, artifact_group))
                 else:
                     LOG.debug("Author is admin")
         # group owners by email in case of duplicates
