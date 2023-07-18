@@ -1,0 +1,185 @@
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=utf-8">
+<meta name=Generator content="Microsoft Word 15 (filtered)">
+<style>
+<!--
+ /* Font Definitions */
+ @font-face
+	{font-family:Wingdings;
+	panose-1:5 0 0 0 0 0 0 0 0 0;}
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:8.0pt;
+	margin-left:0in;
+	line-height:107%;
+	font-size:11.0pt;
+	font-family:"Calibri",sans-serif;}
+.MsoChpDefault
+	{font-family:"Calibri",sans-serif;}
+.MsoPapDefault
+	{margin-bottom:8.0pt;
+	line-height:107%;}
+@page WordSection1
+	{size:8.5in 11.0in;
+	margin:1.0in 1.0in 1.0in 1.0in;}
+div.WordSection1
+	{page:WordSection1;}
+ /* List Definitions */
+ ol
+	{margin-bottom:0in;}
+ul
+	{margin-bottom:0in;}
+-->
+</style>
+
+</head>
+
+<body lang=EN-US link=blue vlink="#954F72" style='word-wrap:break-word'>
+
+<div class=WordSection1>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>Dear {{author_name}},</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>SEARCCH is a National Science Foundation
+(NSF) sponsored effort that is creating a collaborative, community-driven
+portal (aka, the SEARCCH &quot;hub&quot;) to help researchers rapidly share and
+find cybersecurity research artifacts that may be useful to their research.&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>As part of this effort, we are
+automatically identifying and importing high-value research artifacts from our
+colleagues into the SEARCCH artifacts index. We have identified and created
+catalog entries for the following research artifacts that appear to be your
+work:</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'><br>
+<br>
+</span></p>
+
+<ul style='margin-top:0in' type=disc>
+ {% for artifact in artifact_groups %}
+ <li class=MsoNormal style='margin-bottom:0in;line-height:normal;vertical-align:
+     baseline'><a href="{{ frontend_url }}/artifact/{{ artifact.id }}?email={{email}}&key={{key}}"><span style='font-family:"Arial",sans-serif'>{{ artifact.publications[0].artifact.title }}</span></a></li>
+ {% endfor %}
+</ul>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>The SEARCCH team invites you to join our
+community, take ownership of your research artifact catalog entries, share new
+research artifacts, and engage in the new community discussion about artifacts
+that may be useful to or a result of your research.&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><b><span
+style='font-family:"Arial",sans-serif'>Join the SEARCCH community:</span></b><span
+style='font-family:"Arial",sans-serif'> Go to the hub (</span><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'><a
+href="https://hub.cyberexperimentation.org"><span style='font-size:11.0pt;
+font-family:"Arial",sans-serif'>https://hub.cyberexperimentation.org</span></a></span><span
+style='font-family:"Arial",sans-serif'>), and click on “LOGIN.” Choose the SSO
+authentication mechanism you want to use (GitHub, Google, or CILogon). An
+account will be automatically created for you. You can edit your account to
+share information about your research interests and organization
+affiliations.&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><b><span
+style='font-family:"Arial",sans-serif'>Take ownership of an artifact catalog
+entry**: </span></b><span style='font-family:"Arial",sans-serif'>Log in first.
+Then, visit the artifact links listed above, and follow the prompts. Once your
+ownership requests are approved, you can change your catalog contents to
+correct or enhance the searchable information about your artifacts.</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>We look forward to seeing you on the
+hub!</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>Sincerely,</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>The SEARCCH Team</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>Laura Tinnel, SRI
+International</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>David Balenson, USC-ISI</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>Terry Benzel, USC-ISI</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>Jelena Mirkovic, USC-ISI</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>Eric Eide, University of
+Utah</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>David Johnson,
+University of Utah</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>David Emmerich, University
+of Illinois, Urbana-Champaign</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'><a
+href="https://searcch.cyberexperimentation.org"><span style='font-size:11.0pt;
+font-family:"Arial",sans-serif'>https://searcch.cyberexperimentation.org</span></a></span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>** Please note: Artifact entries in the
+SEARCCH hub may have only one owner though an artifact may have multiple
+authors/owners. Please designate ONE author to take ownership. All authors may
+join and participate in the hub.</span></p>
+
+<p class=MsoNormal><span style='font-size:12.0pt;line-height:107%;font-family:
+"Times New Roman",serif'><br>
+</span><span style='font-family:"Arial",sans-serif'>If you do not wish to
+receive further notices about SEARCCH and your artifacts, you may <a href="{{frontend_url}}/optout?email={{email}}&key={{key}}">opt out
+here.</a></span></p>
+
+</div>
+
+</body>
+
+</html>

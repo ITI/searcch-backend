@@ -1,0 +1,4 @@
+<h1>test</h1>
+{% for artifact in artifact_groups %}
+<div><span><a href="{{ frontend_url }}/artifact/{{ artifact.id }}">{{ artifact.publications[0].artifact.title }}</a></span></div>
+{% endfor %}

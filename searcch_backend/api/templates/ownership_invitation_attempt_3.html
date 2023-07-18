@@ -1,0 +1,168 @@
+<html>
+
+<head>
+<meta http-equiv=Content-Type content="text/html; charset=utf-8">
+<meta name=Generator content="Microsoft Word 15 (filtered)">
+<style>
+<!--
+ /* Font Definitions */
+ @font-face
+	{font-family:Wingdings;
+	panose-1:5 0 0 0 0 0 0 0 0 0;}
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:8.0pt;
+	margin-left:0in;
+	line-height:107%;
+	font-size:11.0pt;
+	font-family:"Calibri",sans-serif;}
+a:link, span.MsoHyperlink
+	{color:blue;
+	text-decoration:underline;}
+.MsoChpDefault
+	{font-family:"Calibri",sans-serif;}
+.MsoPapDefault
+	{margin-bottom:8.0pt;
+	line-height:107%;}
+@page WordSection1
+	{size:8.5in 11.0in;
+	margin:1.0in 1.0in 1.0in 1.0in;}
+div.WordSection1
+	{page:WordSection1;}
+ /* List Definitions */
+ ol
+	{margin-bottom:0in;}
+ul
+	{margin-bottom:0in;}
+-->
+</style>
+
+</head>
+
+<body lang=EN-US link=blue vlink="#954F72" style='word-wrap:break-word'>
+
+<div class=WordSection1>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>Dear {{author_name}},</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:11.5pt;font-family:"Arial",sans-serif;color:black;background:
+white'>This is a final reminder that we automatically added entries for your
+artifacts to the SEARCCH hub.&nbsp;</span></p>
+
+<ul style='margin-top:0in' type=disc>
+ {% for artifact in artifact_groups %}
+ <li class=MsoNormal style='margin-bottom:0in;line-height:normal;vertical-align:
+     baseline'><a href="{{ frontend_url }}/artifact/{{ artifact.id }}?email={{email}}&key={{key}}"><span style='font-family:"Arial",sans-serif'>{{ artifact.publications[0].artifact.title }}</span></a></li>
+ {% endfor %}
+</ul>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:11.5pt;font-family:"Arial",sans-serif;color:black;background:
+white'>To take ownership of your artifact catalog entry, please join the SEARCH
+community using the instructions below. Log into your account, </span><span
+style='font-family:"Arial",sans-serif'>visit each artifact link listed above,
+and follow the prompts. Once your ownership requests are approved, you can
+change your catalog contents to correct or enhance the searchable information
+about your artifacts.</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><b><span
+style='font-family:"Arial",sans-serif'>Join the SEARCCH community:</span></b><span
+style='font-family:"Arial",sans-serif'> Go to the hub (<a
+href="https://hub.cyberexperimentation.org">https://hub.cyberexperimentation.org</a>),
+and click on “LOGIN.” Choose the SSO authentication mechanism you want to use
+(GitHub, Google, or CILogon). An account will be automatically created for you.
+You can edit your account to share information about your research interests
+and organization affiliations.&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>We look forward to seeing you on the
+hub!</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>Sincerely,</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>The SEARCCH Team</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>Laura Tinnel, SRI
+International</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>David Balenson, USC-ISI</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>Terry Benzel, USC-ISI</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>Jelena Mirkovic, USC-ISI</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>Eric Eide, University of
+Utah</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>David Johnson,
+University of Utah</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:9.0pt;font-family:"Arial",sans-serif'>David Emmerich,
+University of Illinois, Urbana-Champaign</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'><a
+href="https://searcch.cyberexperimentation.org"><span style='font-size:11.0pt;
+font-family:"Arial",sans-serif'>https://searcch.cyberexperimentation.org</span></a></span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>** Please note: Artifact entries in the
+SEARCCH hub may have only one owner though an artifact may have multiple
+authors/owners. Please designate ONE author to take ownership. All authors may
+join and participate in the hub.</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-size:12.0pt;font-family:"Times New Roman",serif'>&nbsp;</span></p>
+
+<p class=MsoNormal style='margin-bottom:0in;line-height:normal'><span
+style='font-family:"Arial",sans-serif'>If you do not wish to receive further
+notices about SEARCCH and your artifacts, you may <a href="{{frontend_url}}/optout?email={{email}}&key={{key}}">opt out
+here.</a></span></p>
+
+<p class=MsoNormal>&nbsp;</p>
+
+</div>
+
+</body>
+
+</html>

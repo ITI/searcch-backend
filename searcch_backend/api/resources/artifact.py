@@ -584,7 +584,8 @@ class ArtifactAPI(Resource):
 
         # Update Artifact "member" tables that are primarily related to the
         # group, but index the related artifact version specifically.
-        tables = [ ArtifactRatings, ArtifactReviews, ArtifactFavorites, StatsRecentViews, StatsArtifactViews ]
+        tables = [ ArtifactRatings, ArtifactReviews, ArtifactFavorites,
+                   StatsRecentViews, StatsArtifactViews, OwnershipInvitation ]
         for table in tables:
             records = db.session.query(table).\
               filter(getattr(table, "artifact_group_id") == artifact_group_id).\
@@ -899,8 +900,16 @@ class ArtifactOwnerRequestAPI(Resource):
         self.postparse = reqparse.RequestParser()
         self.postparse.add_argument(name='message',
                                    type=str,
-                                   required=True,
-                                   help='reason for owernship request')
+                                   required=False,
+                                   help='Invalid justification for ownership request')
+        self.postparse.add_argument(name='email',
+                                   type=str,
+                                   required=False,
+                                   help='Invalid email address for ownership request')
+        self.postparse.add_argument(name='key',
+                                   type=str,
+                                   required=False,
+                                   help='Invalid claim key for ownership request')
 
         super(ArtifactOwnerRequestAPI, self).__init__()
 
@@ -945,12 +954,40 @@ class ArtifactOwnerRequestAPI(Resource):
             abort(404, description="cannot process request, pending request already exists")
 
         args = self.postparse.parse_args()
+        if not args.message and not args.key:
+            abort(400, description="Invalid claim request: must provide either justification message or claim key")
+        elif args.key and not args.message:
+            args.message = args.key
+
         dt = datetime.datetime.now()
         new_artifact_owner_request = ArtifactOwnerRequest(
             user_id=login_session.user_id,
             artifact_group_id=artifact_group_id, message=args.message,
             ctime=dt, status="pending")
         db.session.add(new_artifact_owner_request)
+
+        # Check if we can instantly approve this request
+        auto_approved = False
+        if args.key:
+            pending = db.session.query(OwnershipEmail, OwnershipInvitation, ArtifactGroup).\
+              join(OwnershipInvitation, OwnershipEmail.email == OwnershipInvitation.email).\
+              join(ArtifactGroup, OwnershipInvitation.artifact_group_id == ArtifactGroup.id).\
+              filter(OwnershipEmail.key == args.key).\
+              filter(OwnershipEmail.email == args.email).\
+              filter(ArtifactGroup.id == artifact_group.id).\
+              first()
+            if not pending:
+                abort(403, description="Invalid claim request key")
+
+            # Match: instantly approve
+            (poe, poi, artifact_group) = pending
+            new_artifact_owner_request.status = "pre_approved"
+            artifact_group = db.session.query(ArtifactGroup).\
+              filter(ArtifactGroup.id == new_artifact_owner_request.artifact_group_id).\
+              first()
+            artifact_group.owner_id = login_session.user_id
+            auto_approved = True
+
         db.session.commit()
 
         mail_data = db.session.query(ArtifactOwnerRequest, User, Person, Artifact).\
@@ -968,7 +1005,10 @@ class ArtifactOwnerRequestAPI(Resource):
                 continue
             msg.recipients = [recipient]
             is_admin = (recipient in app.config['ADMIN_MAILING_RECIPIENTS'])
-            msg.html = render_template("ownership_request_email_pending.html",\
+            template_name = "ownership_request_email_pending.html"
+            if auto_approved:
+                template_name = "ownership_request_email_approved.html"
+            msg.html = render_template(template_name,\
                 artifact_group_id=mail_data.Artifact.artifact_group_id, \
                 artifact_link=f'{app.config["FRONTEND_URL"]}/artifact/{mail_data.Artifact.artifact_group_id}',\
                 artifact_title=mail_data.Artifact.title,\
@@ -980,9 +1020,13 @@ class ArtifactOwnerRequestAPI(Resource):
                 admin_link=f'{app.config["FRONTEND_URL"]}/admin/claims')
             mail.send(msg)
 
-        response = jsonify({"message": "artifact ownership saved successfully"})
+        if auto_approved:
+            response = jsonify({"message": "Artifact ownership request automatically approved"})
+            response.status_code = 202
+        else:
+            response = jsonify({"message": "Artifact ownership request createdsfully"})
+            response.status_code = 200
         response.headers.add('Access-Control-Allow-Origin', '*')
-        response.status_code = 200
         return response
 
 class ArtifactOwnerRequestsAPI(Resource):
