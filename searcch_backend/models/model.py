@@ -1110,4 +1110,4 @@ class OwnershipEmail(db.Model):
     valid_until = db.Column(db.DateTime, nullable=False)
     opt_out = db.Column(db.Boolean, nullable=False, default=False)
     def __repr__(self):
-        return "<OwnershipEmailInvitationKeys(email=%r, key=%r, opt_out=%r, valid_until=%r)" % (self.person_id, self.key, self.opt_out, self.valid_util)
+        return "<OwnershipEmail(email=%r, key=%r, opt_out=%r, valid_until=%r)" % (self.email, self.key, self.opt_out, self.valid_until)

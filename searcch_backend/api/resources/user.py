@@ -383,14 +383,31 @@ class UserAffiliationResource(Resource):
         return response
 
 class EmailOptOutResource(Resource):
+
+    def __init__(self):
+        self.postparse = reqparse.RequestParser()
+        self.postparse.add_argument(
+            name='email', type=str, required=True,
+            help='Invalid email address for opt out request')
+        self.postparse.add_argument(
+            name='key', type=str, required=True,
+            help='Invalid claim key for opt out request')
+        super(EmailOptOutResource, self).__init__()
+
     def post(self):
         """
         Opt out of email communications
         """
-        email = request.args.get('email', '')
-        key = request.args.get('key', '')
-        record: OwnershipEmail = OwnershipEmail.query.filter_by(email=email, key=key).first()        
-        if not record or record.valid_until > datetime.today():
+        args = self.postparse.parse_args()
+        email = args.get('email', '')
+        key = args.get('key', '')
+        if not email or not key:
+            response = jsonify({'message': 'Malformed request: must supply both email and key'})
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.status_code = 400
+            return response
+        record: OwnershipEmail = db.session.query(OwnershipEmail).filter_by(email=email, key=key).first()
+        if not record or record.valid_until < datetime.today():
             response = jsonify({'message': 'email or key not found'})
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 401
@@ -402,4 +419,3 @@ class EmailOptOutResource(Resource):
             response.headers.add('Access-Control-Allow-Origin', '*')
             response.status_code = 200
             return response
-    
