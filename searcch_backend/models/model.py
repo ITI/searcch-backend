@@ -600,6 +600,7 @@ class Sessions(db.Model):
     expires_on = db.Column(db.DateTime, nullable=False)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     user = db.relationship("User", uselist=False)
+    otp = db.Column(db.Integer, nullable=True)
 
     def __repr__(self):
         return "<Session(id=%r, user_id=%r, user_can_admin=%r, sso_token=%r, is_admin=%r)>" \
