@@ -37,7 +37,7 @@ def create_new_session(user, sso_token):
         db.session.commit()
         db.session.refresh(new_session)
         return (new_session, True)
-    except sqlalchemy.exc.IntegrityError as err:
+    except sqlalchemy.exc.SQLAlchemyError as err:
         db.session.rollback()
         login_session = lookup_token(sso_token)
         if login_session:
@@ -217,7 +217,9 @@ class LoginAPI(Resource):
                 # So after a call to create_new_session, only use the returned
                 # login_session object.
                 #
-                new_person = Person(name=user_name, email=user_email, login_id=login_id)
+                # We treat emails provided and verified by the 3rd part Auth services as authenticated
+                
+                new_person = Person(name=user_name, email=user_email, emailAuthenticated=True, login_id=login_id)
                 new_user = User(person=new_person)
                 db.session.add(new_user)
 
