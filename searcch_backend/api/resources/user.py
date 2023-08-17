@@ -166,7 +166,8 @@ class UserProfileAPI(Resource):
                         "research_interests": user.person.research_interests,
                         "website": user.person.website,
                         "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else "",
-                        "position":user.person.position
+                        "position":user.person.position,
+                        "emailAuthenticated":user.person.emailAuthenticated
                     },
                     "affiliations": UserAffiliationSchema(many=True).dump(affiliations),
                     
@@ -205,65 +206,82 @@ class UserProfileAPI(Resource):
         person = db.session.query(Person).filter(Person.id == user.person_id).first()
 
         # The email field is not empty, thus we must consider the following cases:
-        # 1. The user is trying to register an email that has already been registered under a different personID. 
+       
+        # A. The user is trying to register an email that has already been registered under a different personID. 
         # In this case we do not allow registration and let the user know the same. 
-        # 2. The user is trying to update another field other than the email ID, i.e. the email provided and the email present in the DB are the same.
+        
+        # B. The user is trying to update another field other than the email ID, i.e. the email provided and the email present in the DB are the same.
         # In this case we do nothing and we fall-through the block and allow the rest of the details to be updated
-        # 3. The user is registering a unique email for the first time.
-        # In this case we send an email to the user that contains an OTP that has been recorded at the time the user creates a session in the DB
-        # 4. The user is registering the unique email with a non-empty OTP field.
-        # If the OTP matches the one in the DB we allow for the email to be registered. If not we prevent registration and update the OTP field in the DB.
+        
+        # C. The user is registering a unique email for the first time.
+        # The email must be registered by an OTP. It will be stored as an unauthenticated email awaiting cases D or E
+        
+        # D. An unauthenticated email is provided with an OTP
+        # We check whether the OTP presented is the same one stored in the user's session object and respond appropriately
+
+        # E. An unauthenticated email is provided without an OTP
+        # We restart the OTP authentication process by sending another email
 
         if email is not None:
+            
             email_not_unique = db.session.query(Person).filter(Person.email == email.strip(), Person.id != user.person_id).first() is not None
-            if email_not_unique:
+            if email_not_unique:  # Case A
                 response = jsonify({"message": "Another user has been registered with the same email",
                                     "action": "NON_UNIQUE_EMAIL"})
                 response.headers.add('Access-Control-Allow-Origin', '*')
                 response.status_code = 200
                 return response
             
-            # If person.email == email then the email field is the same as before and thus we dont need to send an OTP again
-            elif person.email!=email: 
-                # If no OTP is provided, the user is starting the verification process
-                if userOTP is None or len(userOTP) == 0:
+            elif (person.email!=email) or (person.emailAuthenticated == False and (userOTP is None or len(userOTP) == 0)): 
+                # Case C: Since person.email!=email, a new and unique (based on previous block's condition) email has been provided and we must authenticate it with an OTP
+                # Case E: An unauthenticated email is present in the DB but no OTP is submitted with the request (potentially because an invalid OTP was submitted earlier and the user is attempting another OTP submission)
+                
+                # Update the OTP since we don't want to use an old one
+                login_session.otp = randint(100000, 999999)
+                person.email = email # update the DB with the new email regardless of its authentication status
+                person.emailAuthenticated = False
+                db.session.commit()
 
-                    # Update the OTP since we don't want to use an old one
+                #send email with OTP
+                msg = Message('COMUNDA | Email Verification', recipients=[email])  
+                msg.body = 'Please use this One-time Password (OTP) to verify your email with COMUNDA: ' + str(login_session.otp)  
+                mail.send(msg)
+
+                #return response with message
+                response = jsonify({"message": "Check email for OTP",
+                                "action": "OTP_SENT"})
+                response.headers.add('Access-Control-Allow-Origin', '*')
+                response.status_code = 200
+                return response
+            
+            elif person.emailAuthenticated == False: # Case D
+                
+                # We expect an OTP to be provided in this case (based on the previous if block)
+                LOG.error("User otp:")
+                LOG.error(userOTP)
+
+                #verify OTP and then proceed. If they are unequal we return without updating the DB.
+                LOG.error("Original otp:")
+                saved_otp = login_session.otp
+                LOG.error(saved_otp)
+
+                if str(saved_otp) != userOTP:
+
+                    # Change the OTP since the user OTP is invalid
                     login_session.otp = randint(100000, 999999)
+                    person.emailAuthenticated = False
+
                     db.session.commit()
 
-                    #send email with OTP
-                    msg = Message('COMUNDA | Email Verification', recipients=[email])  
-                    msg.body = 'Please use this One-time Password (OTP) to verify your email with COMUNDA: ' + str(login_session.otp)  
-                    mail.send(msg)
-
-                    #return response with message
-                    response = jsonify({"message": "Check email for OTP",
-                                    "action": "OTP_SENT"})
+                    response = jsonify({"message": "Invalid OTP submitted. Click 'Verify Email' to get a new one.",
+                                    "action": "OTP_INVALID"})
                     response.headers.add('Access-Control-Allow-Origin', '*')
                     response.status_code = 200
                     return response
                 else:
-                    LOG.error("User otp:")
-                    LOG.error(userOTP)
-
-                    #verify OTP and then proceed. If they are unequal we return without updating the DB.
-                    LOG.error("Original otp:")
-                    saved_otp = login_session.otp
-                    LOG.error(saved_otp)
-
-                    if str(saved_otp) != userOTP:
-
-                        # Change the OTP since the user OTP is invalid
-                        login_session.otp = randint(100000, 999999)
-                        db.session.commit()
-
-                        response = jsonify({"message": "Invalid OTP submitted. Click 'Verify Email' to get a new one.",
-                                     "action": "OTP_INVALID"})
-                        response.headers.add('Access-Control-Allow-Origin', '*')
-                        response.status_code = 200
-                        return response  
-            
+                    person.emailAuthenticated = True
+                    person.email = email
+        # Case B   
         if name is not None:
             person.name = name
         if research_interests is not None:
