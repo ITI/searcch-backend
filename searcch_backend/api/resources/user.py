@@ -134,6 +134,8 @@ class UserProfileAPI(Resource):
                                    type=str, required=False)
         self.reqparse.add_argument(name='position', 
                                    type=str, required=False)
+        self.reqparse.add_argument(name='publicKey', 
+                                   type=str, required=False)
 
         super(UserProfileAPI, self).__init__()
 
@@ -167,6 +169,7 @@ class UserProfileAPI(Resource):
                         "website": user.person.website,
                         "profile_photo": base64.b64encode(user.person.profile_photo).decode("utf-8") if user.person.profile_photo is not None else "",
                         "position":user.person.position,
+                        "publicKey":user.person.public_key,
                         "emailAuthenticated":user.person.emailAuthenticated
                     },
                     "affiliations": UserAffiliationSchema(many=True).dump(affiliations),
@@ -202,6 +205,7 @@ class UserProfileAPI(Resource):
         email = args['email']
         userOTP = args['userOTP']
         position = args['position']
+        public_key = args['publicKey']
         user = login_session.user
         person = db.session.query(Person).filter(Person.id == user.person_id).first()
 
@@ -294,6 +298,8 @@ class UserProfileAPI(Resource):
             person.email = email
         if position is not None:
             person.position = position
+        if public_key is not None:
+            person.public_key = public_key
 
         db.session.commit()
 
