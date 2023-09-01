@@ -276,12 +276,12 @@ class ArtifactRequestAPI(Resource):
                 auth = AntAPIClientAuthenticator(**AUTH)
                 ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
                 if len(representative_researcher['publicKey']) > 0:
-                    public_key_folder = '../public_keys'
+                    public_key_folder = '../ssh_keys'
                     isExist = os.path.exists(public_key_folder)
                     if not isExist:
                         os.makedirs(public_key_folder)
                     ticket_fields["ssh_key"] = representative_researcher['publicKey']
-                    output_pub_file = "../public_keys/public_key.pub"
+                    output_pub_file = "../ssh_keys/ssh_key.pub"
                     public_key_string = representative_researcher['publicKey']
                     with open(output_pub_file, "w") as f:
                         f.write(public_key_string)
