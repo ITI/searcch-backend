@@ -17,6 +17,7 @@ from searcch_backend.api.ticket_creation.antAPI.client.auth import AntAPIClientA
 from searcch_backend.api.ticket_creation.antAPI.client.trac import (
        antapi_trac_ticket_new,
        antapi_trac_ticket_status,
+       antapi_trac_ticket_attach,
 )
 from searcch_backend.api.ticket_creation.antapi_client_conf import AUTH
 import json
@@ -270,10 +271,21 @@ class ArtifactRequestAPI(Resource):
                     affiliation=representative_researcher['organization'],
                     datasets=dataset
                 )
+               
 
                 auth = AntAPIClientAuthenticator(**AUTH)
                 ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
-
+                if len(representative_researcher['publicKey']) > 0:
+                    public_key_folder = '../ssh_keys'
+                    isExist = os.path.exists(public_key_folder)
+                    if not isExist:
+                        os.makedirs(public_key_folder)
+                    ticket_fields["ssh_key"] = representative_researcher['publicKey']
+                    output_pub_file = "../ssh_keys/ssh_key.pub"
+                    public_key_string = representative_researcher['publicKey']
+                    with open(output_pub_file, "w") as f:
+                        f.write(public_key_string)
+                    antapi_trac_ticket_attach(auth, ticket_id, [output_pub_file,])
                 db.session.query(ArtifactRequests).filter(artifact_request_id == ArtifactRequests.id).update({'ticket_id': ticket_id})
                 db.session.commit()
 
