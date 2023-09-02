@@ -91,8 +91,9 @@ def search_artifacts(keywords, artifact_types, author_keywords, organization, ow
             author_org_query = author_org_query.filter(organization == Artifact.provider)
         if category:
             if type(category) is list:
-                category = ' or '.join(category)
-            author_org_query = author_org_query.filter(category == Artifact.category)
+                author_org_query = author_org_query.filter(Artifact.category.in_(category))
+            else:
+                author_org_query = author_org_query.filter(category == Artifact.category)
         if author_keywords:
             author_org_query = author_org_query.filter(
                 Person.person_tsv.op('@@')(func.websearch_to_tsquery("english", author_keywords))).order_by(desc("arank"))
