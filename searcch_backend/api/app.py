@@ -55,7 +55,7 @@ from searcch_backend.api.resources.artifact import (
     ArtifactAPI, ArtifactIndexAPI,
     ArtifactRelationshipResourceRoot, ArtifactRelationshipResource, ArtifactOwnerRequestAPI, ArtifactOwnerRequestsAPI, ArtifactCategoryAPI)
 from searcch_backend.api.resources.artifact_compare import ArtifactCompareAPI
-from searcch_backend.api.resources.artifact_search import ArtifactSearchIndexAPI, ArtifactRecommendationAPI
+from searcch_backend.api.resources.artifact_search import ArtifactSearchIndexAPI, ArtifactRecommendationAPI, ArtifactCategoryAPI
 from searcch_backend.api.resources.artifact_request import ArtifactRequestAPI
 from searcch_backend.api.resources.artifact_status import ArtifactRequestStatusAPI
 from searcch_backend.api.resources.artifact_request_list import ArtifactRequestListAPI
@@ -95,6 +95,7 @@ api.add_resource(ArtifactIndexAPI, approot + '/artifacts', endpoint='api.artifac
 api.add_resource(ArtifactAPI, approot + '/artifact/<int:artifact_group_id>', approot + '/artifact/<int:artifact_group_id>/<int:artifact_id>', endpoint='api.artifact')
 api.add_resource(ArtifactCompareAPI, approot + '/artifact/compare/<int:artifact_group_id>/<int:artifact_id>', endpoint='api.artifact_compare')
 api.add_resource(ArtifactSearchIndexAPI, approot + '/artifact/search', endpoint='api.artifact_search')
+api.add_resource(ArtifactCategoryAPI, approot + '/artifact/searchCategory', endpoint='api.artifact_search_category')
 api.add_resource(ArtifactRequestAPI, approot + '/artifact/request/<int:artifact_group_id>', approot + '/artifact/request/<int:artifact_group_id>/<int:artifact_id>', endpoint='api.artifact_request')
 api.add_resource(ArtifactRequestStatusAPI, approot + '/artifact/status/<int:artifact_group_id>', endpoint='api.artifact_status')
 api.add_resource(ArtifactRequestListAPI, approot + '/artifact/requestList/', endpoint='api.artifact_request_list')

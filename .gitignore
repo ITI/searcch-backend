@@ -3,7 +3,7 @@ logs/
 instance/
 KG/
 notes/
-models/backup/
-
+models/backup/ 
+.env
 *.pyc
 __pycache__/
