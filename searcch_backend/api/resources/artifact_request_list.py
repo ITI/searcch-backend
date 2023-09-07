@@ -22,7 +22,7 @@ class ArtifactRequestListAPI(Resource):
         #                            help='missing artifact_group_id in query string')
         super(ArtifactRequestListAPI, self).__init__()
 
-    # Return value: requestToTicketIDObj: keys = Artifact Request IDs for a given user; value = Corresponding ticket status for the artifact request
+    # Return value: requestedArtifactIDs: keys = Artifact Request IDs for a given user; value = Corresponding title of artifact
     def get(self):
         # args = self.reqparse.parse_args()
         if has_api_key(request):
@@ -34,13 +34,13 @@ class ArtifactRequestListAPI(Resource):
             user_id = login_session.user_id
         list_of_requests_tuples = []
         if user_id:
-            list_of_requests_tuples = db.session.query(ArtifactRequests).with_entities(ArtifactRequests.artifact_group_id,ArtifactRequests.ticket_id).filter(user_id == ArtifactRequests.requester_user_id).all()
+            list_of_requests_tuples = db.session.query(ArtifactRequests.artifact_group_id,Artifact.title).join(ArtifactRequests, Artifact.id == ArtifactRequests.artifact_group_id).filter(user_id == ArtifactRequests.requester_user_id).all()
 
-        requestToTicketIDObj = {}
+        requestedArtifactIDs = {}
         for requestTuple in list_of_requests_tuples:
-            requestToTicketIDObj[requestTuple[0]] = requestTuple[1]
+            requestedArtifactIDs[requestTuple[0]] = requestTuple[1]
         response = jsonify({
-            "requestToTicketIDObj": requestToTicketIDObj
+            "requestedArtifactIDs": requestedArtifactIDs
         })
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.status_code = 200
