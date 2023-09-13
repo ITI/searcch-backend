@@ -34,11 +34,17 @@ class ArtifactRequestListAPI(Resource):
             user_id = login_session.user_id
         list_of_requests_tuples = []
         if user_id:
-            list_of_requests_tuples = db.session.query(ArtifactRequests.artifact_group_id,Artifact.title).join(ArtifactRequests, Artifact.id == ArtifactRequests.artifact_group_id).filter(user_id == ArtifactRequests.requester_user_id).all()
+            can_admin = db.session.query(User.can_admin).filter(User.id == user_id).first()[0]
+
+            if can_admin == True and login_session.is_admin == True:
+                list_of_requests_tuples = db.session.query(Artifact.id,Artifact.title).all()
+            else:
+                list_of_requests_tuples = db.session.query(ArtifactRequests.artifact_group_id,Artifact.title).join(ArtifactRequests, Artifact.id == ArtifactRequests.artifact_group_id).filter(user_id == ArtifactRequests.requester_user_id).all()
 
         requestedArtifactIDs = {}
         for requestTuple in list_of_requests_tuples:
             requestedArtifactIDs[requestTuple[0]] = requestTuple[1]
+        
         response = jsonify({
             "requestedArtifactIDs": requestedArtifactIDs
         })
