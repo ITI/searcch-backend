@@ -43,8 +43,12 @@ class LabelsResource(Resource):
                 label_url=args["label_url"],
                 label_id =args["label_id"],
         )
-        
-        db.session.add(request_entry)
+        existing_row = db.session.query(Labels).filter_by(label_id=args['label_id'], artifact_id=args['artifact_id']).first()
+        if existing_row:
+                existing_row.label_url = args['label_url']
+        else:
+                db.session.add(request_entry)
+
         db.session.commit()
         response = jsonify({
                 "status": 200,
