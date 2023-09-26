@@ -18,13 +18,14 @@
 ```
 
 2. This is an example of how to create a trac ticket and add
-   attachments to it
+   attachments to it.  You can also query it's status by ticket id:
 
 ```python
    from antAPI.client.auth import AntAPIClientAuthenticator
    from antAPI.client.trac import (
        antapi_trac_ticket_new,
        antapi_trac_ticket_attach,
+       antapi_trac_ticket_status,
    )
    from antapi_client_conf import AUTH
 
@@ -49,5 +50,10 @@
    #but the refresh can be forced:
    auth.refresh()
 
-   #continue creating tickets/adding attachments
+   # check the status:
+   ticket_status = antapi_trac_ticket_status(auth, ticket_id)
+   if ticket_status != 'released':
+       print("Your dataset request is under consideration")
+   else:
+       print("Your dataset request has been approved and released (check your mailbox)")
 ```

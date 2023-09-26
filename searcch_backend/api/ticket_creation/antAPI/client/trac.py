@@ -23,6 +23,9 @@ def antapi_trac_ticket_new(auth: AntAPIClientAuthenticator, **kwticket_fields) -
     - affiliation
     - datasets (space-separated)
 
+    **Optional fields**
+    - ssh_key
+
     :returns: if successful, returns ticket_id (str) of the created ticket
     :rtype: str
 
@@ -32,14 +35,19 @@ def antapi_trac_ticket_new(auth: AntAPIClientAuthenticator, **kwticket_fields) -
 
     required_ticket_fields = ('description', 'researcher',
                               'email', 'affiliation', 'datasets')
+    optional_ticket_fields = ('ssh_key',)
     try:
         data = { key: kwticket_fields[key] for key in required_ticket_fields }
     except KeyError as ex:
         raise AntAPIClientTracError(
                   f'ticket parameter ({str(ex)} is required') from ex
+
+    for key in optional_ticket_fields:
+        if key in kwticket_fields:
+            data[key] = kwticket_fields[key]
+
     try:
         req = requests.post(ticket_new_url, data=data, headers=auth.auth_header())
-
         json_reply = req.json()
 
     except requests.exceptions.JSONDecodeError as ex:
