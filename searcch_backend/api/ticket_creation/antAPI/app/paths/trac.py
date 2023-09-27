@@ -42,6 +42,11 @@ REQUIRED_PARAMS = {
         'datasets',
     )
 }
+OPTIONAL_PARAMS = {
+    'ticket/new': (
+        'ssh_key',
+    )
+}
 DATASETS_FSDB = '/nfs/lander/metadata/predict_schema/dataset_list.fsdb'
 TRAC_HOME = '/nfs/lander/trace-distribution/lander_dua/trac/lander_dua2'
 
@@ -107,6 +112,10 @@ def ticket_new(current_user):
         LOG.error('ticket_new: parameter error (%s)', ex)
         return jsonify({'message': 'ERROR required parameter missing'}), 401
 
+    for par in OPTIONAL_PARAMS['ticket/new']:
+        if par in request.form:
+            params[par] = request.form[par]
+
     #find providers for all present datasets
     all_providers = get_dataset_providers(params.get('datasets', ''))
     ccset = set()
@@ -133,14 +142,15 @@ def ticket_new(current_user):
              f'--owner={owner}',
              f'--cc={cc_str}',
              f'--description={params["description"]}',
-             '--extra=release_type=non-IMPACT-release',
+             '--extra=release_type=USC-direct',
              '--extra=dua_type=dua-ni-160816',
              f'--extra=researcher_name={params["researcher"]}',
              f'--extra=researcher_email={params["email"]}',
              f'--extra=researcher_affiliation={params["affiliation"]}',
              f'--extra=datasets={params["datasets"]}',
+             f'--extra=ssh_key={params.get("ssh_key", "")}',
              TRAC_HOME + '/trac-env',
-             f'antapi submission from {params["researcher"]} ({params["affiliation"]})' ]
+             f'{params["researcher"]} ({params["affiliation"]}) via Comunda' ]
     try:
         proc = subprocess.run(args, capture_output=True, check=True)
     except subprocess.CalledProcessError as ex:
