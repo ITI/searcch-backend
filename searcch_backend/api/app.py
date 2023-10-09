@@ -59,6 +59,7 @@ from searcch_backend.api.resources.artifact_search import ArtifactSearchIndexAPI
 from searcch_backend.api.resources.artifact_request import ArtifactRequestAPI
 from searcch_backend.api.resources.artifact_status import ArtifactRequestStatusAPI
 from searcch_backend.api.resources.artifact_request_list import ArtifactRequestListAPI
+from searcch_backend.api.resources.admin_statistics import AdminStatistics
 from searcch_backend.api.resources.artifact_view import ArtifactViewAPI
 from searcch_backend.api.resources.organization import OrganizationAPI, OrganizationListAPI
 from searcch_backend.api.resources.login import LoginAPI
@@ -130,6 +131,8 @@ api.add_resource(UserAffiliationResource, approot + '/user/affiliation/<int:affi
 
 api.add_resource(UserDashboardAPI, approot + '/dashboard', endpoint='api.dashboard')
 api.add_resource(ArtifactStatsAPI, approot + '/dashboard/artifact/stats', endpoint='api.dashboard_artifact_stats')
+api.add_resource(AdminStatistics, approot + '/adminStats', endpoint='api.admin_statistics')
+
 
 api.add_resource(ArtifactImportResourceRoot, approot + '/artifact/imports', endpoint='api.artifact_imports')
 api.add_resource(ArtifactImportResource, approot + '/artifact/import/<int:artifact_import_id>', endpoint='api.artifact_import')
