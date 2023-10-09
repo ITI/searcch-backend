@@ -269,30 +269,36 @@ class ArtifactRequestAPI(Resource):
                     researcher=representative_researcher['name'],
                     email=representative_researcher['email'],
                     affiliation=representative_researcher['organization'],
-                    datasets=dataset
+                    datasets=dataset,
+                    ssh_key=representative_researcher.get('publicKey', ''),
                 )
                
-
                 auth = AntAPIClientAuthenticator(**AUTH)
-                ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
-                if len(representative_researcher['publicKey']) > 0:
-                    public_key_folder = '../ssh_keys'
-                    isExist = os.path.exists(public_key_folder)
-                    if not isExist:
-                        os.makedirs(public_key_folder)
-                    ticket_fields["ssh_key"] = representative_researcher['publicKey']
-                    output_pub_file = "../ssh_keys/ssh_key.pub"
-                    public_key_string = representative_researcher['publicKey']
-                    with open(output_pub_file, "w") as f:
-                        f.write(public_key_string)
-                    antapi_trac_ticket_attach(auth, ticket_id, [output_pub_file,])
-                db.session.query(ArtifactRequests).filter(artifact_request_id == ArtifactRequests.id).update({'ticket_id': ticket_id})
-                db.session.commit()
+                error_response = jsonify({
+                    "status": 500,
+                    "status_code": 500,
+                    "message": "Request could not be submitted due to a server error, please try again after sometime.",
+                })
+                error_response.headers.add('Access-Control-Allow-Origin', '*')
 
+                try:
+                        ticket_id = antapi_trac_ticket_new(auth, **ticket_fields)
+                except Exception as err: # pylint: disable=bare-exception
+                    LOG.error("Failed to create ticket:", str(err))
+                    return error_response
+                try:
+                    db.session.query(ArtifactRequests) \
+                        .filter(artifact_request_id == ArtifactRequests.id) \
+                        .update({'ticket_id': ticket_id})
+                    db.session.commit()
+                except Exception as err: # pylint: disable=bare-exception
+                    LOG.error(f"Ticket was created (#{ticket_id}), but db update failed: {str(err)})")
+                    return error_response 
+                
             response = jsonify({
                 "status": 0,
                 "message": "Request submitted successfully",
-                "request": ArtifactRequestSchema().dump(request_entry)
+                "request": ArtifactRequestSchema().dump(request_entry),
             })
 
         response.headers.add('Access-Control-Allow-Origin', '*')
