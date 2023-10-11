@@ -47,24 +47,19 @@ def antapi_trac_ticket_new(auth: AntAPIClientAuthenticator, **kwticket_fields) -
             data[key] = kwticket_fields[key]
 
     try:
-        req = requests.post(ticket_new_url, data=data, headers=auth.auth_header())
-        json_reply = req.json()
+        res = requests.post(ticket_new_url, data=data, headers=auth.auth_header())
+        res.raise_for_status()
+        json_reply = res.json()
 
-    except requests.exceptions.JSONDecodeError as ex:
+    except Exception as ex: # pylint: disable=broad-except
         raise AntAPIClientTracError(
-            f"Can't submit request: status={req.status_code}, error parsing JSON"
+            f"Can't submit request: status={res.status_code}"
         ) from ex
 
-    except requests.exceptions.RequestException as ex:
-        raise AntAPIClientTracError(ex) from ex
-
     msg = json_reply.get('message', 'None')
-    if not req.ok:
-        raise AntAPIClientTracError(
-            f"Can't create ticket: status={req.status_code}, error={msg}")
     if 'ticket_id' not in json_reply:
         raise AntAPIClientTracError(
-            f"Can't create ticket: no token, error={msg}")
+            f"Can't create ticket: no ticket_id, message={msg}")
     #everything appears OK
     return json_reply['ticket_id']
 
@@ -95,26 +90,16 @@ def antapi_trac_ticket_attach(auth: AntAPIClientAuthenticator,
 
     ticket_attach_url = auth.base_url + f'/trac/ticket/{ticket_id}/attach'
     try:
-        req = requests.post(ticket_attach_url, files=files, headers=auth.auth_header())
-
-        json_reply = req.json()
-
-    except requests.exceptions.JSONDecodeError as ex:
+        res = requests.post(ticket_attach_url, files=files, headers=auth.auth_header())
+        res.raise_for_status()
+    except Exception as ex: # pylint: disable=broad-except
         raise AntAPIClientTracError(
-            f"Can't submit request: status={req.status_code}, error parsing JSON"
+            f"Can't submit request: status={res.status_code}"
         ) from ex
-
-    except requests.exceptions.RequestException as ex:
-        raise AntAPIClientTracError(ex) from ex
-
-    if not req.ok:
-        msg = json_reply.get('message', 'None')
-        raise AntAPIClientTracError(
-            f"Can't create ticket: status={req.status_code}, error={msg}")
 
 
 def antapi_trac_ticket_status(auth: AntAPIClientAuthenticator,
-                              ticket_id: str) -> str: 
+                              ticket_id: str) -> str:
     '''Get the status of the ticket, referred to by `ticket_id`.
 
     :param auth:        An instance of AntAPIClientAuthenticator
@@ -127,22 +112,15 @@ def antapi_trac_ticket_status(auth: AntAPIClientAuthenticator,
 
     ticket_status_url = auth.base_url + f'/trac/ticket/{ticket_id}/status'
     try:
-        req = requests.get(ticket_status_url, headers=auth.auth_header())
+        res = requests.get(ticket_status_url, headers=auth.auth_header())
+        res.raise_for_status()
+        json_reply = res.json()
 
-        json_reply = req.json()
-
-    except requests.exceptions.JSONDecodeError as ex:
+    except Exception as ex: # pylint: disable=broad-except
         raise AntAPIClientTracError(
-            f"Can't submit request: status={req.status_code}, error parsing JSON"
+            f"Can't submit request: status={res.status_code}"
         ) from ex
 
-    except requests.exceptions.RequestException as ex:
-        raise AntAPIClientTracError(ex) from ex
-
-    if not req.ok:
-        msg = json_reply.get('message', 'None')
-        raise AntAPIClientTracError(
-            f"Can't get ticket status: code is {req.status_code}, error={msg}")
     if 'status' not in json_reply:
         raise AntAPIClientTracError(
             f"Can't get ticket status: status is missing from reply, reply={json_reply}")
